@@ -61,6 +61,10 @@ public partial class MainWindow : UrsaWindow
             UpdateViewerHeight();
         };
 
+        // Chrome size changes with DPI, maximise/restore and theme; re-measure after each layout
+        // pass (cheap, and a no-op unless the overlap actually changed).
+        LayoutUpdated += (_, _) => FitBelowTitleBar();
+
         Loaded += (_, _) =>
         {
             FitBelowTitleBar();
@@ -798,27 +802,48 @@ public partial class MainWindow : UrsaWindow
     }
 
     /// <summary>
-    /// Ursa draws its title bar over the window content; push the content down by however much the
-    /// bar overlaps it (zero if a theme ever reserves its own row, or the bar is hidden).
+    /// Ursa draws its title bar and caption buttons over the window content. Push the content down
+    /// to clear the lowest of them: the caption buttons are taller than the title-bar strip and
+    /// their size changes with DPI and when the window is maximised, so measure rather than assume.
     /// </summary>
     private void FitBelowTitleBar()
     {
-        TitleBar? bar = this.GetVisualDescendants().OfType<TitleBar>().FirstOrDefault();
-        if (bar is null || !bar.IsEffectivelyVisible || Root.GetVisualParent() is not Visual host)
+        if (Root.GetVisualParent() is not Visual host)
         {
-            Root.Margin = default;
             return;
         }
 
-        double barBottom = bar.TranslatePoint(new Point(0, bar.Bounds.Height), this)?.Y ?? 0;
         double contentTop = host.TranslatePoint(new Point(0, 0), this)?.Y ?? 0;
-        double overlap = Math.Max(0, Math.Ceiling(barBottom - contentTop));
+        double chromeBottom = contentTop;
 
+        foreach (Visual visual in this.GetVisualDescendants())
+        {
+            // Window chrome only: the title bar and the caption buttons. Our own content, and
+            // toasts / message boxes / dialogs floating above it, do not count.
+            if (visual is not (TitleBar or Button) ||
+                !visual.IsEffectivelyVisible ||
+                visual.Bounds.Height <= 0 ||
+                Root.IsVisualAncestorOf(visual) ||
+                IsInsideOverlay(visual))
+            {
+                continue;
+            }
+
+            double bottom = visual.TranslatePoint(new Point(0, visual.Bounds.Height), this)?.Y ?? 0;
+            chromeBottom = Math.Max(chromeBottom, bottom);
+        }
+
+        const double Gap = 4;
+        double overlap = chromeBottom > contentTop ? Math.Ceiling(chromeBottom - contentTop + Gap) : 0;
         if (Math.Abs(Root.Margin.Top - overlap) > 0.5)
         {
             Root.Margin = new Thickness(0, overlap, 0, 0);
         }
     }
+
+    private static bool IsInsideOverlay(Visual visual) =>
+        visual.GetSelfAndVisualAncestors().Any(v =>
+            v is ToastCard or MessageCard or Ursa.Controls.NotificationCard or MessageBoxControl or DialogControlBase);
 
     // ---------------------------------------------------------------- feedback
 
