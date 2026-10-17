@@ -53,19 +53,7 @@ public sealed partial class MkvToolNix
     public static async Task<MkvToolNix?> LocateAsync(string? folder = null, CancellationToken cancellationToken = default)
     {
         string exe = OperatingSystem.IsWindows() ? ".exe" : string.Empty;
-        var candidates = new List<string?>
-        {
-            folder,
-            Path.Combine(AppPaths.Root, "tools", "mkvtoolnix"),
-            null, // PATH
-        };
-
-        if (OperatingSystem.IsWindows())
-        {
-            candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "MKVToolNix"));
-        }
-
-        foreach (string? directory in candidates)
+        foreach (string? directory in Candidates(folder))
         {
             if (directory is not null && !Directory.Exists(directory))
             {
@@ -90,6 +78,31 @@ public sealed partial class MkvToolNix
 
         return null;
     }
+
+    /// <summary>
+    /// Where to look, in order: the folder chosen in Settings, the copy bundled with a release, PATH
+    /// (<c>null</c>), then the default Windows install.
+    /// </summary>
+    internal static IReadOnlyList<string?> Candidates(string? folder)
+    {
+        var candidates = new List<string?>();
+        if (!string.IsNullOrWhiteSpace(folder))
+        {
+            candidates.Add(folder);
+        }
+
+        candidates.Add(BundledDirectory);
+        candidates.Add(null);
+        if (OperatingSystem.IsWindows())
+        {
+            candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "MKVToolNix"));
+        }
+
+        return candidates;
+    }
+
+    /// <summary>Where a release bundles mkvmerge and mkvextract.</summary>
+    public static string BundledDirectory => Path.Combine(AppPaths.Root, "tools", "mkvtoolnix");
 
     public async Task<MkvFileInfo> IdentifyAsync(string path, CancellationToken cancellationToken = default)
     {

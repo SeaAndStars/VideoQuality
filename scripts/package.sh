@@ -12,6 +12,7 @@
 #   settings.json       created on the first settings change (portable; see SettingsFile)
 #   ffmpeg/             ffmpeg, ffprobe and the libav/libvmaf/dav1d libraries
 #   tools/vq[.exe]      the command-line tool, also a single file
+#   tools/mkvtoolnix/   mkvmerge and mkvextract (GPL-2.0, upstream binaries) for Extract/Mux
 #   licenses/           THIRD-PARTY-NOTICES.txt and license texts
 #   logs/               created at run time
 #   (Linux) videoquality.png, install-desktop-entry.sh   application-menu integration
@@ -87,6 +88,14 @@ publish Cli "$out/tools/vq$exe" -p:PublishTrimmed=true -p:TrimMode=partial
 echo "== bundle FFmpeg"
 cp -a "$stage" "$out/ffmpeg"
 
+echo "== bundle MKVToolNix"
+"$root/scripts/fetch-mkvtoolnix.sh" "$rid" "$out/tools/mkvtoolnix"
+mkvtoolnix_version=$(cat "$out/tools/mkvtoolnix/VERSION")
+rm "$out/tools/mkvtoolnix/VERSION"
+mkdir -p "$out/licenses/mkvtoolnix"
+mv "$out/tools/mkvtoolnix/licenses/"* "$out/licenses/mkvtoolnix/"
+rmdir "$out/tools/mkvtoolnix/licenses"
+
 if [[ $rid == linux-x64 ]]; then
     echo "== desktop integration"
     rsvg-convert -w 256 -h 256 "$root/VideoQuality.App/Assets/app-icon.svg" -o "$out/videoquality.png"
@@ -128,10 +137,16 @@ cp "$root/LICENSE" "$out/licenses/VideoQuality-MIT.txt"
 cp "$staged_licenses"/*.txt "$out/licenses/"
 
 if [[ $rid == win-x64 ]]; then
+    mkvtoolnix_note='The Windows tools are statically linked with Qt 6 (LGPL-3.0), Boost (BSL-1.0) and other
+libraries; the licenses upstream ships with them are in licenses/mkvtoolnix/.'
     runtime_note='  mingw-w64 winpthreads, libgcc, libstdc++   MIT/BSD-style; GPL-3.0 with the GCC Runtime Library
                        Exception, which permits redistribution of these runtime DLLs.
   GPU scoring loads the NVIDIA driver (nvcuda.dll) installed on the machine; none of it is shipped.'
 else
+    mkvtoolnix_note='The libraries in tools/mkvtoolnix/lib come from the upstream AppImage and are loaded
+dynamically (replaceable): Qt 6 Core (LGPL-3.0), Boost (BSL-1.0), ICU (Unicode License), GLib, GnuTLS,
+nettle, libtasn1, p11-kit, libidn2, libunistring (LGPL-2.1+ / GPL-compatible), libffi (MIT),
+PCRE (BSD), libFLAC, libogg, libvorbis (BSD), libdvdread (GPL-2.0+), cmark (BSD-2-Clause).'
     runtime_note='  The libraries link only against the system C runtime and zlib (glibc and zlib are not shipped).
   GPU scoring loads the NVIDIA driver (libcuda.so.1) installed on the machine; none of it is shipped.'
 fi
@@ -150,6 +165,15 @@ Corresponding source: FFmpeg tag n9.0.2, https://git.ffmpeg.org/ffmpeg.git
 Build script:         $build_script in https://github.com/SeaAndStars/VideoQuality
 Build details:
 $(sed 's/^/  /' "$stage/BUILDINFO.txt")
+
+MKVTOOLNIX
+tools/mkvtoolnix/ holds mkvmerge and mkvextract from MKVToolNix $mkvtoolnix_version
+(https://mkvtoolnix.download), the upstream release binaries (on Linux, only their library search
+path is set with patchelf so they find tools/mkvtoolnix/lib), licensed under the GNU General
+Public License 2.0 (licenses/mkvtoolnix/MKVToolNix-GPL-2.0.txt). VideoQuality runs them as separate
+programs. Corresponding source: mkvtoolnix-$mkvtoolnix_version.tar.xz, attached to every VideoQuality
+release on GitHub and at https://mkvtoolnix.download/sources/.
+$mkvtoolnix_note
 
 NATIVE LIBRARIES (in ffmpeg/)
   libvmaf v3.2.1       BSD-2-Clause-Patent    https://github.com/Netflix/vmaf

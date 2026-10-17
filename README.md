@@ -61,8 +61,9 @@
   简体中文 / `zh-Hant` 繁體中文 automatically.
 - **Release pipeline.** One click: subset → mux → verify the MKV → VMAF of the release against the
   source.
-- Extract and Mux use [MKVToolNix](https://mkvtoolnix.download) if installed (found on PATH, in
-  Program Files, or a folder set in Settings); it is not bundled.
+- Extract and Mux run [MKVToolNix](https://mkvtoolnix.download)'s `mkvmerge`/`mkvextract`, bundled
+  in `tools/mkvtoolnix/` (unmodified upstream 97.0 binaries, checksum-pinned; GPL-2.0, with the
+  source attached to each release). A folder set in Settings takes precedence.
 
 **Workflow**
 
@@ -207,7 +208,7 @@ and [Ursa](https://github.com/irihitech/Ursa.Avalonia) ·
 [ScottPlot](https://scottplot.net) ·
 [FFmpeg.AutoGen](https://github.com/Ruslan-B/FFmpeg.AutoGen) ·
 [FFmpeg](https://ffmpeg.org) · [libvmaf](https://github.com/Netflix/vmaf) ·
-[HarfBuzz](https://harfbuzz.github.io) · [MKVToolNix](https://mkvtoolnix.download) (optional) ·
+[HarfBuzz](https://harfbuzz.github.io) · [MKVToolNix](https://mkvtoolnix.download) ·
 [dav1d](https://code.videolan.org/videolan/dav1d)
 
 ## Status

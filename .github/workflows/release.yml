@@ -177,14 +177,17 @@ jobs:
         env:
           VQ_VERSION: ${{ needs.verify.outputs.version }}
         run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends librsvg2-bin zip
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends librsvg2-bin zip patchelf squashfs-tools
           mkdir -p ~/build-win ~/build-linux
           tar -C ~/build-win -xzf ffmpeg-win-x64.tar.gz
           tar -C ~/build-linux -xzf ffmpeg-linux-x64.tar.gz
           ./scripts/package.sh win-x64
           ./scripts/package.sh linux-x64
+          # GPL-2.0 corresponding source for the bundled MKVToolNix binaries.
+          ./scripts/fetch-mkvtoolnix.sh source artifacts/mkvtoolnix-source
+          mv artifacts/mkvtoolnix-source/mkvtoolnix-*.tar.xz artifacts/
           cd artifacts
-          sha256sum VideoQuality-*.zip VideoQuality-*.tar.gz > SHA256SUMS.txt
+          sha256sum VideoQuality-*.zip VideoQuality-*.tar.gz mkvtoolnix-*.tar.xz > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Publish GitHub release
@@ -194,4 +197,4 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             --title "VideoQuality ${{ needs.verify.outputs.version }}" \
             --verify-tag --generate-notes \
-            artifacts/VideoQuality-*.zip artifacts/VideoQuality-*.tar.gz artifacts/SHA256SUMS.txt
+            artifacts/VideoQuality-*.zip artifacts/VideoQuality-*.tar.gz artifacts/mkvtoolnix-*.tar.xz artifacts/SHA256SUMS.txt

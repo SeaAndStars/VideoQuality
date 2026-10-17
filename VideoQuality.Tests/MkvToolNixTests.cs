@@ -106,4 +106,15 @@ public class MkvToolNixTests
             Directory.Delete(root, recursive: true);
         }
     }
+
+    [Fact]
+    public void Bundled_copy_is_tried_before_PATH_when_no_folder_is_set()
+    {
+        IReadOnlyList<string?> candidates = MkvToolNix.Candidates(null);
+        Assert.Equal(MkvToolNix.BundledDirectory, candidates[0]);
+        Assert.Null(candidates[1]);
+
+        IReadOnlyList<string?> custom = MkvToolNix.Candidates("/opt/mkv");
+        Assert.Equal(["/opt/mkv", MkvToolNix.BundledDirectory, null], custom.Take(3));
+    }
 }
