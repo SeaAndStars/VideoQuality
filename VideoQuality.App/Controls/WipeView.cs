@@ -113,16 +113,14 @@ public class WipeView : Control
 
         Size image = sourceA.Size;
         double scale = GetEffectiveScale();
-        double width = image.Width * scale;
-        double height = image.Height * scale;
-        double x = Bounds.Width / 2 - CenterX * width;
-        double y = Bounds.Height / 2 - CenterY * height;
-        var destination = new Rect(x, y, width, height);
+        double renderScaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+        Rect destination = ImagePlacement.Destination(Bounds.Size, image, scale, CenterX, CenterY, renderScaling);
         var sourceRect = new Rect(0, 0, image.Width, image.Height);
 
         double splitX = Math.Clamp(Split, 0, 1) * Bounds.Width;
 
         using (context.PushClip(new Rect(0, 0, Bounds.Width, Bounds.Height)))
+        using (context.PushRenderOptions(ImagePlacement.Sampling(scale, renderScaling)))
         {
             using (context.PushClip(new Rect(0, 0, splitX, Bounds.Height)))
             {

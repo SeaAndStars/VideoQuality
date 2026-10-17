@@ -5,7 +5,10 @@ namespace VideoQuality.App.ViewModels;
 /// <summary>Shared viewer state, so both panes (and the wipe view) always show the same region.</summary>
 public partial class ViewportState : ObservableObject
 {
-    /// <summary>Screen pixels per image pixel; 0 means fit-to-pane.</summary>
+    /// <summary>
+    /// Device-independent units per image pixel; 0 means fit-to-pane. On a scaled display one DIP is
+    /// <c>RenderScaling</c> physical pixels, so pixel-exact 1:1 is <c>1 / RenderScaling</c>.
+    /// </summary>
     [ObservableProperty]
     public partial double Zoom { get; set; }
 
@@ -26,9 +29,13 @@ public partial class ViewportState : ObservableObject
         OnPropertyChanged(nameof(IsFit));
     }
 
-    public void ActualSize()
+    /// <summary>
+    /// One video pixel per physical screen pixel. <paramref name="renderScaling"/> is the display
+    /// scale (1.5 at 150% in Windows); ignoring it showed "1:1" frames magnified by that factor.
+    /// </summary>
+    public void ActualSize(double renderScaling = 1)
     {
-        Zoom = 1;
+        Zoom = 1 / Math.Max(renderScaling, 0.01);
         CenterX = 0.5;
         CenterY = 0.5;
         OnPropertyChanged(nameof(IsFit));

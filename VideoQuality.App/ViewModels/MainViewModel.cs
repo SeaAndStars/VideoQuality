@@ -49,6 +49,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly Stopwatch _playClock = new();
     private int _playStartFrame;
     private DispatcherTimer? _flickerTimer;
+    // Exact reference frame count from a packet walk; 0 until known. Matroska stores no frame count,
+    // so the decoder's duration × fps estimate must not be compared with an encode's exact count.
+    private int _referencePacketCount;
     private readonly BitmapSwapChain _referenceBitmaps = new();
     private readonly BitmapSwapChain _distortedBitmaps = new();
     private readonly BitmapSwapChain _differenceBitmaps = new();
@@ -513,6 +516,32 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
 
         await LoadFrameAsync().ConfigureAwait(true);
+
+        if (_referenceDecoder is not null)
+        {
+            _ = CountReferenceFramesAsync(path);
+        }
+    }
+
+    /// <summary>Exact reference frame count, then refresh the mismatch warnings that depend on it.</summary>
+    private async Task CountReferenceFramesAsync(string path)
+    {
+        _referencePacketCount = 0;
+        int count = 0;
+
+        Job job = _jobs.Enqueue(new Job
+        {
+            Title = $"Index reference {Path.GetFileName(path)}",
+            Kind = JobKind.Index,
+            Work = (_, _, token) => Task.Run(() => count = PacketIndex.Build(path).FrameCount, token),
+        });
+
+        await job.Completion.ConfigureAwait(true);
+        if (job.State == JobState.Succeeded && string.Equals(path, ReferencePath, StringComparison.Ordinal))
+        {
+            _referencePacketCount = count;
+            UpdateWarnings();
+        }
     }
 
     /// <summary>
@@ -678,6 +707,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         _referenceDecoder?.Dispose();
         _referenceDecoder = null;
+        _referencePacketCount = 0;
         ReferencePath = null;
         ReferenceInfo = "no reference";
         ReferenceName = "reference";
@@ -774,7 +804,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         UpdateJobSummary();
 
         string reference = ReferencePath!;
-        int totalFrames = _referenceDecoder?.Info.FrameCount ?? 0;
+        int totalFrames = _referencePacketCount > 0 ? _referencePacketCount : _referenceDecoder?.Info.FrameCount ?? 0;
         VmafBackend backend = SelectedBackend;
         string model = SelectedModel;
         bool cpu = backend == VmafBackend.Cpu || _capabilities is { CudaUsable: false };
@@ -931,29 +961,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
-    /// <summary>Resolution, frame-rate and frame-count differences; scaling is not implemented yet.</summary>
-    private static string? DescribeMismatch(VideoInfo reference, EncodeEntry entry)
-    {
-        var problems = new List<string>();
-
-        if (entry.Width > 0 && (entry.Width != reference.Width || entry.Height != reference.Height))
-        {
-            problems.Add($"resolution {entry.Width}×{entry.Height} vs reference {reference.Width}×{reference.Height}");
-        }
-
-        if (entry.FrameRate > 0 && reference.FrameRate > 0 && Math.Abs(entry.FrameRate - reference.FrameRate) > 0.01)
-        {
-            problems.Add(string.Format(CultureInfo.InvariantCulture,
-                "{0:0.###} fps vs reference {1:0.###} fps", entry.FrameRate, reference.FrameRate));
-        }
-
-        if (entry.PacketCount > 0 && reference.HasKnownFrameCount && entry.PacketCount != reference.FrameCount)
-        {
-            problems.Add($"{entry.PacketCount} frames vs reference {reference.FrameCount}");
-        }
-
-        return problems.Count == 0 ? null : "Mismatch: " + string.Join("; ", problems);
-    }
+    /// <summary>Resolution, frame-rate and exact frame-count differences; scaling is not implemented yet.</summary>
+    private string? DescribeMismatch(VideoInfo reference, EncodeEntry entry) =>
+        StreamMismatch.Describe(
+            new StreamShape(reference.Width, reference.Height, reference.FrameRate, _referencePacketCount),
+            new StreamShape(entry.Width, entry.Height, entry.FrameRate, entry.PacketCount));
 
     private void Toast(ToastKind kind, string message, string? actionLabel = null, Action? action = null) =>
         ToastRequested?.Invoke(this, new ToastRequest(kind, message, actionLabel, action));

@@ -537,8 +537,9 @@ public partial class MainWindow : UrsaWindow
             return;
         }
 
+        // Physical pixels per video pixel: 100% is pixel-exact whatever the Windows display scaling.
         Control? view = ActiveView();
-        double scale = view is null ? 1 : EffectiveScale(view);
+        double scale = (view is null ? 1 : EffectiveScale(view)) * RenderScaling;
         string suffix = _viewModel.Viewport.IsFit ? "  (fit)" : string.Empty;
         ZoomLabel.Text = $"{scale * 100:0}%{suffix}";
     }
@@ -551,7 +552,7 @@ public partial class MainWindow : UrsaWindow
 
     private void OnActualSize(object? sender, RoutedEventArgs e)
     {
-        _viewModel?.Viewport.ActualSize();
+        _viewModel?.Viewport.ActualSize(RenderScaling);
         UpdateZoomLabel();
     }
 

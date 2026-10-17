@@ -98,15 +98,14 @@ public class FrameView : Control
         }
 
         double scale = GetEffectiveScale();
-        double width = image.Width * scale;
-        double height = image.Height * scale;
-        double x = Bounds.Width / 2 - CenterX * width;
-        double y = Bounds.Height / 2 - CenterY * height;
+        double renderScaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+        Rect destination = ImagePlacement.Destination(Bounds.Size, image, scale, CenterX, CenterY, renderScaling);
 
         // At 1:1 the image is larger than the pane; without this clip it paints over the header.
         using (context.PushClip(new Rect(0, 0, Bounds.Width, Bounds.Height)))
+        using (context.PushRenderOptions(ImagePlacement.Sampling(scale, renderScaling)))
         {
-            context.DrawImage(source, new Rect(0, 0, image.Width, image.Height), new Rect(x, y, width, height));
+            context.DrawImage(source, new Rect(0, 0, image.Width, image.Height), destination);
         }
     }
 
