@@ -1,6 +1,7 @@
 <u:SplashWindow xmlns="https://github.com/avaloniaui"
                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                 xmlns:u="https://irihi.tech/ursa"
+                xmlns:ic="using:FluentIcons.Avalonia"
                 xmlns:views="using:VideoQuality.App.Views"
                 xmlns:vm="using:VideoQuality.App.ViewModels"
                 x:Class="VideoQuality.App.Views.SplashView"
@@ -9,6 +10,7 @@
                 WindowStartupLocation="CenterScreen"
                 Background="Transparent"
                 TransparencyLevelHint="Transparent"
+                Icon="/Assets/app.ico"
                 Title="VideoQuality">
     <!-- overlay layer: a raised card floating on its own shadow -->
     <Border Classes="raised" Margin="16" CornerRadius="16" ClipToBounds="True"
@@ -37,7 +39,12 @@
             </StackPanel>
 
             <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="40,0,40,24">
-                <u:LoadingIcon IsLoading="True" Width="16" Height="16" VerticalAlignment="Center" />
+                <Panel Width="16" Height="16" VerticalAlignment="Center">
+                    <u:LoadingIcon IsLoading="{Binding !IsReady}" IsVisible="{Binding !IsReady}" Width="16" Height="16" />
+                    <Border Classes="statusdot" Background="{StaticResource VqOkBrush}" IsVisible="{Binding IsReady}">
+                        <ic:SymbolIcon Symbol="Checkmark" IconVariant="Filled" />
+                    </Border>
+                </Panel>
                 <TextBlock Grid.Column="1" Text="{Binding Status}" FontSize="12" Classes="muted"
                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 <TextBlock Grid.Column="2" Text="{Binding Version}" FontSize="11" Classes="muted mono"

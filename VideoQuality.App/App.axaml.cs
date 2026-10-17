@@ -70,5 +70,6 @@ public partial class App : Application
         splash.Status = "Finding a VMAF-capable ffmpeg…";
         await viewModel.InitializeAsync().ConfigureAwait(true);
         splash.Status = "Ready";
+        splash.IsReady = true;
     }
 }

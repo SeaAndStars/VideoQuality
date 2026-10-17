@@ -9,6 +9,10 @@ public partial class SplashViewModel : ObservableObject
     [ObservableProperty]
     public partial string Status { get; set; } = "Starting…";
 
+    /// <summary>Startup finished: the spinner gives way to a check mark.</summary>
+    [ObservableProperty]
+    public partial bool IsReady { get; set; }
+
     public string Version { get; } = "v" + (typeof(SplashViewModel).Assembly
         .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
         .Split('+')[0] ?? "dev");

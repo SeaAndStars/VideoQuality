@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- VideoQuality mark on a dark rounded tile: reference frame (blue), encode frame (orange),
+       score trace. Source for app.ico; keep in sync with Views/AppMark.axaml. -->
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="#1C1D22"/>
+  <rect x="8.5" y="8.5" width="239" height="239" rx="55.5" fill="none" stroke="#3A3B42" stroke-width="3"/>
+  <rect x="40" y="56" width="120" height="96" rx="18" fill="#56B4E9" fill-opacity="0.22" stroke="#56B4E9" stroke-width="14"/>
+  <rect x="96" y="108" width="120" height="96" rx="18" fill="#E69F00" fill-opacity="0.22" stroke="#E69F00" stroke-width="14"/>
+  <polyline points="116,180 142,148 160,166 186,128 204,140" fill="none" stroke="#F5F5F7"
+            stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
