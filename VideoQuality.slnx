@@ -1,4 +1,6 @@
 <Solution>
+  <Project Path="VideoQuality.App/VideoQuality.App.csproj" />
   <Project Path="VideoQuality.Cli/VideoQuality.Cli.csproj" />
   <Project Path="VideoQuality.Core/VideoQuality.Core.csproj" />
+  <Project Path="VideoQuality.Tests/VideoQuality.Tests.csproj" />
 </Solution>
