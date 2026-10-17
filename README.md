@@ -26,9 +26,9 @@ ffmpeg build and machine support it, including 10-bit sources.
 - **Reports what it is actually doing**: backend and precision (`CUDA·8b` for converted 10-bit),
   ffmpeg path, bit depth, colour metadata, true bitrate, a progress bar with Cancel, and a session
   log in a `logs/` directory beside the binary.
-- **Tested**: 53 unit/ABI tests (progress parser, stats, packet index, exports, difference imaging,
+- **Tested**: 55 unit/ABI tests (progress parser, stats, packet index, exports, difference imaging,
   job state machine and lanes, drop routing, model defaults, libavcodec ABI) plus 4 integration tests that run when
-  `VQ_TEST_VIDEO` is set (57 total) and skip otherwise.
+  `VQ_TEST_VIDEO` is set (59 total) and skip otherwise.
 
 ## Quick start
 
@@ -78,13 +78,13 @@ The app finds a VMAF-enabled ffmpeg automatically (`$VQ_FFMPEG`, `$FFMPEG_ROOT/b
 
 ## Status
 
-Also runs on Windows 10/11 (x64): `scripts/build-ffmpeg-windows.sh` cross-compiles the same FFmpeg +
-libvmaf CUDA stack into `C:\ffmpeg`, and scores match Linux (see
-[ffmpeg-cuda.md](docs/ffmpeg-cuda.md#windows)).
+Also runs on Windows 10/11 (x64). `scripts/package-windows.sh` builds a self-contained, redistributable
+release zip with FFmpeg + libvmaf CUDA bundled (LGPL, `cuda-llvm`); unzip and run. Scores match Linux
+(see [ffmpeg-cuda.md](docs/ffmpeg-cuda.md#windows)).
 
 Working and verified on Ubuntu 26.04, CUDA 13.1, RTX 5060 Ti: 8-bit and 10-bit scoring, H.264/HEVC/AV1,
 1080p playback (900 frames at 30 fps), wipe/flicker/difference, multi-encode overlays, the encode
-table, and 57 tests (53 unit/ABI + 4 integration; integration skips without `VQ_TEST_VIDEO`).
+table, and 59 tests (55 unit/ABI + 4 integration; integration skips without `VQ_TEST_VIDEO`).
 
 Not implemented yet: rate-distortion plots/BD-rate, worst-frames navigation, hover tooltips, score
 caching and PNG export, resolution-mismatch scaling, frame-offset control, colour-matrix-aware RGB

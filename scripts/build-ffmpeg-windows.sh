@@ -7,15 +7,24 @@
 # nvcuda.dll at run time through nv-codec-headers' dynlink loader. The Windows driver JIT-compiles
 # (or directly runs) the embedded code.
 #
-# Requires: mingw-w64 (posix threads), meson, ninja, nasm, pkg-config, git, CUDA toolkit (nvcc, bin2c).
-#   apt-get install -y gcc-mingw-w64-x86-64-posix g++-mingw-w64-x86-64-posix nasm meson ninja-build
+# Licensing: the result is redistributable. FFmpeg is built LGPL (no --enable-gpl, nothing here needs
+# it) with --enable-cuda-llvm: FFmpeg classes --enable-cuda-nvcc as *nonfree*, which would make the
+# binaries non-redistributable. clang compiles the same CUDA filters (scale_cuda, …) to PTX for
+# sm_75, which the driver JIT-compiles for any Turing-or-newer GPU. libvmaf (BSD-2-Clause-Patent)
+# still compiles its kernels with nvcc into a fatbin for sm_75…sm_120.
 #
-#   ./scripts/build-ffmpeg-windows.sh                      # builds into ~/build-win, installs C:\ffmpeg
-#   VQ_WIN_PREFIX=/mnt/d/ffmpeg-vq ./scripts/build-ffmpeg-windows.sh
+# Requires: mingw-w64 (posix threads), meson, ninja, nasm, pkg-config, git, clang, CUDA toolkit
+# (nvcc, bin2c, headers).
+#   apt-get install -y gcc-mingw-w64-x86-64-posix g++-mingw-w64-x86-64-posix nasm meson ninja-build clang
+#
+#   ./scripts/build-ffmpeg-windows.sh                       # stages ~/build-win/stage/ffmpeg
+#   VQ_WIN_PREFIX=/mnt/c/ffmpeg ./scripts/build-ffmpeg-windows.sh   # also installs C:\ffmpeg\bin
+#
+# scripts/package-windows.sh bundles the staged folder into the release zip.
 set -euo pipefail
 
 work=${VQ_WIN_WORK:-$HOME/build-win}
-install_dir=${VQ_WIN_PREFIX:-/mnt/c/ffmpeg}
+install_dir=${VQ_WIN_PREFIX:-}
 jobs=$(nproc)
 cuda=${CUDA_HOME:-/usr/local/cuda}
 host=x86_64-w64-mingw32
@@ -87,23 +96,37 @@ cd "$build/ffmpeg"
     --prefix="$prefix" --arch=x86_64 --target-os=mingw32 --cross-prefix=$host- \
     --cc=$host-gcc-posix --cxx=$host-g++-posix --pkg-config=pkg-config --enable-cross-compile \
     --disable-doc --disable-debug --enable-shared --disable-static \
-    --enable-gpl --enable-nonfree --enable-libvmaf --enable-libdav1d \
-    --enable-cuda-nvcc --enable-ffnvcodec --enable-nvdec --enable-cuvid \
+    --enable-libvmaf --enable-libdav1d \
+    --enable-cuda-llvm --enable-ffnvcodec --enable-nvdec --enable-cuvid \
     --enable-d3d11va --enable-dxva2 \
-    --nvcc="$cuda/bin/nvcc" --nvccflags="-gencode arch=compute_120,code=compute_120" \
+    --nvcc=clang --nvccflags="--cuda-gpu-arch=sm_75 -O2" \
     --extra-cflags="-I$prefix/include -I$cuda/include" \
     --extra-ldflags="-L$prefix/lib -static-libgcc" >/dev/null
 make -j"$jobs" >/dev/null
 make install >/dev/null
 
-echo "== install to $install_dir"
-mkdir -p "$install_dir/bin"
-cp "$prefix"/bin/*.exe "$prefix"/bin/*.dll "$install_dir/bin/"
-# mingw runtime pieces the DLLs still import (winpthreads for libvmaf's threads).
+echo "== stage"
+# Everything a Windows machine needs to run ffmpeg.exe and load the DLLs, in one flat folder.
+stage=$work/stage/ffmpeg
+rm -rf "$stage"
+mkdir -p "$stage"
+cp "$prefix"/bin/ffmpeg.exe "$prefix"/bin/ffprobe.exe "$prefix"/bin/*.dll "$stage/"
+# mingw runtime the DLLs import (redistributable under the GCC runtime library exception).
 for dll in libwinpthread-1.dll libstdc++-6.dll libgcc_s_seh-1.dll; do
-    found=$($host-gcc-posix -print-file-name=$dll)
-    [[ -f $found ]] && cp "$found" "$install_dir/bin/"
+    cp "$($host-gcc-posix -print-file-name=$dll)" "$stage/"
 done
+# Distro mingw runtimes ship with symbols (libstdc++ is 26 MB unstripped).
+$host-strip --strip-unneeded "$stage"/*.dll "$stage"/*.exe
+{
+    echo "FFmpeg n9.0.2 (LGPL-2.1-or-later), libvmaf v3.2.1 (CUDA), dav1d 1.5.1, nv-codec-headers n13.0.19.1"
+    echo "Built by scripts/build-ffmpeg-windows.sh with mingw-w64 GCC $($host-gcc-posix -dumpversion)."
+    echo "FFmpeg configure: $(sed -n 's/^#define FFMPEG_CONFIGURATION "\(.*\)"$/\1/p' "$build/ffmpeg/config.h")"
+} > "$stage/BUILDINFO.txt"
 
-"$install_dir/bin/ffmpeg.exe" -hide_banner -filters 2>/dev/null | grep -E 'libvmaf' || true
-echo "done: $install_dir/bin/ffmpeg.exe"
+if [[ -n $install_dir ]]; then
+    echo "== install to $install_dir"
+    mkdir -p "$install_dir/bin"
+    cp "$stage"/* "$install_dir/bin/"
+fi
+
+echo "done: $stage"

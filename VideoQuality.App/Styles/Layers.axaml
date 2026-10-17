@@ -159,10 +159,15 @@
     </Style>
 
     <!-- Segmented view switch (Ursa SelectionList). -->
-    <Style Selector="u|SelectionList.segmented">
+    <Style Selector="Border.segmented">
         <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
         <Setter Property="CornerRadius" Value="{StaticResource VqRadiusControl}" />
         <Setter Property="Padding" Value="2" />
+    </Style>
+    <Style Selector="u|SelectionList.segmented">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="0" />
     </Style>
     <Style Selector="u|SelectionList.segmented u|SelectionListItem">
         <Setter Property="Padding" Value="10,5" />

@@ -17,7 +17,7 @@ using VideoQuality.Core.Scoring;
 
 namespace VideoQuality.App.Views;
 
-public partial class MainWindow : Window
+public partial class MainWindow : UrsaWindow
 {
     private VerticalLine? _marker;
     private MainViewModel? _viewModel;
@@ -63,12 +63,17 @@ public partial class MainWindow : Window
 
         Loaded += (_, _) =>
         {
+            FitBelowTitleBar();
             _toasts = new WindowToastManager(this) { MaxItems = 4 };
             UpdateZoomLabel();
             UpdateViewerHeight();
         };
 
-        SizeChanged += (_, _) => UpdateViewerHeight();
+        SizeChanged += (_, _) =>
+        {
+            FitBelowTitleBar();
+            UpdateViewerHeight();
+        };
         ViewerHost.SizeChanged += (_, _) => UpdateViewerHeight();
     }
 
@@ -790,6 +795,29 @@ public partial class MainWindow : Window
         _hotZone?.Classes.Remove("hot");
         _hotZone = zone;
         _hotZone?.Classes.Add("hot");
+    }
+
+    /// <summary>
+    /// Ursa draws its title bar over the window content; push the content down by however much the
+    /// bar overlaps it (zero if a theme ever reserves its own row, or the bar is hidden).
+    /// </summary>
+    private void FitBelowTitleBar()
+    {
+        TitleBar? bar = this.GetVisualDescendants().OfType<TitleBar>().FirstOrDefault();
+        if (bar is null || !bar.IsEffectivelyVisible || Root.GetVisualParent() is not Visual host)
+        {
+            Root.Margin = default;
+            return;
+        }
+
+        double barBottom = bar.TranslatePoint(new Point(0, bar.Bounds.Height), this)?.Y ?? 0;
+        double contentTop = host.TranslatePoint(new Point(0, 0), this)?.Y ?? 0;
+        double overlap = Math.Max(0, Math.Ceiling(barBottom - contentTop));
+
+        if (Math.Abs(Root.Margin.Top - overlap) > 0.5)
+        {
+            Root.Margin = new Thickness(0, overlap, 0, 0);
+        }
     }
 
     // ---------------------------------------------------------------- feedback

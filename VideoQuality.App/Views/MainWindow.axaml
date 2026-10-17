@@ -1,6 +1,7 @@
-<Window xmlns="https://github.com/avaloniaui"
+<u:UrsaWindow xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:VideoQuality.App.ViewModels"
+        xmlns:views="using:VideoQuality.App.Views"
         xmlns:sp="using:ScottPlot.Avalonia"
         xmlns:controls="using:VideoQuality.App.Controls"
         xmlns:conv="using:VideoQuality.App.Converters"
@@ -15,7 +16,23 @@
         Icon="/Assets/avalonia-logo.ico"
         Width="1500" Height="950"
         MinWidth="1080" MinHeight="720"
-        Title="VideoQuality — VMAF compare">
+        IsFullScreenButtonVisible="False"
+        Title="{Binding WindowTitle}">
+
+    <!-- Self-drawn title bar (Ursa): app mark and name left, the current comparison centred,
+         caption buttons drawn by the theme on the right. -->
+    <u:UrsaWindow.LeftContent>
+        <StackPanel Orientation="Horizontal" Spacing="8" Margin="12,0,0,0" VerticalAlignment="Center"
+                    IsHitTestVisible="False">
+            <views:AppMark Width="18" Height="18" />
+            <TextBlock Text="VideoQuality" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+        </StackPanel>
+    </u:UrsaWindow.LeftContent>
+    <u:UrsaWindow.TitleBarContent>
+        <TextBlock Text="{Binding ComparisonTitle}" Classes="muted" FontSize="12" IsHitTestVisible="False"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                   MaxWidth="700" />
+    </u:UrsaWindow.TitleBarContent>
 
     <Window.Resources>
         <conv:LabelConverter x:Key="Label" />
@@ -59,6 +76,7 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
+    <!-- Content starts below the self-drawn title bar (offset measured in code-behind). -->
     <Panel x:Name="Root">
         <!-- ============================================================ base layer -->
         <Grid x:Name="Layout" Margin="12" RowSpacing="0">
@@ -127,8 +145,12 @@
                         <u:ToolBarSeparator Orientation="Vertical" Margin="6,6" />
 
                         <!-- view: segmented icon switch -->
+                        <!-- The inset lives on this border: SelectionList places its highlight from
+                             item bounds and ignores its own Padding, which pushed the highlight 2 px
+                             up and left of the icons. -->
+                        <Border Classes="segmented" VerticalAlignment="Center">
                         <u:SelectionList Classes="segmented" ItemsSource="{Binding CompareModes}"
-                                         SelectedItem="{Binding CompareMode}" VerticalAlignment="Center"
+                                         SelectedItem="{Binding CompareMode}"
                                          AutomationProperties.Name="Compare mode">
                             <u:SelectionList.ItemsPanel>
                                 <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
@@ -141,6 +163,7 @@
                                 </DataTemplate>
                             </u:SelectionList.ItemTemplate>
                         </u:SelectionList>
+                        </Border>
 
                         <!-- mode-specific controls live in the toolbar so the viewer never moves -->
                         <StackPanel Orientation="Horizontal" Spacing="6" Margin="8,0,0,0"
@@ -378,20 +401,26 @@
                                         </StackPanel>
                                     </Panel>
                                 </Border>
-                                <Border Classes="float" IsVisible="{Binding IsWipe}"
-                                        VerticalAlignment="Bottom" HorizontalAlignment="Left">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <Ellipse Width="8" Height="8" Fill="{StaticResource VqReferenceBrush}" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding ReferenceName}" FontSize="12" />
-                                    </StackPanel>
-                                </Border>
-                                <Border Classes="float" IsVisible="{Binding IsWipe}"
-                                        VerticalAlignment="Bottom" HorizontalAlignment="Right">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <Ellipse Width="8" Height="8" Fill="{StaticResource VqEncodeBrush}" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding EncodeName}" FontSize="12" />
-                                    </StackPanel>
-                                </Border>
+                                <!-- Each name owns half the pane and trims, so long names cannot overlap. -->
+                                <Grid IsVisible="{Binding IsWipe}" ColumnDefinitions="*,*" ColumnSpacing="8"
+                                      VerticalAlignment="Bottom" Margin="0,0,0,0">
+                                    <Border Classes="float" HorizontalAlignment="Left" Margin="12,12,0,12"
+                                            ToolTip.Tip="{Binding ReferenceName}">
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                            <Ellipse Width="8" Height="8" Fill="{StaticResource VqReferenceBrush}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{Binding ReferenceName}" FontSize="12"
+                                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+                                    <Border Grid.Column="1" Classes="float" HorizontalAlignment="Right" Margin="0,12,12,12"
+                                            ToolTip.Tip="{Binding EncodeName}">
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                            <Ellipse Width="8" Height="8" Fill="{StaticResource VqEncodeBrush}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{Binding EncodeName}" FontSize="12"
+                                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+                                </Grid>
                             </Panel>
                         </Border>
                     </Grid>
@@ -554,4 +583,4 @@
                        HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,48" />
         </Panel>
     </Panel>
-</Window>
+</u:UrsaWindow>

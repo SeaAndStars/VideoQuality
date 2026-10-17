@@ -1,0 +1,48 @@
+<u:SplashWindow xmlns="https://github.com/avaloniaui"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:u="https://irihi.tech/ursa"
+                xmlns:views="using:VideoQuality.App.Views"
+                xmlns:vm="using:VideoQuality.App.ViewModels"
+                x:Class="VideoQuality.App.Views.SplashView"
+                x:DataType="vm:SplashViewModel"
+                Width="560" Height="320"
+                WindowStartupLocation="CenterScreen"
+                Background="Transparent"
+                TransparencyLevelHint="Transparent"
+                Title="VideoQuality">
+    <!-- overlay layer: a raised card floating on its own shadow -->
+    <Border Classes="raised" Margin="16" CornerRadius="16" ClipToBounds="True"
+            Background="{DynamicResource SemiColorBackground1}">
+        <Grid RowDefinitions="*,Auto">
+            <!-- accent wash in the two input colours -->
+            <Border Grid.RowSpan="2" Opacity="0.22" IsHitTestVisible="False">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                        <GradientStop Color="#56B4E9" Offset="0" />
+                        <GradientStop Color="#00232429" Offset="0.55" />
+                        <GradientStop Color="#E69F00" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+
+            <StackPanel Spacing="18" VerticalAlignment="Center" Margin="40,0">
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <views:AppMark Width="64" Height="64" />
+                    <StackPanel VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Text="VideoQuality" FontSize="30" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SemiColorText0}" />
+                        <TextBlock Text="VMAF comparison · GPU-first" FontSize="14" Classes="muted" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="40,0,40,24">
+                <u:LoadingIcon IsLoading="True" Width="16" Height="16" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding Status}" FontSize="12" Classes="muted"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="2" Text="{Binding Version}" FontSize="11" Classes="muted mono"
+                           VerticalAlignment="Center" Opacity="0.7" />
+            </Grid>
+        </Grid>
+    </Border>
+</u:SplashWindow>

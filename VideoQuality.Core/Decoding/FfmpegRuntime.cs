@@ -123,8 +123,9 @@ public static class FfmpegRuntime
             int printPrefix = 1;
             ffmpeg.av_log_format_line(avcl, level, format, vl, buffer, BufferSize, &printPrefix);
 
-            string message = Marshal.PtrToStringAnsi((IntPtr)buffer)?.Trim() ?? string.Empty;
-            if (message.Length == 0)
+            // libav formats UTF-8; the ANSI decoder garbled non-ASCII file names on Windows.
+            string message = Marshal.PtrToStringUTF8((IntPtr)buffer)?.Trim() ?? string.Empty;
+            if (message.Length == 0 || IsNoise(message))
             {
                 return;
             }
@@ -143,6 +144,14 @@ public static class FfmpegRuntime
             // A logger must never break decoding.
         }
     }
+
+    /// <summary>
+    /// libav warnings that say nothing useful for this app. Matroska font attachments never have
+    /// codec parameters, so every open of such a file logged one two-line warning per font.
+    /// </summary>
+    internal static bool IsNoise(string message) =>
+        message.Contains("Could not find codec parameters for stream", StringComparison.Ordinal) &&
+        message.Contains("(Attachment", StringComparison.Ordinal);
 
     /// <summary>Library path and the libavcodec version actually loaded, for session logs.</summary>
     public static string Describe()
@@ -183,6 +192,8 @@ public static class FfmpegRuntime
             yield return ffmpegDirectory;
         }
 
+        // A release bundles ffmpeg and its libraries in ffmpeg/ beside the app.
+        yield return Path.Combine(AppContext.BaseDirectory, "ffmpeg");
         yield return AppContext.BaseDirectory;
 
         if (OperatingSystem.IsWindows())

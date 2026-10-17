@@ -234,6 +234,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public string ModelChip => VmafModels.ShortName(SelectedModel);
 
+    /// <summary>Centre of the title bar: what is being compared.</summary>
+    public string ComparisonTitle => HasReference
+        ? $"{ReferenceName}  ·  {Encodes.Count} encode{(Encodes.Count == 1 ? string.Empty : "s")}"
+        : string.Empty;
+
+    /// <summary>Taskbar / Alt-Tab title.</summary>
+    public string WindowTitle => HasReference ? $"{ReferenceName} — VideoQuality" : "VideoQuality";
+
     public bool HasReferenceBadge => ReferenceBadge.Length > 0;
 
     public bool HasEncodeBadge => EncodeBadge.Length > 0;
@@ -1075,8 +1083,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnIsBusyChanged(bool value) => AnalyzeCommand.NotifyCanExecuteChanged();
 
+    partial void OnReferenceNameChanged(string value)
+    {
+        OnPropertyChanged(nameof(ComparisonTitle));
+        OnPropertyChanged(nameof(WindowTitle));
+    }
+
     partial void OnReferencePathChanged(string? value)
     {
+        OnPropertyChanged(nameof(ComparisonTitle));
+        OnPropertyChanged(nameof(WindowTitle));
         OnPropertyChanged(nameof(HasReference));
         OnPropertyChanged(nameof(IsEmpty));
         AnalyzeCommand.NotifyCanExecuteChanged();
@@ -1394,6 +1410,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         OnPropertyChanged(nameof(HasEncodes));
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(ComparisonTitle));
         OnPropertyChanged(nameof(HasStaleEncodes));
         OnPropertyChanged(nameof(Encodes));
         AnalyzeCommand.NotifyCanExecuteChanged();

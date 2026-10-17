@@ -147,6 +147,9 @@ VideoQuality.Cli/          headless commands
 VideoQuality.Tests/        xUnit unit tests + skippable integration tests
 VideoQuality.Benchmarks/   BenchmarkDotNet benchmarks for decoding and difference imaging
 packaging/linux/           .desktop entry (Open With) and launcher script
+scripts/build-ffmpeg-windows.sh   cross-compiles FFmpeg + libvmaf CUDA for Windows (LGPL, redistributable)
+scripts/package-windows.sh        self-contained Windows release zip with ffmpeg bundled
+artifacts/                 release output (ignored)
 scripts/verify.sh          clean build, solution-membership check, tests, probe
 scripts/capture-docs.sh    regenerates the documentation screenshots
 docs/                      user and developer documentation

@@ -38,6 +38,11 @@ a launcher script so file managers can **Open With** the app.
 
 ## The window
 
+The app opens with a splash screen while it loads the FFmpeg libraries and finds a VMAF-capable
+ffmpeg, then shows the main window. The window draws its own dark title bar (app name on the left,
+the current comparison in the middle, minimise/maximise/close on the right) instead of the
+system's.
+
 The UI uses the Semi theme with Ursa controls and Fluent System Icons, in four layers:
 
 | Layer | Used for |

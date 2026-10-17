@@ -1,0 +1,15 @@
+<!-- The app mark: a reference frame (blue) overlapped by an encode frame (orange) with a score trace. -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="VideoQuality.App.Views.AppMark">
+    <Viewbox Stretch="Uniform">
+        <Canvas Width="32" Height="32">
+            <Rectangle Canvas.Left="2" Canvas.Top="4" Width="20" Height="16" RadiusX="3" RadiusY="3"
+                       Fill="#3356B4E9" Stroke="#56B4E9" StrokeThickness="2" />
+            <Rectangle Canvas.Left="10" Canvas.Top="12" Width="20" Height="16" RadiusX="3" RadiusY="3"
+                       Fill="#33E69F00" Stroke="#E69F00" StrokeThickness="2" />
+            <Polyline Points="13,24 17,19 20,22 24,16 27,18" Stroke="#F5F5F7" StrokeThickness="2"
+                      StrokeLineCap="Round" StrokeJoin="Round" />
+        </Canvas>
+    </Viewbox>
+</UserControl>

@@ -188,9 +188,10 @@ public static partial class VmafRunner
     }
 
     /// <summary>
-    /// Picks the ffmpeg executable to use. An explicit path wins. When the plain <c>ffmpeg</c> on
-    /// PATH has no VMAF filter, well-known custom build locations are tried, so a machine with the
-    /// CUDA build from the README does not need any configuration.
+    /// Picks the ffmpeg executable to use. An explicit path wins, then <c>VQ_FFMPEG</c>, then the
+    /// build bundled with a release (<c>ffmpeg/</c> beside the app), then <c>ffmpeg</c> on PATH if it
+    /// has VMAF, then well-known custom build locations. A release therefore uses the ffmpeg it was
+    /// tested with even when another one is on PATH.
     /// </summary>
     public static async Task<string> ResolveFfmpegAsync(string? requested = null, CancellationToken cancellationToken = default)
     {
@@ -198,6 +199,21 @@ public static partial class VmafRunner
             !string.Equals(requested.Trim(), "ffmpeg", StringComparison.Ordinal))
         {
             return requested.Trim();
+        }
+
+        string? configured = Environment.GetEnvironmentVariable("VQ_FFMPEG");
+        if (!string.IsNullOrWhiteSpace(configured) && File.Exists(configured))
+        {
+            return configured;
+        }
+
+        if (BundledFfmpeg is { } bundled)
+        {
+            VmafCapabilities bundledCapabilities = await ProbeAsync(bundled, cancellationToken).ConfigureAwait(false);
+            if (bundledCapabilities.HasLibvmaf || bundledCapabilities.HasLibvmafCuda)
+            {
+                return bundled;
+            }
         }
 
         VmafCapabilities onPath = await ProbeAsync("ffmpeg", cancellationToken).ConfigureAwait(false);
@@ -221,6 +237,19 @@ public static partial class VmafRunner
         }
 
         return "ffmpeg";
+    }
+
+    /// <summary>The ffmpeg shipped inside a release (<c>&lt;app&gt;/ffmpeg/ffmpeg[.exe]</c>), if present.</summary>
+    public static string? BundledFfmpeg
+    {
+        get
+        {
+            string path = Path.Combine(
+                AppContext.BaseDirectory,
+                "ffmpeg",
+                OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg");
+            return File.Exists(path) ? path : null;
+        }
     }
 
     private static IEnumerable<string> CustomBuildCandidates()
@@ -253,7 +282,8 @@ public static partial class VmafRunner
         }
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(15));
+        // Generous: the first run of a freshly unzipped ffmpeg can sit behind an antivirus scan.
+        timeout.CancelAfter(TimeSpan.FromSeconds(60));
 
         VmafCapabilities capabilities;
         try
@@ -271,6 +301,11 @@ public static partial class VmafRunner
                 HasLibvmafCuda(filters),
                 hasGpu,
                 versionLine);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Our own timeout, not the caller's cancellation. Not cached, so a later probe retries.
+            return new VmafCapabilities(false, false, false, "unavailable: ffmpeg did not answer within 60 s");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -580,7 +615,15 @@ public static partial class VmafRunner
         Task<string> stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
         Task<string> stderr = process.StandardError.ReadToEndAsync(cancellationToken);
 
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            TryKill(process); // do not leave a stuck probe running
+            throw;
+        }
 
         return (await stdout.ConfigureAwait(false)) + (await stderr.ConfigureAwait(false));
     }

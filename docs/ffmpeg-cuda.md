@@ -115,31 +115,44 @@ dotnet run --project VideoQuality.Cli -- probe
 ## Windows
 
 The Windows build is cross-compiled from Linux/WSL with mingw-w64, at the same versions as the Linux
-stack (FFmpeg n9.0.2, libvmaf v3.2.1 with CUDA, dav1d 1.5.1, nv-codec-headers n13.0.19.1):
+stack (FFmpeg n9.0.2, libvmaf v3.2.1 with CUDA, dav1d 1.5.1, nv-codec-headers n13.0.19.1), and is
+**redistributable**:
+
+- FFmpeg is LGPL (no `--enable-gpl`; nothing the app uses needs it).
+- CUDA filters use `--enable-cuda-llvm` (clang → PTX for `sm_75`, JIT-compiled by the driver for any
+  Turing-or-newer GPU). `--enable-cuda-nvcc` is on FFmpeg's *nonfree* list and makes the binaries
+  non-redistributable, so the Linux developer build's flags must not be copied into a release.
+- libvmaf (BSD-2-Clause-Patent) compiles its own kernels with nvcc into a fatbin for `sm_75`…`sm_120`.
+
+Cross-compiling CUDA works because neither FFmpeg nor libvmaf links the CUDA runtime: device code is
+embedded as PTX/fatbin, and `nvcuda.dll` is loaded at run time through nv-codec-headers' dynlink
+loader. The script patches one line of libvmaf's meson build so that nvcc is a build-machine tool,
+and builds libvmaf inside its source tree because the nvcc command uses relative include paths.
+
+### Release package
 
 ```bash
-apt-get install -y gcc-mingw-w64-x86-64-posix g++-mingw-w64-x86-64-posix nasm meson ninja-build
-./scripts/build-ffmpeg-windows.sh                     # installs C:\ffmpeg\bin (VQ_WIN_PREFIX to change)
+apt-get install -y gcc-mingw-w64-x86-64-posix g++-mingw-w64-x86-64-posix nasm meson ninja-build clang zip
+./scripts/build-ffmpeg-windows.sh     # stages ~/build-win/stage/ffmpeg (VQ_WIN_PREFIX=/mnt/c/ffmpeg also installs)
+./scripts/package-windows.sh          # artifacts/VideoQuality-<version>-win-x64.zip  (VQ_VERSION=1.0.0)
 ```
 
-Cross-compiling CUDA works because neither FFmpeg nor libvmaf links the CUDA runtime: the Linux `nvcc`
-compiles device code to PTX/fatbin that is embedded as byte arrays, and the host side loads
-`nvcuda.dll` at run time through nv-codec-headers' dynlink loader. The script patches one line of
-libvmaf's meson build so that nvcc is treated as a build-machine tool, and builds libvmaf inside its
-source tree because the nvcc command uses relative include paths.
+The zip (≈67 MB) unpacks to one folder: `VideoQuality.App.exe` and `VideoQuality.Cli.exe` with the
+.NET runtime, `ffmpeg\` (ffmpeg.exe, ffprobe.exe, the libav/libvmaf/dav1d DLLs and the mingw runtime,
+stripped), `licenses\` and `THIRD-PARTY-NOTICES.txt` (FFmpeg source tag and configure line for LGPL,
+native library licenses, and every NuGet package's license read from its nuspec). The packager refuses
+a staged FFmpeg built with `--enable-nonfree` or `--enable-cuda-nvcc`. The only thing the target
+machine needs is an NVIDIA driver for GPU scoring; without one, scoring falls back to CPU.
 
-Publish the app and CLI (self-contained, no .NET install needed on the target):
+The app prefers the bundled `ffmpeg\` for both scoring and decoding, ahead of any `ffmpeg.exe` on
+PATH; an explicit path in Settings or `VQ_FFMPEG` still wins. Outside a release the DLLs are found in
+`C:\ffmpeg\bin`, `FFMPEG_LIB_PATH`, `FFMPEG_ROOT\bin` or the folder of `VQ_FFMPEG`, and that folder is
+added to the DLL search path, because Windows resolves `avcodec-63.dll`'s own imports (`libdav1d.dll`,
+`libwinpthread-1.dll`) only from the app folder, system folders and PATH.
 
-```bash
-dotnet publish VideoQuality.App -c Release -r win-x64 --self-contained -o out/win/app
-dotnet publish VideoQuality.Cli -c Release -r win-x64 --self-contained -o out/win/cli
-```
-
-The app finds the DLLs in `C:\ffmpeg\bin` (also `FFMPEG_LIB_PATH`, `FFMPEG_ROOT\bin`, or the folder of
-`VQ_FFMPEG`) and adds that folder to the DLL search path, because Windows resolves `avcodec-63.dll`'s
-own imports (`libdav1d.dll`, `libwinpthread-1.dll`) only from the app folder, system folders and PATH.
-An `ffmpeg.exe` on PATH that has VMAF still wins over `C:\ffmpeg`; set `VQ_FFMPEG` or the Settings path
-to choose explicitly.
+The first launch after unzipping can be slow while antivirus scans the new DLLs (over 15 s was
+observed for the first `ffmpeg -filters`, 0.05 s afterwards); the splash covers it, and the
+capability probe allows 60 s.
 
 Verified on Windows 10 22H2, driver 617.42, RTX 5060 Ti:
 
@@ -152,8 +165,8 @@ Verified on Windows 10 22H2, driver 617.42, RTX 5060 Ti:
 | decoded frame 42 (BGRA) | byte-identical | |
 | app: five 720p encodes, two at a time | 0.8–0.9 s each | |
 
-The first CUDA run after installing takes several seconds longer while the driver JIT-compiles
-FFmpeg's PTX filters; the driver caches the result.
+The first CUDA run takes several seconds longer while the driver JIT-compiles the PTX filters; the
+driver caches the result.
 
 ## How the app chooses the backend
 
