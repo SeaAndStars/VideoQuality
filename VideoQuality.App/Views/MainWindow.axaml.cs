@@ -26,7 +26,14 @@ public partial class MainWindow : UrsaWindow
     private bool _panning;
     private bool _draggingWipe;
     private Point _panLast;
-    private bool _userSizedViewer;
+    // Share of the viewer + graph space chosen by dragging the splitter (0 = size from the video's
+    // aspect ratio). A share, not pixels, so maximise/restore scales it instead of keeping a height
+    // that no longer fits and pushes the graph and table off the window.
+    private double _userViewerShare;
+
+    // While the splitter is being dragged, auto-sizing must not run: every drag step resizes the
+    // viewer, which used to trigger UpdateViewerHeight and put the old height straight back.
+    private bool _splitterDragging;
     private Border? _hotZone;
     private WindowToastManager? _toasts;
 
@@ -54,12 +61,22 @@ public partial class MainWindow : UrsaWindow
             view.SizeChanged += (_, _) => UpdateZoomLabel();
         }
 
-        ViewerSplitter.DragCompleted += (_, _) => _userSizedViewer = true;
+        ViewerSplitter.DragStarted += (_, _) => _splitterDragging = true;
+        ViewerSplitter.DragCompleted += (_, _) =>
+        {
+            _splitterDragging = false;
+            RememberSplitterPosition();
+        };
         ViewerSplitter.DoubleTapped += (_, _) =>
         {
-            _userSizedViewer = false;
+            _userViewerShare = 0;
             UpdateViewerHeight();
         };
+
+        // Size from the arranged layout, after the window-state change has been laid out; the window
+        // SizeChanged event arrives first, with stale row heights.
+        Layout.SizeChanged += (_, _) =>
+            Avalonia.Threading.Dispatcher.UIThread.Post(UpdateViewerHeight, Avalonia.Threading.DispatcherPriority.Background);
 
         // Chrome size changes with DPI, maximise/restore and theme; re-measure after each layout
         // pass (cheap, and a no-op unless the overlap actually changed).
@@ -73,11 +90,7 @@ public partial class MainWindow : UrsaWindow
             UpdateViewerHeight();
         };
 
-        SizeChanged += (_, _) =>
-        {
-            FitBelowTitleBar();
-            UpdateViewerHeight();
-        };
+        SizeChanged += (_, _) => FitBelowTitleBar();
         ViewerHost.SizeChanged += (_, _) => UpdateViewerHeight();
     }
 
@@ -484,13 +497,13 @@ public partial class MainWindow : UrsaWindow
     };
 
     /// <summary>
-    /// Sizes the viewer row to the image aspect so fit mode has no letterbox dead space, until the
-    /// user drags the splitter (double-click it to return to automatic sizing). The graph row has a
-    /// minimum height, so wipe mode can no longer crush the plot.
+    /// Sizes the viewer row: from the video's aspect ratio by default, or as the share the user chose
+    /// with the splitter. Either way the graph row keeps its minimum height and every other row its
+    /// actual height, so no window size or state can push the graph and table out of view.
     /// </summary>
     private void UpdateViewerHeight()
     {
-        if (_viewModel is null)
+        if (_viewModel is null || _splitterDragging)
         {
             return;
         }
@@ -506,21 +519,37 @@ public partial class MainWindow : UrsaWindow
             : 16.0 / 9.0;
 
         RowDefinition viewerRow = Layout.RowDefinitions[2];
-        if (!_userSizedViewer)
+        RowDefinition graphRow = Layout.RowDefinitions[4];
+        double flexible = FlexibleHeight();
+        if (flexible > 0)
         {
-            double paneWidth = _viewModel.IsTwoPane ? (width - 12) / 2 : width;
-            double height = Math.Clamp(paneWidth / aspect + 40, 200, 640);
-            double windowHeight = Bounds.Height > 0 ? Bounds.Height : 900;
-            height = Math.Min(height, windowHeight * 0.55);
+            double height;
+            if (_userViewerShare > 0)
+            {
+                height = flexible * _userViewerShare;
+            }
+            else
+            {
+                double paneWidth = _viewModel.IsTwoPane ? (width - 12) / 2 : width;
+                height = Math.Min(paneWidth / aspect + 40, 640);
+            }
 
-            if (Math.Abs(viewerRow.Height.Value - height) > 1)
+            double maxViewer = Math.Max(viewerRow.MinHeight, flexible - graphRow.MinHeight);
+            height = Math.Clamp(height, viewerRow.MinHeight, maxViewer);
+
+            if (!viewerRow.Height.IsAbsolute || Math.Abs(viewerRow.Height.Value - height) > 1)
             {
                 viewerRow.Height = new GridLength(height);
+            }
+
+            if (!graphRow.Height.IsStar)
+            {
+                graphRow.Height = new GridLength(1, GridUnitType.Star);
             }
         }
 
         // A single-pane view gets the image's own width so wipe/flicker do not letterbox sideways.
-        double contentHeight = Math.Max(120, ViewerHost.Bounds.Height - 40);
+        double contentHeight = Math.Max(120, viewerRow.Height.Value - 40);
         double singleWidth = Math.Min(width, contentHeight * aspect);
         if (double.IsNaN(SinglePaneHost.Width) || Math.Abs(SinglePaneHost.Width - singleWidth) > 1)
         {
@@ -528,6 +557,36 @@ public partial class MainWindow : UrsaWindow
         }
 
         UpdateZoomLabel();
+    }
+
+    /// <summary>Height shared by the viewer and graph rows: the layout minus every other row.</summary>
+    private double FlexibleHeight()
+    {
+        double others = 0;
+        for (int row = 0; row < Layout.RowDefinitions.Count; row++)
+        {
+            if (row is not (2 or 4))
+            {
+                others += Layout.RowDefinitions[row].ActualHeight;
+            }
+        }
+
+        return Layout.Bounds.Height - others;
+    }
+
+    /// <summary>
+    /// GridSplitter leaves both rows with fixed pixel heights; keep the user's choice as a share and
+    /// give the graph row back its star sizing so it absorbs later window resizes.
+    /// </summary>
+    private void RememberSplitterPosition()
+    {
+        double flexible = FlexibleHeight();
+        if (flexible > 0)
+        {
+            _userViewerShare = Math.Clamp(Layout.RowDefinitions[2].ActualHeight / flexible, 0.1, 0.95);
+        }
+
+        UpdateViewerHeight();
     }
 
     private void UpdateZoomLabel()
