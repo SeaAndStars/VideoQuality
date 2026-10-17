@@ -1,3 +1,4 @@
+using VideoQuality.Core.Localization;
 namespace VideoQuality.Core.Ingest;
 
 /// <summary>Where files arrived: a drop zone, or anywhere else (startup args, Open With, paste).</summary>
@@ -58,7 +59,7 @@ public static class DropRouter
         ".mkv", ".mp4", ".mov", ".webm", ".avi", ".ts", ".m2ts", ".ivf", ".y4m",
     };
 
-    public const string NonLocalReason = "only local files are supported";
+    public static string NonLocalReason => Loc.T("drop.nonLocal");
 
     /// <param name="paths">Incoming paths; null marks an item with no local path (smb://, mtp://).</param>
     /// <param name="zone">Where the paths arrived.</param>
@@ -91,14 +92,14 @@ public static class DropRouter
 
             if (!File.Exists(full))
             {
-                rejected.Add(new RejectedPath(full, "file not found"));
+                rejected.Add(new RejectedPath(full, Loc.T("drop.notFound")));
                 continue;
             }
 
             if (!IsVideo(full))
             {
                 string extension = Path.GetExtension(full);
-                rejected.Add(new RejectedPath(full, extension.Length > 0 ? $"not a video file ({extension})" : "not a video file"));
+                rejected.Add(new RejectedPath(full, extension.Length > 0 ? Loc.T("drop.notVideoExtension", extension) : Loc.T("drop.notVideo")));
                 continue;
             }
 

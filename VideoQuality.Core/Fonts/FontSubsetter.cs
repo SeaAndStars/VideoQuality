@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.Core.Fonts;
 
@@ -71,11 +73,11 @@ public static class FontSubsetter
         {
             if (string.Equals(Path.GetDirectoryName(Path.GetFullPath(script)), output, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("The output folder must differ from the scripts' folder, or the originals would be overwritten.");
+                throw new InvalidOperationException(Loc.T("subset.error.sameFolder"));
             }
         }
 
-        progress?.Report("Reading scripts…");
+        progress?.Report(Loc.T("subset.progress.reading"));
         var scripts = options.Scripts.Select(path => (Path: path, Script: AssScript.Load(path))).ToList();
         var requests = new Dictionary<FontRequest, HashSet<int>>();
         foreach ((_, AssScript script) in scripts)
@@ -98,7 +100,7 @@ public static class FontSubsetter
             .Where(name => !drawn.Contains(name))
             .Order(StringComparer.OrdinalIgnoreCase));
 
-        progress?.Report("Scanning fonts…");
+        progress?.Report(Loc.T("subset.progress.scanning"));
         FontCatalog catalog = FontCatalog.Scan(options.FontDirectories);
         report.UnreadableFonts.AddRange(catalog.Unreadable);
 
@@ -156,7 +158,7 @@ public static class FontSubsetter
 
             foreach ((FontFace face, HashSet<int> chars) in faces)
             {
-                progress?.Report($"Subsetting {face} ({chars.Count} characters)…");
+                progress?.Report(Loc.T("subset.progress.subsetting", face, chars.Count));
                 byte[] source = Bytes(face.Path);
                 byte[] subset = HarfBuzzSubset.Subset(source, face.Index, chars);
 
@@ -184,7 +186,7 @@ public static class FontSubsetter
                 if (missingInSubset.Count > 0)
                 {
                     throw new InvalidOperationException(
-                        $"The subset of {face} lost {missingInSubset.Count} glyph(s), e.g. U+{missingInSubset.First():X4}.");
+                        Loc.T("subset.error.lostGlyphs", face, missingInSubset.Count, missingInSubset.First().ToString("X4", CultureInfo.InvariantCulture)));
                 }
 
                 if (missingInOriginal.Count > 0)
@@ -222,7 +224,7 @@ public static class FontSubsetter
             report.ScriptsWritten.Add(target);
         }
 
-        progress?.Report($"Done: {report.Fonts.Count} font(s), {report.ScriptsWritten.Count} script(s).");
+        progress?.Report(Loc.T("subset.progress.done", report.Fonts.Count, report.ScriptsWritten.Count));
         return report;
     }
 

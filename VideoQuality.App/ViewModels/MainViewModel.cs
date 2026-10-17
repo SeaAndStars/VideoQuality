@@ -18,6 +18,7 @@ using VideoQuality.Core.Jobs;
 using VideoQuality.Core.Models;
 using VideoQuality.Core.Scoring;
 using VideoQuality.Core.Settings;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.App.ViewModels;
 
@@ -214,7 +215,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public partial bool IsPlaying { get; set; }
 
     [ObservableProperty]
-    public partial string PlayPauseHint { get; set; } = "Play";
+    public partial string PlayPauseHint { get; set; } = Loc.T("compare.play");
 
     [ObservableProperty]
     public partial int CurrentFrame { get; set; }
@@ -241,22 +242,22 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public partial string SelectedModel { get; set; } = VmafModels.Default;
 
     [ObservableProperty]
-    public partial string Status { get; set; } = "Pick a reference, then add one or more encodes to compare.";
+    public partial string Status { get; set; } = Loc.T("compare.status.start");
 
     [ObservableProperty]
-    public partial string BackendStatus { get; set; } = "probing ffmpeg…";
+    public partial string BackendStatus { get; set; } = Loc.T("compare.backend.probing");
 
     [ObservableProperty]
-    public partial string ReferenceInfo { get; set; } = "no reference";
+    public partial string ReferenceInfo { get; set; } = Loc.T("compare.noReference");
 
     [ObservableProperty]
-    public partial string DistortedInfo { get; set; } = "no encode";
+    public partial string DistortedInfo { get; set; } = Loc.T("compare.noEncode");
 
     [ObservableProperty]
-    public partial string ReferenceName { get; set; } = "reference";
+    public partial string ReferenceName { get; set; } = Loc.T("compare.referenceName");
 
     [ObservableProperty]
-    public partial string EncodeName { get; set; } = "encode";
+    public partial string EncodeName { get; set; } = Loc.T("compare.encodeName");
 
     [ObservableProperty]
     public partial string ReferenceBadge { get; set; } = string.Empty;
@@ -324,7 +325,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     /// <summary>Centre of the title bar: what is being compared.</summary>
     public string ComparisonTitle => HasReference
-        ? $"{ReferenceName}  ·  {Encodes.Count} encode{(Encodes.Count == 1 ? string.Empty : "s")}"
+        ? Loc.T(Encodes.Count == 1 ? "compare.title.one" : "compare.title.many", ReferenceName, Encodes.Count)
         : string.Empty;
 
     /// <summary>Taskbar / Alt-Tab title.</summary>
@@ -351,8 +352,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public WriteableBitmap? SingleBitmap => FlickerShowsDistorted ? DistortedBitmap : ReferenceBitmap;
 
     public string RightPaneTitle => IsDifference
-        ? $"DIFFERENCE  ×{DifferenceGain:0.#}  ·  {ChannelLabel}"
-        : "ENCODE";
+        ? Loc.T("compare.pane.difference", DifferenceGain.ToString("0.#", CultureInfo.InvariantCulture), ChannelLabel)
+        : Loc.T("compare.pane.encode");
 
     public string DifferenceLegend
     {
@@ -365,20 +366,20 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 DifferenceChannels.Chroma => "ΔC",
                 _ => "ΔY/C",
             };
-            return $"{channel} 0–{top} · gain {DifferenceGain:0.#}×";
+            return Loc.T("compare.difference.legend", channel, top, DifferenceGain.ToString("0.#", CultureInfo.InvariantCulture));
         }
     }
 
     public string ChannelLabel => DifferenceChannels switch
     {
-        DifferenceChannels.Luma => "luma",
-        DifferenceChannels.Chroma => "chroma",
-        _ => "luma + chroma",
+        DifferenceChannels.Luma => Loc.T("compare.channel.luma"),
+        DifferenceChannels.Chroma => Loc.T("compare.channel.chroma"),
+        _ => Loc.T("compare.channel.both"),
     };
 
     public string SinglePaneTitle => IsWipe
-        ? "WIPE  —  drag the divider"
-        : "FLICKER  —  hold F to reveal the encode";
+        ? Loc.T("compare.pane.wipe")
+        : Loc.T("compare.pane.flicker");
 
     public double CurrentFrameValue
     {
@@ -399,10 +400,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             string label = VmafModels.DisplayName(Report?.Model ?? SelectedModel);
             return Frames.Count == 0
-                ? $"frame    —  /    —     {label}      —"
-                : string.Format(
-                    CultureInfo.InvariantCulture,
-                    "frame {0,4} / {1,-4}   {2} {3,6:F2}",
+                ? Loc.T("compare.frameText.empty", label)
+                : Loc.T(
+                    "compare.frameText",
                     CurrentFrame + 1,
                     Frames.Count,
                     label,
@@ -422,9 +422,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             }
 
             VmafStats stats = report.Stats;
-            return string.Format(
-                CultureInfo.InvariantCulture,
-                "mean {0,6:F2}   hmean {1,6:F2}   p1 {2,6:F2}   min {3,6:F2}   max {4,6:F2}   σ {5,5:F2}   {6} · {7}",
+            return Loc.T(
+                "compare.statsText",
                 stats.Mean,
                 stats.HarmonicMean,
                 stats.P1,
@@ -508,13 +507,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             OnPropertyChanged(nameof(HasReferenceBadge));
 
             Status = Encodes.Count == 0
-                ? "Reference loaded. Add one or more encodes."
-                : "Reference loaded.";
+                ? Loc.T("compare.status.referenceLoadedAdd")
+                : Loc.T("compare.status.referenceLoaded");
         }
         catch (Exception ex)
         {
-            ReferenceInfo = "no reference";
-            Status = "Could not open reference: " + ex.Message;
+            ReferenceInfo = Loc.T("compare.noReference");
+            Status = Loc.T("compare.status.referenceFailed", ex.Message);
         }
         finally
         {
@@ -537,7 +536,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         Job job = _jobs.Enqueue(new Job
         {
-            Title = $"Index reference {Path.GetFileName(path)}",
+            Title = Loc.T("compare.job.indexReference", Path.GetFileName(path)),
             Kind = JobKind.Index,
             Work = (_, _, token) => Task.Run(() => count = PacketIndex.Build(path).FrameCount, token),
         });
@@ -568,16 +567,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             string lines = string.Join(Environment.NewLine, plan.Rejected
                 .Take(4)
-                .Select(r => $"{(r.Path.Length > 0 ? Path.GetFileName(r.Path) : "item")} — {r.Reason}"));
-            string more = plan.Rejected.Count > 4 ? $"{Environment.NewLine}…and {plan.Rejected.Count - 4} more" : string.Empty;
-            Toast(ToastKind.Warning, $"Skipped {plan.Rejected.Count} item(s):{Environment.NewLine}{lines}{more}");
+                .Select(r => $"{(r.Path.Length > 0 ? Path.GetFileName(r.Path) : Loc.T("compare.drop.item"))} — {r.Reason}"));
+            string more = plan.Rejected.Count > 4 ? Environment.NewLine + Loc.T("compare.drop.more", plan.Rejected.Count - 4) : string.Empty;
+            Toast(ToastKind.Warning, Loc.T("compare.drop.skipped", plan.Rejected.Count) + Environment.NewLine + lines + more);
         }
 
         if (plan.Duplicates.Count > 0)
         {
             Toast(ToastKind.Info, plan.Duplicates.Count == 1
-                ? $"{Path.GetFileName(plan.Duplicates[0])} is already loaded."
-                : $"{plan.Duplicates.Count} files are already loaded.");
+                ? Loc.T("compare.drop.duplicate", Path.GetFileName(plan.Duplicates[0]))
+                : Loc.T("compare.drop.duplicates", plan.Duplicates.Count));
         }
 
         if (plan.IsEmpty)
@@ -594,9 +593,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             {
                 int affected = Encodes.Count(e => !string.Equals(e.Path, plan.Reference, StringComparison.Ordinal));
                 rescore = ConfirmAsync is null || await ConfirmAsync(
-                    $"Re-score {affected} encode(s)?",
-                    $"The reference is changing to {Path.GetFileName(plan.Reference)}, so every existing score is stale. " +
-                    "Re-score them now? Choose No to keep them marked stale.").ConfigureAwait(true);
+                    Loc.T("compare.confirmRescore.title", affected),
+                    Loc.T("compare.confirmRescore.message", Path.GetFileName(plan.Reference))).ConfigureAwait(true);
             }
 
             // A file that was an encode is now the reference; it leaves the table.
@@ -646,13 +644,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         if (plan.ReferenceOverflowed)
         {
             Toast(ToastKind.Info,
-                $"{Path.GetFileName(plan.Reference)} is the reference; {added.Count} other file(s) were queued as encodes.",
-                "Undo",
+                Loc.T("compare.drop.referenceOverflow", Path.GetFileName(plan.Reference), added.Count),
+                Loc.T("common.undo"),
                 () => _ = UndoDropAsync(previousReference, added));
         }
         else if (!HasReference && added.Count > 0)
         {
-            Status = "Encodes are queued. Drop a reference to start scoring.";
+            Status = Loc.T("compare.status.encodesQueued");
         }
 
         OnPropertyChanged(nameof(HasStaleEncodes));
@@ -706,7 +704,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             await SetReferenceAsync(previousReference).ConfigureAwait(true);
         }
 
-        Status = "Drop undone.";
+        Status = Loc.T("compare.status.dropUndone");
     }
 
     private void ClearReference()
@@ -715,8 +713,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         _referenceDecoder = null;
         _referencePacketCount = 0;
         ReferencePath = null;
-        ReferenceInfo = "no reference";
-        ReferenceName = "reference";
+        ReferenceInfo = Loc.T("compare.noReference");
+        ReferenceName = Loc.T("compare.referenceName");
         ReferenceBadge = string.Empty;
         ReferenceBitmap = null;
         _lastReferenceFrame = null;
@@ -750,7 +748,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
             Job indexJob = _jobs.Enqueue(new Job
             {
-                Title = $"Index {entry.Name}",
+                Title = Loc.T("compare.job.index", entry.Name),
                 Kind = JobKind.Index,
                 Subject = entry,
                 Work = (_, _, token) => Task.Run(() =>
@@ -773,7 +771,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             if (indexJob.State != JobState.Succeeded || probe is null || index is null)
             {
                 entry.State = indexJob.State == JobState.Cancelled ? EncodeState.Cancelled : EncodeState.Failed;
-                entry.Error = indexJob.Error ?? "could not read the file";
+                entry.Error = indexJob.Error ?? Loc.T("compare.error.unreadable");
                 UpdateJobSummary();
                 return;
             }
@@ -828,7 +826,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         Job job = _jobs.Enqueue(new Job
         {
-            Title = $"Score {entry.Name}",
+            Title = Loc.T("compare.job.score", entry.Name),
             Kind = JobKind.Score,
             Subject = entry,
             Work = async (_, _, token) =>
@@ -901,7 +899,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             entry.State = EncodeState.Failed;
             entry.Error = FirstLine(job.Error);
-            Toast(ToastKind.Error, $"Scoring {entry.Name} failed: {entry.Error}");
+            Toast(ToastKind.Error, Loc.T("compare.toast.scoreFailed", entry.Name, entry.Error));
         }
 
         UpdateJobSummary();
@@ -931,8 +929,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             if (done > 0 && Encodes.All(e => !e.IsBusy))
             {
                 int failed = Encodes.Count(e => e.IsFailed);
-                Status = $"Scored {done} encode(s) against {ReferenceName}." +
-                         (failed > 0 ? $" {failed} failed." : string.Empty) +
+                Status = Loc.T("compare.status.scored", done, ReferenceName) +
+                         (failed > 0 ? Loc.T("compare.status.failedCount", failed) : string.Empty) +
                          (SelectedEncode is { } selected ? ScoreNote(selected) : string.Empty);
             }
 
@@ -947,9 +945,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         int total = finished + busy.Count;
         ProgressDetail = scoring.Count switch
         {
-            0 => $"Preparing {busy.Count} encode(s)…",
-            1 => $"Scoring {scoring[0].Name} · {finished + 1} of {total}",
-            _ => $"Scoring {scoring.Count} at once · {finished + scoring.Count} of {total}",
+            0 => Loc.T("compare.progress.preparing", busy.Count),
+            1 => Loc.T("compare.progress.scoringOne", scoring[0].Name, finished + 1, total),
+            _ => Loc.T("compare.progress.scoringMany", scoring.Count, finished + scoring.Count, total),
         };
         Status = ProgressDetail;
     }
@@ -980,7 +978,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         if (string.IsNullOrEmpty(text))
         {
-            return "unknown error";
+            return Loc.T("common.unknownError");
         }
 
         int newline = text.IndexOfAny(['\r', '\n']);
@@ -1072,9 +1070,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         if (mixed)
         {
-            Status = "Warning: encodes were scored with different models (" +
-                     string.Join(", ", models.Select(VmafModels.ShortName)) +
-                     "). Curves are not comparable; re-score them with one model.";
+            Status = Loc.T("compare.status.mixedModels", string.Join(", ", models.Select(VmafModels.ShortName)));
         }
     }
 
@@ -1179,7 +1175,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         _ = LoadFrameAsync();
     }
 
-    partial void OnIsPlayingChanged(bool value) => PlayPauseHint = value ? "Pause" : "Play";
+    partial void OnIsPlayingChanged(bool value) => PlayPauseHint = Loc.T(value ? "compare.pause" : "compare.play");
 
     partial void OnIsBusyChanged(bool value) => AnalyzeCommand.NotifyCanExecuteChanged();
 
@@ -1233,7 +1229,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         if (!HasReference)
         {
-            Status = "Drop a reference first.";
+            Status = Loc.T("compare.status.needReference");
             return Task.CompletedTask;
         }
 
@@ -1260,19 +1256,19 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         if (report.FellBackToCpu)
         {
-            string reason = report.FallbackReason ?? "unknown error";
+            string reason = report.FallbackReason ?? Loc.T("common.unknownError");
             int newline = reason.IndexOfAny(['\r', '\n']);
             if (newline >= 0)
             {
                 reason = reason[..newline];
             }
 
-            return $" CUDA scoring failed; fell back to CPU ({reason}).";
+            return " " + Loc.T("compare.note.cudaFallback", reason);
         }
 
         if (report.ConvertedTo8Bit)
         {
-            return " 10-bit input was converted to 8-bit on the GPU; choose CPU for full precision.";
+            return " " + Loc.T("compare.note.converted8Bit");
         }
 
         return string.Empty;
@@ -1368,15 +1364,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             }
             else
             {
-                DistortedInfo = "no encode";
-                EncodeName = "encode";
+                DistortedInfo = Loc.T("compare.noEncode");
+                EncodeName = Loc.T("compare.encodeName");
                 EncodeBadge = string.Empty;
             }
         }
         catch (Exception ex)
         {
-            DistortedInfo = "no encode";
-            Status = "Could not open encode: " + ex.Message;
+            DistortedInfo = Loc.T("compare.noEncode");
+            Status = Loc.T("compare.status.encodeFailed", ex.Message);
         }
         finally
         {
@@ -1392,13 +1388,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             !string.IsNullOrEmpty(encode.ColorSpace) &&
             !string.Equals(reference.ColorSpace, encode.ColorSpace, StringComparison.Ordinal))
         {
-            Status = $"Warning: color matrices differ (reference {reference.ColorSpace}, encode {encode.ColorSpace}).";
+            Status = Loc.T("compare.warning.colorMatrix", reference.ColorSpace, encode.ColorSpace);
         }
         else if (!string.IsNullOrEmpty(reference.ColorRange) &&
                  !string.IsNullOrEmpty(encode.ColorRange) &&
                  !string.Equals(reference.ColorRange, encode.ColorRange, StringComparison.Ordinal))
         {
-            Status = $"Warning: color ranges differ (reference {reference.ColorRange}, encode {encode.ColorRange}).";
+            Status = Loc.T("compare.warning.colorRange", reference.ColorRange, encode.ColorRange);
         }
     }
 
@@ -1460,7 +1456,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex)
         {
-            Status = "Decode failed: " + ex.Message;
+            Status = Loc.T("compare.status.decodeFailed", ex.Message);
         }
         finally
         {
@@ -1551,12 +1547,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             BackendStatus = capabilities.Describe();
             if (!capabilities.HasLibvmaf && !capabilities.HasLibvmafCuda)
             {
-                BackendStatus += " — this ffmpeg has no VMAF";
+                BackendStatus += " — " + Loc.T("compare.backend.noVmaf");
             }
         }
         catch (Exception ex)
         {
-            BackendStatus = "probe failed: " + ex.Message;
+            BackendStatus = Loc.T("compare.backend.probeFailed", ex.Message);
         }
     }
 

@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using VideoQuality.Core.Decoding;
 using VideoQuality.Core.Diagnostics;
 using VideoQuality.Core.Models;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.Core.Scoring;
 
@@ -63,12 +64,12 @@ public static partial class VmafRunner
 
         if (!File.Exists(reference))
         {
-            throw new FileNotFoundException($"Reference video not found: {reference}", reference);
+            throw new FileNotFoundException(Loc.T("vmaf.error.referenceMissing", reference), reference);
         }
 
         if (!File.Exists(distorted))
         {
-            throw new FileNotFoundException($"Distorted video not found: {distorted}", distorted);
+            throw new FileNotFoundException(Loc.T("vmaf.error.encodeMissing", distorted), distorted);
         }
 
         options ??= new VmafOptions();
@@ -436,8 +437,7 @@ public static partial class VmafRunner
             case VmafBackend.Cpu:
                 if (!capabilities.HasLibvmaf)
                 {
-                    throw new InvalidOperationException(
-                        "This ffmpeg build has no libvmaf filter. Use an ffmpeg built with --enable-libvmaf.");
+                    throw new InvalidOperationException(Loc.T("vmaf.error.noLibvmaf"));
                 }
 
                 return VmafExecutionBackend.Cpu;
@@ -457,9 +457,7 @@ public static partial class VmafRunner
                     return VmafExecutionBackend.Cpu;
                 }
 
-                throw new InvalidOperationException(
-                    "This ffmpeg build has no libvmaf filter. Use an ffmpeg built with --enable-libvmaf " +
-                    $"(or --enable-libvmaf-cuda for GPU scoring). Detected: {capabilities.Describe()}.");
+                throw new InvalidOperationException(Loc.T("vmaf.error.noVmaf", capabilities.Describe()));
         }
     }
 
@@ -473,15 +471,15 @@ public static partial class VmafRunner
         var reasons = new List<string>();
         if (!capabilities.HasLibvmafCuda)
         {
-            reasons.Add("ffmpeg has no libvmaf_cuda filter (rebuild with --enable-libvmaf-cuda --enable-cuda-nvcc --enable-nonfree)");
+            reasons.Add(Loc.T("vmaf.error.noCudaFilter"));
         }
 
         if (!capabilities.HasNvidiaGpu)
         {
-            reasons.Add("no NVIDIA GPU was detected (nvidia-smi failed)");
+            reasons.Add(Loc.T("vmaf.error.noGpu"));
         }
 
-        throw new InvalidOperationException("GPU VMAF is not available: " + string.Join("; ", reasons) + ".");
+        throw new InvalidOperationException(Loc.T("vmaf.error.gpuUnavailable", string.Join("; ", reasons)));
     }
 
     private static async Task ExecuteAsync(

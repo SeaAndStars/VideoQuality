@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:VideoQuality.App.Localization"
              xmlns:vm="using:VideoQuality.App.ViewModels"
              xmlns:conv="using:VideoQuality.App.Converters"
              xmlns:u="https://irihi.tech/ursa"
@@ -13,20 +14,20 @@
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
                     <Border Classes="pageicon"><ic:SymbolIcon Symbol="FlowchartCircle" /></Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                        <TextBlock Classes="pagetitle" Text="Release pipeline" />
-                        <TextBlock Classes="pagesub" Text="One pass from encode to release: subset fonts, mux, verify, then score against the source." />
+                        <TextBlock Classes="pagetitle" Text="{l:L pipeline.releasePipeline}" />
+                        <TextBlock Classes="pagesub" Text="{l:L pipeline.onePassFromEncode}" />
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <u:IconButton Classes="tool" Content="Clear" Command="{Binding ClearCommand}">
+                        <u:IconButton Classes="tool" Content="{l:L common.clear}" Command="{Binding ClearCommand}">
                             <u:IconButton.Icon><ic:SymbolIcon Symbol="Dismiss" /></u:IconButton.Icon>
                         </u:IconButton>
-                        <u:IconButton Classes="tool" Content="Open in Compare" Command="{Binding OpenInCompareCommand}">
+                        <u:IconButton Classes="tool" Content="{l:L pipeline.openInCompare}" Command="{Binding OpenInCompareCommand}">
                             <u:IconButton.Icon><ic:SymbolIcon Symbol="DataLine" /></u:IconButton.Icon>
                         </u:IconButton>
                         <Button Classes="primary" Command="{Binding RunCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <ic:SymbolIcon Symbol="Play" FontSize="16" />
-                                <TextBlock Text="Run" VerticalAlignment="Center" />
+                                <TextBlock Text="{l:L pipeline.run}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
@@ -34,38 +35,38 @@
             </Border>
 
             <u:Banner Grid.Row="1" Type="Warning" IsVisible="{Binding !Settings.HasMkvToolNix}"
-                      Header="mkvtoolnix not found"
-                      Content="The mux and verify steps need MKVToolNix (mkvtoolnix.download). Set its folder in Settings." />
+                      Header="{l:L common.mkvtoolnixNotFound}"
+                      Content="{l:L pipeline.mkvtoolnixMissingHint}" />
 
             <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="12">
                 <Border Classes="surface">
                     <ScrollViewer>
                         <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto"
                               RowSpacing="6" ColumnSpacing="6" Margin="12,0,12,12">
-                            <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="INPUTS" /></Grid>
+                            <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="{l:L pipeline.inputs}" /></Grid>
 
-                            <TextBlock Grid.Row="1" Classes="label" Text="ENCODED VIDEO" />
-                            <TextBox Grid.Row="2" Text="{Binding Video}" Watermark="episode.mkv / .mp4 / .hevc" />
-                            <Button Grid.Row="2" Grid.Column="1" Classes="tool" Click="OnPickVideo" ToolTip.Tip="Choose video">
+                            <TextBlock Grid.Row="1" Classes="label" Text="{l:L pipeline.encodedVideo}" />
+                            <TextBox Grid.Row="2" Text="{Binding Video}" Watermark="{l:L pipeline.episodeMkvMp4Hevc}" />
+                            <Button Grid.Row="2" Grid.Column="1" Classes="tool" Click="OnPickVideo" ToolTip.Tip="{l:L pipeline.chooseVideo}">
                                 <ic:SymbolIcon Symbol="FolderOpen" />
                             </Button>
 
-                            <TextBlock Grid.Row="3" Classes="label" Text="REFERENCE (OPTIONAL, FOR VMAF)" Margin="0,4,0,0" />
-                            <TextBox Grid.Row="4" Text="{Binding Reference}" Watermark="source / remux" />
-                            <Button Grid.Row="4" Grid.Column="1" Classes="tool" Click="OnPickReference" ToolTip.Tip="Choose reference">
+                            <TextBlock Grid.Row="3" Classes="label" Text="{l:L pipeline.referenceOptionalForVmaf}" Margin="0,4,0,0" />
+                            <TextBox Grid.Row="4" Text="{Binding Reference}" Watermark="{l:L pipeline.sourceRemux}" />
+                            <Button Grid.Row="4" Grid.Column="1" Classes="tool" Click="OnPickReference" ToolTip.Tip="{l:L common.chooseReference}">
                                 <ic:SymbolIcon Symbol="FolderOpen" />
                             </Button>
 
                             <Grid Grid.Row="5" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" Margin="0,4,0,0">
-                                <TextBlock Classes="label" Text="SCRIPTS" VerticalAlignment="Center" />
-                                <Button Grid.Column="1" Classes="rowaction" Click="OnAddScripts" ToolTip.Tip="Add scripts">
+                                <TextBlock Classes="label" Text="{l:L common.scripts}" VerticalAlignment="Center" />
+                                <Button Grid.Column="1" Classes="rowaction" Click="OnAddScripts" ToolTip.Tip="{l:L common.addScripts}">
                                     <ic:SymbolIcon Symbol="Add" />
                                 </Button>
                             </Grid>
                             <Border Grid.Row="6" Grid.ColumnSpan="2" Background="{DynamicResource SemiColorFill0}"
                                     CornerRadius="{StaticResource VqRadiusControl}" MinHeight="44" Padding="4">
                                 <Panel>
-                                    <TextBlock Classes="muted" FontSize="12" Text="Drop .ass scripts here (JPSC, JPTC…)" Margin="6,0"
+                                    <TextBlock Classes="muted" FontSize="12" Text="{l:L pipeline.dropAssScriptsHere}" Margin="6,0"
                                                VerticalAlignment="Center" IsVisible="{Binding !Scripts.Count}" />
                                     <ItemsControl ItemsSource="{Binding Scripts}">
                                         <ItemsControl.ItemTemplate>
@@ -75,7 +76,7 @@
                                                         <ic:SymbolIcon Symbol="Subtitles" FontSize="16" />
                                                         <TextBlock Grid.Column="1" Text="{Binding Converter={x:Static conv:PathConverters.FileName}}" FontSize="12" TextTrimming="CharacterEllipsis"
                                                                    VerticalAlignment="Center" ToolTip.Tip="{Binding}" />
-                                                        <Button Grid.Column="2" Classes="rowaction" ToolTip.Tip="Remove"
+                                                        <Button Grid.Column="2" Classes="rowaction" ToolTip.Tip="{l:L common.remove}"
                                                                 Command="{Binding $parent[UserControl].((vm:PipelineViewModel)DataContext).RemoveScriptCommand}"
                                                                 CommandParameter="{Binding}">
                                                             <ic:SymbolIcon Symbol="Dismiss" />
@@ -88,27 +89,27 @@
                                 </Panel>
                             </Border>
 
-                            <TextBlock Grid.Row="7" Classes="label" Text="FONT FOLDER" Margin="0,4,0,0" />
-                            <TextBox Grid.Row="8" Text="{Binding FontDirectory}" Watermark="folder with the fonts the scripts use" />
-                            <Button Grid.Row="8" Grid.Column="1" Classes="tool" Click="OnPickFonts" ToolTip.Tip="Choose folder">
+                            <TextBlock Grid.Row="7" Classes="label" Text="{l:L common.fontFolder}" Margin="0,4,0,0" />
+                            <TextBox Grid.Row="8" Text="{Binding FontDirectory}" Watermark="{l:L pipeline.folderWithTheFonts}" />
+                            <Button Grid.Row="8" Grid.Column="1" Classes="tool" Click="OnPickFonts" ToolTip.Tip="{l:L common.chooseFolder}">
                                 <ic:SymbolIcon Symbol="FolderOpen" />
                             </Button>
 
-                            <TextBlock Grid.Row="9" Classes="label" Text="OUTPUT MKV" Margin="0,4,0,0" />
-                            <TextBox Grid.Row="10" Text="{Binding Output}" Watermark="episode.release.mkv" />
-                            <Button Grid.Row="10" Grid.Column="1" Classes="tool" Click="OnPickOutput" ToolTip.Tip="Choose file">
+                            <TextBlock Grid.Row="9" Classes="label" Text="{l:L pipeline.outputMkv}" Margin="0,4,0,0" />
+                            <TextBox Grid.Row="10" Text="{Binding Output}" Watermark="{l:L pipeline.episodeReleaseMkv}" />
+                            <Button Grid.Row="10" Grid.Column="1" Classes="tool" Click="OnPickOutput" ToolTip.Tip="{l:L common.chooseFile}">
                                 <ic:SymbolIcon Symbol="Save" />
                             </Button>
 
-                            <TextBlock Grid.Row="11" Classes="label" Text="TITLE" Margin="0,4,0,0" />
-                            <TextBox Grid.Row="12" Grid.ColumnSpan="2" Text="{Binding Title}" Watermark="Segment title (optional)" />
+                            <TextBlock Grid.Row="11" Classes="label" Text="{l:L common.title}" Margin="0,4,0,0" />
+                            <TextBox Grid.Row="12" Grid.ColumnSpan="2" Text="{Binding Title}" Watermark="{l:L common.segmentTitleOptional}" />
                         </Grid>
                     </ScrollViewer>
                 </Border>
 
                 <Border Grid.Column="1" Classes="surface">
                     <Grid RowDefinitions="Auto,*" Margin="12,0,12,12">
-                        <Grid Classes="cardheader"><TextBlock Classes="label" Text="STEPS" /></Grid>
+                        <Grid Classes="cardheader"><TextBlock Classes="label" Text="{l:L pipeline.steps}" /></Grid>
                         <ScrollViewer Grid.Row="1">
                             <ItemsControl ItemsSource="{Binding Steps}">
                                 <ItemsControl.ItemTemplate>

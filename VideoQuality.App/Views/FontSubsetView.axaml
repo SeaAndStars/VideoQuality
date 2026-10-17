@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:VideoQuality.App.Localization"
              xmlns:vm="using:VideoQuality.App.ViewModels"
              xmlns:conv="using:VideoQuality.App.Converters"
              xmlns:u="https://irihi.tech/ursa"
@@ -14,20 +15,20 @@
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
                     <Border Classes="pageicon"><ic:SymbolIcon Symbol="TextFont" /></Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                        <TextBlock Classes="pagetitle" Text="Font Subset" />
-                        <TextBlock Classes="pagesub" Text="Subset and rename the fonts your ASS scripts draw, so a release ships only the glyphs it uses." />
+                        <TextBlock Classes="pagetitle" Text="{l:L subset.fontSubset}" />
+                        <TextBlock Classes="pagesub" Text="{l:L subset.subsetAndRenameThe}" />
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <u:IconButton Classes="tool" Content="Add scripts" Click="OnAddScripts" AutomationProperties.Name="Add scripts">
+                        <u:IconButton Classes="tool" Content="{l:L common.addScripts}" Click="OnAddScripts" AutomationProperties.Name="{l:L common.addScripts}">
                             <u:IconButton.Icon><ic:SymbolIcon Symbol="Add" /></u:IconButton.Icon>
                         </u:IconButton>
-                        <u:IconButton Classes="tool" Content="Clear" Command="{Binding ClearCommand}">
+                        <u:IconButton Classes="tool" Content="{l:L common.clear}" Command="{Binding ClearCommand}">
                             <u:IconButton.Icon><ic:SymbolIcon Symbol="Dismiss" /></u:IconButton.Icon>
                         </u:IconButton>
-                        <Button Classes="primary" Command="{Binding RunCommand}" AutomationProperties.Name="Run subset">
+                        <Button Classes="primary" Command="{Binding RunCommand}" AutomationProperties.Name="{l:L subset.runSubset}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <ic:SymbolIcon Symbol="Play" IconVariant="Filled" FontSize="16" />
-                                <TextBlock Text="Subset" VerticalAlignment="Center" />
+                                <TextBlock Text="{l:L subset.subset}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
@@ -39,13 +40,13 @@
                 <Border Classes="surface">
                     <Grid RowDefinitions="Auto,*,Auto" Margin="12,0,12,12">
                         <Grid Classes="cardheader">
-                            <TextBlock Classes="label" Text="SCRIPTS" />
+                            <TextBlock Classes="label" Text="{l:L common.scripts}" />
                         </Grid>
                         <Panel Grid.Row="1">
                             <StackPanel IsVisible="{Binding !HasScripts}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
                                 <ic:SymbolIcon Symbol="DocumentArrowDown" FontSize="36" Foreground="{DynamicResource SemiColorText2}" />
                                 <TextBlock Classes="muted" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="280"
-                                           Text="Drop .ass files, or the folder that holds them and their Fonts folder." />
+                                           Text="{l:L subset.dropAssFilesOr}" />
                             </StackPanel>
                             <ScrollViewer IsVisible="{Binding HasScripts}">
                                 <ItemsControl ItemsSource="{Binding Scripts}">
@@ -56,7 +57,7 @@
                                                     <ic:SymbolIcon Symbol="ClosedCaption" FontSize="16" />
                                                     <TextBlock Grid.Column="1" Text="{Binding Converter={x:Static conv:PathConverters.FileName}}" TextTrimming="CharacterEllipsis"
                                                                VerticalAlignment="Center" FontSize="12" ToolTip.Tip="{Binding}" />
-                                                    <Button Grid.Column="2" Classes="rowaction" ToolTip.Tip="Remove"
+                                                    <Button Grid.Column="2" Classes="rowaction" ToolTip.Tip="{l:L common.remove}"
                                                             Command="{Binding $parent[UserControl].((vm:FontSubsetViewModel)DataContext).RemoveScriptCommand}"
                                                             CommandParameter="{Binding}">
                                                         <ic:SymbolIcon Symbol="Dismiss" />
@@ -69,14 +70,14 @@
                             </ScrollViewer>
                         </Panel>
                         <Grid Grid.Row="2" RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="6" ColumnSpacing="6" Margin="0,10,0,0">
-                            <TextBlock Classes="label" Text="FONT FOLDER" />
-                            <TextBox Grid.Row="1" Text="{Binding FontDirectory}" Watermark="Folder with the fonts the scripts use" />
-                            <Button Grid.Row="1" Grid.Column="1" Classes="tool" Click="OnPickFontFolder" ToolTip.Tip="Choose folder">
+                            <TextBlock Classes="label" Text="{l:L common.fontFolder}" />
+                            <TextBox Grid.Row="1" Text="{Binding FontDirectory}" Watermark="{l:L subset.folderWithTheFonts}" />
+                            <Button Grid.Row="1" Grid.Column="1" Classes="tool" Click="OnPickFontFolder" ToolTip.Tip="{l:L common.chooseFolder}">
                                 <ic:SymbolIcon Symbol="FolderOpen" />
                             </Button>
-                            <TextBlock Grid.Row="2" Classes="label" Text="OUTPUT FOLDER" Margin="0,6,0,0" />
-                            <TextBox Grid.Row="3" Text="{Binding OutputDirectory}" Watermark="Renamed scripts here, fonts in its fonts/ folder" />
-                            <Button Grid.Row="3" Grid.Column="1" Classes="tool" Click="OnPickOutputFolder" ToolTip.Tip="Choose folder">
+                            <TextBlock Grid.Row="2" Classes="label" Text="{l:L subset.outputFolder}" Margin="0,6,0,0" />
+                            <TextBox Grid.Row="3" Text="{Binding OutputDirectory}" Watermark="{l:L subset.renamedScriptsHereFonts}" />
+                            <Button Grid.Row="3" Grid.Column="1" Classes="tool" Click="OnPickOutputFolder" ToolTip.Tip="{l:L common.chooseFolder}">
                                 <ic:SymbolIcon Symbol="FolderOpen" />
                             </Button>
                         </Grid>
@@ -87,21 +88,21 @@
                 <Border Grid.Column="1" Classes="surface">
                     <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="12,0,12,12">
                         <Grid Classes="cardheader" ColumnDefinitions="*,Auto">
-                            <TextBlock Classes="label" Text="SUBSET FONTS" />
+                            <TextBlock Classes="label" Text="{l:L subset.subsetFonts}" />
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasResult}">
-                                <u:IconButton Classes="tool" Content="Open folder" Click="OnOpenOutput">
+                                <u:IconButton Classes="tool" Content="{l:L common.openFolder}" Click="OnOpenOutput">
                                     <u:IconButton.Icon><ic:SymbolIcon Symbol="FolderOpen" /></u:IconButton.Icon>
                                 </u:IconButton>
-                                <u:IconButton Classes="tool" Content="Send to Mux" Command="{Binding SendToMuxCommand}">
+                                <u:IconButton Classes="tool" Content="{l:L subset.sendToMux}" Command="{Binding SendToMuxCommand}">
                                     <u:IconButton.Icon><ic:SymbolIcon Symbol="Merge" /></u:IconButton.Icon>
                                 </u:IconButton>
                             </StackPanel>
                         </Grid>
                         <Grid Grid.Row="1" ColumnDefinitions="96,*,64,150" ColumnSpacing="10" Margin="10,0,10,4" IsVisible="{Binding HasResult}">
-                            <TextBlock Classes="label" Text="NEW NAME" />
-                            <TextBlock Grid.Column="1" Classes="label" Text="ORIGINAL" />
-                            <TextBlock Grid.Column="2" Classes="label" Text="CHARS" HorizontalAlignment="Right" />
-                            <TextBlock Grid.Column="3" Classes="label" Text="SIZE" HorizontalAlignment="Right" />
+                            <TextBlock Classes="label" Text="{l:L subset.newName}" />
+                            <TextBlock Grid.Column="1" Classes="label" Text="{l:L subset.original}" />
+                            <TextBlock Grid.Column="2" Classes="label" Text="{l:L subset.chars}" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="3" Classes="label" Text="{l:L subset.size}" HorizontalAlignment="Right" />
                         </Grid>
                         <ScrollViewer Grid.Row="2">
                             <StackPanel Spacing="8">

@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using VideoQuality.App.Services;
 using VideoQuality.App.ViewModels;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.App.Views;
 
@@ -20,11 +21,11 @@ public partial class FontSubsetView : UserControl
     private FontSubsetViewModel? ViewModel => DataContext as FontSubsetViewModel;
 
     private async void OnAddScripts(object? sender, RoutedEventArgs e) =>
-        ViewModel?.AddPaths(await PageIo.PickFilesAsync(this, "Add ASS scripts", true, ("ASS/SSA scripts", ["*.ass", "*.ssa"])));
+        ViewModel?.AddPaths(await PageIo.PickFilesAsync(this, Loc.T("picker.addScripts"), true, (Loc.T("picker.type.scripts"), ["*.ass", "*.ssa"])));
 
     private async void OnPickFontFolder(object? sender, RoutedEventArgs e)
     {
-        if (await PageIo.PickFolderAsync(this, "Folder with the fonts") is { } folder && ViewModel is { } vm)
+        if (await PageIo.PickFolderAsync(this, Loc.T("picker.fontFolder")) is { } folder && ViewModel is { } vm)
         {
             vm.FontDirectory = folder;
         }
@@ -32,7 +33,7 @@ public partial class FontSubsetView : UserControl
 
     private async void OnPickOutputFolder(object? sender, RoutedEventArgs e)
     {
-        if (await PageIo.PickFolderAsync(this, "Output folder") is { } folder && ViewModel is { } vm)
+        if (await PageIo.PickFolderAsync(this, Loc.T("picker.outputFolder")) is { } folder && ViewModel is { } vm)
         {
             vm.OutputDirectory = folder;
         }

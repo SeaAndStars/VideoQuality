@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using VideoQuality.App.Services;
 using VideoQuality.App.ViewModels;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.App.Views;
 
@@ -23,7 +24,7 @@ public partial class ExtractView : UserControl
 
     private async void OnOpen(object? sender, RoutedEventArgs e)
     {
-        IReadOnlyList<string> files = await PageIo.PickFilesAsync(this, "Open a video", false);
+        IReadOnlyList<string> files = await PageIo.PickFilesAsync(this, Loc.T("extract.picker.open"), false);
         if (files.Count > 0 && ViewModel is { } vm)
         {
             await vm.OpenAsync(files[0]);
@@ -32,7 +33,7 @@ public partial class ExtractView : UserControl
 
     private async void OnPickOutput(object? sender, RoutedEventArgs e)
     {
-        if (await PageIo.PickFolderAsync(this, "Extract into") is { } folder && ViewModel is { } vm)
+        if (await PageIo.PickFolderAsync(this, Loc.T("extract.picker.output")) is { } folder && ViewModel is { } vm)
         {
             vm.OutputDirectory = folder;
         }

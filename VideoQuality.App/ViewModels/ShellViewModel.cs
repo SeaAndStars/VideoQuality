@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using FluentIcons.Common;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.App.ViewModels;
 
@@ -24,13 +25,13 @@ public partial class ShellViewModel : ObservableObject, IDisposable
 
         Pages =
         [
-            new NavPage("compare", "Compare", Symbol.DataLine, Compare),
-            new NavPage("subset", "Font Subset", Symbol.TextFont, FontSubset),
-            new NavPage("extract", "Extract", Symbol.ArrowExportUp, Extract),
-            new NavPage("mux", "Mux", Symbol.Merge, Mux),
-            new NavPage("pipeline", "Pipeline", Symbol.FlowchartCircle, Pipeline),
+            new NavPage("compare", Loc.T("nav.compare"), Symbol.DataLine, Compare),
+            new NavPage("subset", Loc.T("nav.subset"), Symbol.TextFont, FontSubset),
+            new NavPage("extract", Loc.T("nav.extract"), Symbol.ArrowExportUp, Extract),
+            new NavPage("mux", Loc.T("nav.mux"), Symbol.Merge, Mux),
+            new NavPage("pipeline", Loc.T("nav.pipeline"), Symbol.FlowchartCircle, Pipeline),
         ];
-        SettingsPage = new NavPage("settings", "Settings", Symbol.Settings, Settings);
+        SettingsPage = new NavPage("settings", Loc.T("nav.settings"), Symbol.Settings, Settings);
         SelectedPage = Pages[0];
 
         Compare.PropertyChanged += OnComparePropertyChanged;

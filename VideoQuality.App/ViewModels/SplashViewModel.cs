@@ -1,5 +1,6 @@
 using System.Reflection;
 using CommunityToolkit.Mvvm.ComponentModel;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.App.ViewModels;
 
@@ -7,7 +8,7 @@ namespace VideoQuality.App.ViewModels;
 public partial class SplashViewModel : ObservableObject
 {
     [ObservableProperty]
-    public partial string Status { get; set; } = "Starting…";
+    public partial string Status { get; set; } = Loc.T("splash.starting");
 
     /// <summary>Startup finished: the spinner gives way to a check mark.</summary>
     [ObservableProperty]

@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:VideoQuality.App.Localization"
              xmlns:vm="using:VideoQuality.App.ViewModels"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:ic="using:FluentIcons.Avalonia"
@@ -12,17 +13,17 @@
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
                     <Border Classes="pageicon"><ic:SymbolIcon Symbol="ArrowExportUp" /></Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                        <TextBlock Classes="pagetitle" Text="Extract" />
-                        <TextBlock Classes="pagesub" Text="Pull tracks, embedded fonts and chapters out of a video (mkvextract; MP4 is remuxed first)." />
+                        <TextBlock Classes="pagetitle" Text="{l:L extract.extract}" />
+                        <TextBlock Classes="pagesub" Text="{l:L extract.pullTracksEmbeddedFonts}" />
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <u:IconButton Classes="tool" Content="Open file" Click="OnOpen">
+                        <u:IconButton Classes="tool" Content="{l:L extract.openFile}" Click="OnOpen">
                             <u:IconButton.Icon><ic:SymbolIcon Symbol="FolderOpen" /></u:IconButton.Icon>
                         </u:IconButton>
                         <Button Classes="primary" Command="{Binding ExtractCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <ic:SymbolIcon Symbol="ArrowDownload" FontSize="16" />
-                                <TextBlock Text="Extract" VerticalAlignment="Center" />
+                                <TextBlock Text="{l:L extract.extract}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
@@ -30,25 +31,25 @@
             </Border>
 
             <u:Banner Grid.Row="1" Type="Warning" IsVisible="{Binding !Settings.HasMkvToolNix}"
-                      Header="mkvtoolnix not found"
-                      Content="Install MKVToolNix (mkvtoolnix.download) or set its folder in Settings." />
+                      Header="{l:L common.mkvtoolnixNotFound}"
+                      Content="{l:L common.mkvtoolnixMissingHint}" />
 
             <Border Grid.Row="2" Classes="surface">
                 <Grid RowDefinitions="Auto,*,Auto" Margin="12,0,12,12">
                     <Grid Classes="cardheader" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                        <TextBlock Classes="label" Text="CONTENTS" />
+                        <TextBlock Classes="label" Text="{l:L extract.contents}" />
                         <TextBlock Grid.Column="1" Text="{Binding Summary}" Classes="muted" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" IsVisible="{Binding HasSource}">
-                            <Button Classes="tool" Content="All" Command="{Binding SelectKindCommand}" CommandParameter="all" />
-                            <Button Classes="tool" Content="None" Command="{Binding SelectKindCommand}" CommandParameter="none" />
-                            <Button Classes="tool" Content="Subtitles" Command="{Binding SelectKindCommand}" CommandParameter="subtitles" />
-                            <Button Classes="tool" Content="Fonts" Command="{Binding SelectKindCommand}" CommandParameter="fonts" />
+                            <Button Classes="tool" Content="{l:L extract.all}" Command="{Binding SelectKindCommand}" CommandParameter="all" />
+                            <Button Classes="tool" Content="{l:L extract.none}" Command="{Binding SelectKindCommand}" CommandParameter="none" />
+                            <Button Classes="tool" Content="{l:L extract.subtitles}" Command="{Binding SelectKindCommand}" CommandParameter="subtitles" />
+                            <Button Classes="tool" Content="{l:L extract.fonts}" Command="{Binding SelectKindCommand}" CommandParameter="fonts" />
                         </StackPanel>
                     </Grid>
                     <Panel Grid.Row="1">
                         <StackPanel IsVisible="{Binding !HasSource}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
                             <ic:SymbolIcon Symbol="DocumentArrowDown" FontSize="36" Foreground="{DynamicResource SemiColorText2}" />
-                            <TextBlock Classes="muted" Text="Drop a video to list its tracks, fonts and chapters." />
+                            <TextBlock Classes="muted" Text="{l:L extract.dropAVideoTo}" />
                         </StackPanel>
                         <ScrollViewer IsVisible="{Binding HasSource}">
                             <StackPanel>
@@ -75,17 +76,17 @@
                                     <Grid ColumnDefinitions="Auto,Auto,140,*" ColumnSpacing="10">
                                         <CheckBox IsChecked="{Binding ExtractChapters}" VerticalAlignment="Center" />
                                         <ic:SymbolIcon Grid.Column="1" Symbol="TextBulletListSquare" FontSize="18" />
-                                        <TextBlock Grid.Column="2" Text="chapters" Classes="muted mono" FontSize="12" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="3" Text="Chapters (Matroska XML)" FontSize="13" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="2" Text="{l:L extract.chapters}" Classes="muted mono" FontSize="12" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="3" Text="{l:L extract.chaptersMatroskaXml}" FontSize="13" VerticalAlignment="Center" />
                                     </Grid>
                                 </Border>
                             </StackPanel>
                         </ScrollViewer>
                     </Panel>
                     <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,10,0,0" IsVisible="{Binding HasSource}">
-                        <TextBlock Classes="label" Text="OUTPUT" />
+                        <TextBlock Classes="label" Text="{l:L common.output}" />
                         <TextBox Grid.Column="1" Text="{Binding OutputDirectory}" />
-                        <Button Grid.Column="2" Classes="tool" Click="OnPickOutput" ToolTip.Tip="Choose folder">
+                        <Button Grid.Column="2" Classes="tool" Click="OnPickOutput" ToolTip.Tip="{l:L common.chooseFolder}">
                             <ic:SymbolIcon Symbol="FolderOpen" />
                         </Button>
                     </Grid>
@@ -96,7 +97,7 @@
                 <controls:Spinner IsVisible="{Binding IsBusy}" />
                 <TextBlock Grid.Column="1" Text="{Binding Status}" Classes="muted" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                 <ProgressBar Grid.Column="2" Minimum="0" Maximum="1" Value="{Binding Progress}" IsVisible="{Binding IsBusy}" VerticalAlignment="Center" />
-                <u:IconButton Grid.Column="3" Classes="tool" Content="Open folder" Click="OnOpenOutput" IsVisible="{Binding HasSource}">
+                <u:IconButton Grid.Column="3" Classes="tool" Content="{l:L common.openFolder}" Click="OnOpenOutput" IsVisible="{Binding HasSource}">
                     <u:IconButton.Icon><ic:SymbolIcon Symbol="FolderOpen" /></u:IconButton.Icon>
                 </u:IconButton>
             </Grid>

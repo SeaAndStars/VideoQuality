@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:VideoQuality.App.Localization"
              xmlns:vm="using:VideoQuality.App.ViewModels"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:ic="using:FluentIcons.Avalonia"
@@ -15,23 +16,39 @@
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
                     <Border Classes="pageicon"><ic:SymbolIcon Symbol="Settings" /></Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                        <TextBlock Classes="pagetitle" Text="Settings" />
-                        <TextBlock Classes="pagesub" Text="Tools, scoring defaults and where things are kept. Changes are saved automatically." />
+                        <TextBlock Classes="pagetitle" Text="{l:L common.settings}" />
+                        <TextBlock Classes="pagesub" Text="{l:L settings.toolsScoringDefaultsAnd}" />
                     </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- language -->
+            <Border Classes="surface">
+                <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="160,*" RowSpacing="8" ColumnSpacing="12" Margin="16,0,16,14">
+                    <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="{l:L settings.general}" /></Grid>
+                    <TextBlock Grid.Row="1" Text="{l:L settings.language}" VerticalAlignment="Center" />
+                    <ComboBox Grid.Row="1" Grid.Column="1" MinWidth="260" ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding SelectedLanguage}"
+                              DisplayMemberBinding="{Binding Name, x:DataType=vm:LanguageOption}" />
+                    <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" IsVisible="{Binding NeedsRestart}">
+                        <ic:SymbolIcon Symbol="ArrowClockwise" FontSize="16" Foreground="{DynamicResource SemiColorPrimary}" />
+                        <TextBlock Grid.Column="1" Text="{l:L settings.language.restartHint}" Classes="muted" FontSize="12"
+                                   TextWrapping="Wrap" VerticalAlignment="Center" />
+                        <Button Grid.Column="2" Classes="primary" Command="{Binding RestartCommand}" Content="{l:L settings.language.restart}" />
+                    </Grid>
                 </Grid>
             </Border>
 
             <!-- scoring -->
             <Border Classes="surface">
                 <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="160,*" RowSpacing="8" ColumnSpacing="12" Margin="16,0,16,14">
-                    <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="SCORING" /></Grid>
-                    <TextBlock Grid.Row="1" Text="VMAF model" VerticalAlignment="Center" />
+                    <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="{l:L common.scoring}" /></Grid>
+                    <TextBlock Grid.Row="1" Text="{l:L settings.vmafModel}" VerticalAlignment="Center" />
                     <ComboBox Grid.Row="1" Grid.Column="1" MinWidth="260" ItemsSource="{Binding Compare.ModelOptions}" SelectedItem="{Binding Compare.SelectedModel}">
                         <ComboBox.ItemTemplate>
                             <DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
-                    <TextBlock Grid.Row="2" Text="Backend" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="2" Text="{l:L common.backend}" VerticalAlignment="Center" />
                     <ComboBox Grid.Row="2" Grid.Column="1" MinWidth="260" ItemsSource="{Binding Compare.BackendOptions}" SelectedItem="{Binding Compare.SelectedBackend}">
                         <ComboBox.ItemTemplate>
                             <DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate>
@@ -43,17 +60,17 @@
             <!-- tools -->
             <Border Classes="surface">
                 <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="160,*,Auto,Auto" RowSpacing="8" ColumnSpacing="12" Margin="16,0,16,14">
-                    <Grid Classes="cardheader" Grid.ColumnSpan="4"><TextBlock Classes="label" Text="TOOLS" /></Grid>
-                    <TextBlock Grid.Row="1" Text="ffmpeg" VerticalAlignment="Center" />
+                    <Grid Classes="cardheader" Grid.ColumnSpan="4"><TextBlock Classes="label" Text="{l:L settings.tools}" /></Grid>
+                    <TextBlock Grid.Row="1" Text="{l:L settings.ffmpeg}" VerticalAlignment="Center" />
                     <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding Compare.FfmpegPath}" IsReadOnly="True" />
                     <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding Compare.BackendStatus}" Classes="muted" FontSize="12" TextWrapping="Wrap" />
 
-                    <TextBlock Grid.Row="3" Text="MKVToolNix folder" VerticalAlignment="Center" />
-                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding MkvToolNixFolder}" Watermark="auto: app tools folder, PATH, Program Files" />
-                    <Button Grid.Row="3" Grid.Column="2" Classes="tool" Click="OnPickMkvToolNix" ToolTip.Tip="Choose folder">
+                    <TextBlock Grid.Row="3" Text="{l:L settings.mkvtoolnixFolder}" VerticalAlignment="Center" />
+                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding MkvToolNixFolder}" Watermark="{l:L settings.mkvtoolnixAuto}" />
+                    <Button Grid.Row="3" Grid.Column="2" Classes="tool" Click="OnPickMkvToolNix" ToolTip.Tip="{l:L common.chooseFolder}">
                         <ic:SymbolIcon Symbol="FolderOpen" />
                     </Button>
-                    <u:IconButton Grid.Row="3" Grid.Column="3" Classes="tool" Content="Locate" Command="{Binding LocateToolsCommand}">
+                    <u:IconButton Grid.Row="3" Grid.Column="3" Classes="tool" Content="{l:L settings.locate}" Command="{Binding LocateToolsCommand}">
                         <u:IconButton.Icon><ic:SymbolIcon Symbol="Search" /></u:IconButton.Icon>
                     </u:IconButton>
                     <StackPanel Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="6">
@@ -67,15 +84,15 @@
             <!-- files -->
             <Border Classes="surface">
                 <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="160,*,Auto" RowSpacing="8" ColumnSpacing="12" Margin="16,0,16,14">
-                    <Grid Classes="cardheader" Grid.ColumnSpan="3"><TextBlock Classes="label" Text="FILES" /></Grid>
-                    <TextBlock Grid.Row="1" Text="Settings" VerticalAlignment="Center" />
+                    <Grid Classes="cardheader" Grid.ColumnSpan="3"><TextBlock Classes="label" Text="{l:L settings.files}" /></Grid>
+                    <TextBlock Grid.Row="1" Text="{l:L common.settings}" VerticalAlignment="Center" />
                     <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SettingsPath}" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
-                    <TextBlock Grid.Row="2" Text="App folder" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="2" Text="{l:L settings.appFolder}" VerticalAlignment="Center" />
                     <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AppFolder}" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
-                    <Button Grid.Row="2" Grid.Column="2" Classes="rowaction" Click="OnOpenAppFolder" ToolTip.Tip="Open folder">
+                    <Button Grid.Row="2" Grid.Column="2" Classes="rowaction" Click="OnOpenAppFolder" ToolTip.Tip="{l:L common.openFolder}">
                         <ic:SymbolIcon Symbol="Open" />
                     </Button>
-                    <TextBlock Grid.Row="3" Text="Last log" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="3" Text="{l:L settings.lastLog}" VerticalAlignment="Center" />
                     <SelectableTextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Compare.LogPath}" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
                 </Grid>
             </Border>
@@ -83,13 +100,13 @@
             <!-- about -->
             <Border Classes="surface">
                 <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="160,*" RowSpacing="8" ColumnSpacing="12" Margin="16,0,16,14">
-                    <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="ABOUT" /></Grid>
+                    <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="{l:L settings.about}" /></Grid>
                     <TextBlock Grid.Row="1" Text="VideoQuality" VerticalAlignment="Center" />
                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Version}" FontSize="12" VerticalAlignment="Center" />
-                    <TextBlock Grid.Row="2" Text="HarfBuzz" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="2" Text="{l:L settings.harfbuzz}" VerticalAlignment="Center" />
                     <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding HarfBuzzVersion}" FontSize="12" VerticalAlignment="Center" />
                     <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Classes="muted" FontSize="12" TextWrapping="Wrap"
-                               Text="MIT licensed. Bundles FFmpeg (LGPL) with libvmaf (BSD-2-Clause+patent); font subsetting uses HarfBuzz (MIT). MKVToolNix is used if installed, not bundled." />
+                               Text="{l:L settings.aboutLicense}" />
                 </Grid>
             </Border>
         </StackPanel>

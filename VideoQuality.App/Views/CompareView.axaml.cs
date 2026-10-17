@@ -15,6 +15,7 @@ using VideoQuality.App.Services;
 using VideoQuality.App.ViewModels;
 using VideoQuality.Core.Ingest;
 using VideoQuality.Core.Scoring;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.App.Views;
 
@@ -204,8 +205,8 @@ public partial class CompareView : UserControl
         if (entries.Count == 0)
         {
             plot.Axes.SetLimits(0, 100, 0, 100);
-            GraphSubtitle.Text = all.Count == 0 ? string.Empty : "all curves hidden";
-            StyleAxes(plot, "frame", "VMAF");
+            GraphSubtitle.Text = all.Count == 0 ? string.Empty : Loc.T("compare.graph.allHidden");
+            StyleAxes(plot, Loc.T("compare.graph.frameAxis"), "VMAF");
             PlotView.Refresh();
             return;
         }
@@ -284,16 +285,16 @@ public partial class CompareView : UserControl
         string label = _viewModel?.SelectedEncode?.Report is { } selectedReport
             ? VmafModels.DisplayName(selectedReport.Model)
             : "VMAF";
-        string mixed = _viewModel?.HasMixedModels == true ? "  ·  MIXED MODELS" : string.Empty;
+        string mixed = _viewModel?.HasMixedModels == true ? "  ·  " + Loc.T("compare.graph.mixedModels") : string.Empty;
 
         string title = delta
-            ? $"Δ {label} vs {baseline.Name}  ·  {entries.Count} encode(s){mixed}"
-            : $"{label}  ·  {entries.Count} encode(s)" +
+            ? Loc.T("compare.graph.deltaTitle", label, baseline.Name, entries.Count) + mixed
+            : Loc.T("compare.graph.title", label, entries.Count) +
               (backend.Length > 0 ? $"  ·  {backend}" : string.Empty) + mixed;
 
         // The card header carries the title, in the app's own typography; the plot has none.
         GraphSubtitle.Text = title;
-        StyleAxes(plot, "frame", delta ? "Δ VMAF" : "VMAF");
+        StyleAxes(plot, Loc.T("compare.graph.frameAxis"), delta ? "Δ VMAF" : "VMAF");
         PlotView.Refresh();
     }
 
@@ -304,6 +305,8 @@ public partial class CompareView : UserControl
         foreach (var (axis, text) in new (ScottPlot.IAxis Axis, string Text)[] { (plot.Axes.Bottom, x), (plot.Axes.Left, y) })
         {
             axis.Label.Text = text;
+            // ScottPlot's default face has no CJK glyphs; pick an installed one that covers the label.
+            axis.Label.FontName = Fonts.Detect(text);
             axis.Label.FontSize = 12;
             axis.Label.Bold = false;
             axis.Label.ForeColor = muted;
@@ -618,7 +621,7 @@ public partial class CompareView : UserControl
         // Physical pixels per video pixel: 100% is pixel-exact whatever the Windows display scaling.
         Control? view = ActiveView();
         double scale = (view is null ? 1 : EffectiveScale(view)) * RenderScaling;
-        string suffix = _viewModel.Viewport.IsFit ? "  (fit)" : string.Empty;
+        string suffix = _viewModel.Viewport.IsFit ? "  (" + Loc.T("compare.fit") + ")" : string.Empty;
         ZoomLabel.Text = $"{scale * 100:0}%{suffix}";
     }
 
@@ -715,7 +718,7 @@ public partial class CompareView : UserControl
 
     private async void OnPickReference(object? sender, RoutedEventArgs e)
     {
-        IReadOnlyList<IStorageFile> files = await _topLevel!.StorageProvider.OpenFilePickerAsync(VideoPicker("Choose the reference video", false));
+        IReadOnlyList<IStorageFile> files = await _topLevel!.StorageProvider.OpenFilePickerAsync(VideoPicker(Loc.T("compare.picker.reference"), false));
         if (files.Count > 0 && _viewModel is not null)
         {
             await _viewModel.HandleDropAsync([.. files.Select(file => file.TryGetLocalPath())], DropZone.Reference);
@@ -724,7 +727,7 @@ public partial class CompareView : UserControl
 
     private async void OnPickEncodes(object? sender, RoutedEventArgs e)
     {
-        IReadOnlyList<IStorageFile> files = await _topLevel!.StorageProvider.OpenFilePickerAsync(VideoPicker("Add encodes to compare", true));
+        IReadOnlyList<IStorageFile> files = await _topLevel!.StorageProvider.OpenFilePickerAsync(VideoPicker(Loc.T("compare.picker.encodes"), true));
         if (files.Count > 0 && _viewModel is not null)
         {
             await _viewModel.HandleDropAsync([.. files.Select(file => file.TryGetLocalPath())], DropZone.Encodes);
@@ -803,7 +806,7 @@ public partial class CompareView : UserControl
         AllowMultiple = allowMultiple,
         FileTypeFilter =
         [
-            new FilePickerFileType("Video")
+            new FilePickerFileType(Loc.T("picker.type.video"))
             {
                 Patterns = [.. DropRouter.VideoExtensions.Select(extension => "*" + extension)],
                 MimeTypes = ["video/*"],

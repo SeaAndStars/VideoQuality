@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FluentIcons.Common;
 using VideoQuality.Core.Mkv;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.App.ViewModels;
 
@@ -103,13 +104,13 @@ public partial class MuxViewModel : ObservableObject
     public partial double Progress { get; set; }
 
     [ObservableProperty]
-    public partial string Status { get; set; } = "Drop the video, audio, subtitles and fonts to mux.";
+    public partial string Status { get; set; } = Loc.T("mux.status.start");
 
     public bool HasInputs => Inputs.Count > 0;
 
     public string AttachmentSummary => Attachments.Count == 0
-        ? "No fonts attached."
-        : $"{Attachments.Count} font(s), {FontSubsetViewModel.Size(Attachments.Where(File.Exists).Sum(f => new FileInfo(f).Length))}";
+        ? Loc.T("mux.attachments.none")
+        : Loc.T("mux.attachments.summary", Attachments.Count, FontSubsetViewModel.Size(Attachments.Where(File.Exists).Sum(f => new FileInfo(f).Length)));
 
     public event EventHandler<ToastRequest>? ToastRequested;
 
@@ -146,7 +147,7 @@ public partial class MuxViewModel : ObservableObject
         }
 
         AddFonts(fonts);
-        Status = HasVideo() ? Status : "Scripts and fonts added. Drop the encoded video to finish the mux.";
+        Status = HasVideo() ? Status : Loc.T("mux.status.needVideo");
     }
 
     private bool HasVideo() => Inputs.Any(i => i.Tracks.Any(t => t.Type == MkvTrackType.Video));
@@ -167,7 +168,7 @@ public partial class MuxViewModel : ObservableObject
     {
         if (Settings.MkvToolNix is not { } tools)
         {
-            Status = "mkvtoolnix is required: install it or set its folder in Settings.";
+            Status = Loc.T("common.mkvtoolnixRequired");
             return;
         }
 
@@ -224,11 +225,11 @@ public partial class MuxViewModel : ObservableObject
                 Output = System.IO.Path.Combine(folder, stem + (full.EndsWith(".mkv", StringComparison.OrdinalIgnoreCase) ? ".mux.mkv" : ".mkv"));
             }
 
-            Status = $"{Inputs.Count} input(s), {Inputs.Sum(i => i.Tracks.Count)} track(s).";
+            Status = Loc.T("mux.status.inputs", Inputs.Count, Inputs.Sum(i => i.Tracks.Count));
         }
         catch (Exception ex) when (ex is InvalidDataException or InvalidOperationException or System.Text.Json.JsonException)
         {
-            Status = $"Could not read {System.IO.Path.GetFileName(full)}: {ex.Message}";
+            Status = Loc.T("common.couldNotRead", System.IO.Path.GetFileName(full), ex.Message);
         }
     }
 
@@ -247,7 +248,7 @@ public partial class MuxViewModel : ObservableObject
         Title = string.Empty;
         Chapters = string.Empty;
         Progress = 0;
-        Status = "Drop the video, audio, subtitles and fonts to mux.";
+        Status = Loc.T("mux.status.start");
     }
 
     private bool CanMux() => !IsBusy && Settings.HasMkvToolNix && Inputs.Count > 0;
@@ -257,13 +258,13 @@ public partial class MuxViewModel : ObservableObject
     {
         if (Settings.MkvToolNix is not { } tools || Output.Length == 0)
         {
-            Status = "Choose an output file.";
+            Status = Loc.T("mux.status.needOutput");
             return;
         }
 
         IsBusy = true;
         Progress = 0;
-        Status = "Muxing…";
+        Status = Loc.T("mux.status.muxing");
         try
         {
             var plan = new MuxPlan(
@@ -286,19 +287,19 @@ public partial class MuxViewModel : ObservableObject
             {
                 Progress = 1;
                 MkvFileInfo written = await tools.IdentifyAsync(Output);
-                Status = $"Wrote {System.IO.Path.GetFileName(Output)}: {written.Tracks.Count} track(s), {written.Attachments.Count} attachment(s)" +
-                         (result.Warnings.Count > 0 ? $", {result.Warnings.Count} warning(s): {result.Warnings[0]}" : ".");
-                ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Success, $"Muxed {System.IO.Path.GetFileName(Output)}."));
+                Status = Loc.T("mux.status.wrote", System.IO.Path.GetFileName(Output), written.Tracks.Count, written.Attachments.Count) +
+                         (result.Warnings.Count > 0 ? Loc.T("common.warningsSuffix", result.Warnings.Count, result.Warnings[0]) : ".");
+                ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Success, Loc.T("mux.toast.done", System.IO.Path.GetFileName(Output))));
             }
             else
             {
-                Status = "Mux failed: " + string.Join("; ", result.Errors);
+                Status = Loc.T("mux.status.failed", string.Join("; ", result.Errors));
                 ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, Status));
             }
         }
         catch (Exception ex) when (ex is InvalidOperationException or IOException or InvalidDataException)
         {
-            Status = "Mux failed: " + ex.Message;
+            Status = Loc.T("mux.status.failed", ex.Message);
             ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, Status));
         }
         finally

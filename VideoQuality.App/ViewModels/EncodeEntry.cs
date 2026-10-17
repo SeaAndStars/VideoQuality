@@ -4,6 +4,7 @@ using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using VideoQuality.Core.Models;
 using VideoQuality.Core.Scoring;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.App.ViewModels;
 
@@ -123,14 +124,14 @@ public partial class EncodeEntry : ObservableObject
     /// <summary>Tooltip for the status icon.</summary>
     public string StatusText => State switch
     {
-        EncodeState.Queued => "Queued",
-        EncodeState.Indexing => "Reading packets…",
-        EncodeState.WaitingForReference => "Waiting for a reference",
-        EncodeState.Scoring => $"Scoring… {Progress * 100:0}%",
-        EncodeState.Done => "Scored",
-        EncodeState.Stale => "Stale: the reference changed. Re-score to update.",
-        EncodeState.Cancelled => "Cancelled",
-        _ => "Failed: " + (Error ?? "unknown error"),
+        EncodeState.Queued => Loc.T("encode.state.queued"),
+        EncodeState.Indexing => Loc.T("encode.state.indexing"),
+        EncodeState.WaitingForReference => Loc.T("encode.state.waiting"),
+        EncodeState.Scoring => Loc.T("encode.state.scoring", (Progress * 100).ToString("0", CultureInfo.InvariantCulture)),
+        EncodeState.Done => Loc.T("encode.state.done"),
+        EncodeState.Stale => Loc.T("encode.state.stale"),
+        EncodeState.Cancelled => Loc.T("encode.state.cancelled"),
+        _ => Loc.T("encode.state.failed", Error ?? Loc.T("common.unknownError")),
     };
 
     /// <summary>Curve visibility; toggled by clicking the colour swatch.</summary>

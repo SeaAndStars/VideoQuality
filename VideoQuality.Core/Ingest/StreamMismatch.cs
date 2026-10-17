@@ -1,4 +1,5 @@
 using System.Globalization;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.Core.Ingest;
 
@@ -20,21 +21,20 @@ public static class StreamMismatch
         if (encode.Width > 0 && reference.Width > 0 &&
             (encode.Width != reference.Width || encode.Height != reference.Height))
         {
-            problems.Add($"resolution {encode.Width}×{encode.Height} vs reference {reference.Width}×{reference.Height}");
+            problems.Add(Loc.T("mismatch.resolution", encode.Width, encode.Height, reference.Width, reference.Height));
         }
 
         if (encode.FrameRate > 0 && reference.FrameRate > 0 && Math.Abs(encode.FrameRate - reference.FrameRate) > 0.01)
         {
-            problems.Add(string.Format(CultureInfo.InvariantCulture,
-                "{0:0.###} fps vs reference {1:0.###} fps", encode.FrameRate, reference.FrameRate));
+            problems.Add(Loc.T("mismatch.frameRate", encode.FrameRate, reference.FrameRate));
         }
 
         // Only exact counts are compared; an unknown count is not a mismatch.
         if (encode.Frames > 0 && reference.Frames > 0 && encode.Frames != reference.Frames)
         {
-            problems.Add($"{encode.Frames} frames vs reference {reference.Frames}");
+            problems.Add(Loc.T("mismatch.frames", encode.Frames, reference.Frames));
         }
 
-        return problems.Count == 0 ? null : "Mismatch: " + string.Join("; ", problems);
+        return problems.Count == 0 ? null : Loc.T("mismatch.prefix", string.Join("; ", problems));
     }
 }

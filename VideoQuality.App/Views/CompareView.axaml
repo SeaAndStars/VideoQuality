@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:VideoQuality.App.Localization"
              xmlns:vm="using:VideoQuality.App.ViewModels"
              xmlns:sp="using:ScottPlot.Avalonia"
              xmlns:controls="using:VideoQuality.App.Controls"
@@ -20,27 +21,27 @@
                   VerticalAlignment="Center" Margin="24">
                 <Border Classes="zone" Tag="{x:Static ingest:DropZone.Reference}"
                         DragDrop.AllowDrop="True"
-                        AutomationProperties.Name="Drop reference here">
+                        AutomationProperties.Name="{l:L compare.dropReferenceHere}">
                     <Panel>
                         <Rectangle Classes="dash" />
                         <StackPanel Spacing="10" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,8,0,0">
                             <ic:SymbolIcon Classes="zoneicon" Symbol="Video" HorizontalAlignment="Center" />
-                            <TextBlock Text="Reference" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            <TextBlock Text="{l:L compare.reference2}" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
                             <TextBlock Classes="muted" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="320"
-                                       Text="Drop one file. Lossless or high-bitrate is best (.y4m, FFV1, …)." />
+                                       Text="{l:L compare.dropOneFileLossless}" />
                         </StackPanel>
                     </Panel>
                 </Border>
                 <Border Grid.Column="1" Classes="zone" Tag="{x:Static ingest:DropZone.Encodes}"
                         DragDrop.AllowDrop="True"
-                        AutomationProperties.Name="Drop encodes here">
+                        AutomationProperties.Name="{l:L compare.dropEncodesHere}">
                     <Panel>
                         <Rectangle Classes="dash" />
                         <StackPanel Spacing="10" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,8,0,0">
                             <ic:SymbolIcon Classes="zoneicon" Symbol="Add" HorizontalAlignment="Center" />
-                            <TextBlock Text="Compare" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            <TextBlock Text="{l:L compare.compare}" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
                             <TextBlock Classes="muted" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="320"
-                                       Text="Drop one or more encodes, or a folder of them." />
+                                       Text="{l:L compare.dropOneOrMore}" />
                         </StackPanel>
                     </Panel>
                 </Border>
@@ -66,26 +67,26 @@
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                     <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
                         <!-- file -->
-                        <u:IconButton Classes="tool" Click="OnPickReference" Content="Reference"
-                                      ToolTip.Tip="Choose the reference  (Ctrl+O)"
-                                      AutomationProperties.Name="Choose reference">
+                        <u:IconButton Classes="tool" Click="OnPickReference" Content="{l:L compare.reference2}"
+                                      ToolTip.Tip="{l:L compare.chooseTheReferenceCtrl}"
+                                      AutomationProperties.Name="{l:L common.chooseReference}">
                             <u:IconButton.Icon><ic:SymbolIcon Symbol="Video" /></u:IconButton.Icon>
                         </u:IconButton>
-                        <u:IconButton Classes="tool" Click="OnPickEncodes" Content="Encodes"
-                                      ToolTip.Tip="Add encodes to compare  (Ctrl+Shift+O)"
-                                      AutomationProperties.Name="Add encodes">
+                        <u:IconButton Classes="tool" Click="OnPickEncodes" Content="{l:L compare.encodes}"
+                                      ToolTip.Tip="{l:L compare.addEncodesToCompare}"
+                                      AutomationProperties.Name="{l:L compare.addEncodes}">
                             <u:IconButton.Icon><ic:SymbolIcon Symbol="Add" /></u:IconButton.Icon>
                         </u:IconButton>
-                        <u:IconButton Classes="tool" Command="{Binding AnalyzeCommand}" Content="Re-score"
-                                      ToolTip.Tip="Re-score the selected encode  (Ctrl+R)"
-                                      AutomationProperties.Name="Re-score selected encode">
+                        <u:IconButton Classes="tool" Command="{Binding AnalyzeCommand}" Content="{l:L compare.reScore}"
+                                      ToolTip.Tip="{l:L compare.reScoreTheSelected}"
+                                      AutomationProperties.Name="{l:L compare.reScoreSelectedEncode}">
                             <u:IconButton.Icon><ic:SymbolIcon Symbol="ArrowSync" /></u:IconButton.Icon>
                         </u:IconButton>
-                        <u:IconButton Classes="tool" Command="{Binding RescoreStaleCommand}" Content="Update stale"
+                        <u:IconButton Classes="tool" Command="{Binding RescoreStaleCommand}" Content="{l:L compare.updateStale}"
                                       IsVisible="{Binding HasStaleEncodes}"
                                       Foreground="{StaticResource VqWarnBrush}"
-                                      ToolTip.Tip="Re-score every stale or failed encode"
-                                      AutomationProperties.Name="Re-score stale encodes">
+                                      ToolTip.Tip="{l:L compare.reScoreEveryStale}"
+                                      AutomationProperties.Name="{l:L compare.reScoreStaleEncodes}">
                             <u:IconButton.Icon><ic:SymbolIcon Symbol="Warning" /></u:IconButton.Icon>
                         </u:IconButton>
 
@@ -93,13 +94,13 @@
 
                         <!-- playback -->
                         <u:IconButton Classes="tool" Click="OnStepBack"
-                                      ToolTip.Tip="Previous frame  (←, Shift+← for 10)"
-                                      AutomationProperties.Name="Previous frame">
+                                      ToolTip.Tip="{l:L compare.previousFrameShiftFor}"
+                                      AutomationProperties.Name="{l:L compare.previousFrame}">
                             <u:IconButton.Icon><ic:SymbolIcon Symbol="Previous" IconVariant="Filled" /></u:IconButton.Icon>
                         </u:IconButton>
                         <u:IconButton Classes="tool" Command="{Binding TogglePlaybackCommand}"
-                                      ToolTip.Tip="Play / Pause  (Space)"
-                                      AutomationProperties.Name="Play or pause">
+                                      ToolTip.Tip="{l:L compare.playPauseSpace}"
+                                      AutomationProperties.Name="{l:L compare.playOrPause}">
                             <u:IconButton.Icon>
                                 <Panel>
                                     <ic:SymbolIcon Symbol="Play" IconVariant="Filled" IsVisible="{Binding !IsPlaying}" />
@@ -108,8 +109,8 @@
                             </u:IconButton.Icon>
                         </u:IconButton>
                         <u:IconButton Classes="tool" Click="OnStepForward"
-                                      ToolTip.Tip="Next frame  (→, Shift+→ for 10)"
-                                      AutomationProperties.Name="Next frame">
+                                      ToolTip.Tip="{l:L compare.nextFrameShiftFor}"
+                                      AutomationProperties.Name="{l:L compare.nextFrame}">
                             <u:IconButton.Icon><ic:SymbolIcon Symbol="Next" IconVariant="Filled" /></u:IconButton.Icon>
                         </u:IconButton>
 
@@ -122,7 +123,7 @@
                         <Border Classes="segmented" VerticalAlignment="Center">
                         <u:SelectionList Classes="segmented" ItemsSource="{Binding CompareModes}"
                                          SelectedItem="{Binding CompareMode}"
-                                         AutomationProperties.Name="Compare mode">
+                                         AutomationProperties.Name="{l:L compare.compareMode}">
                             <u:SelectionList.ItemsPanel>
                                 <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
                             </u:SelectionList.ItemsPanel>
@@ -140,17 +141,17 @@
                         <StackPanel Orientation="Horizontal" Spacing="6" Margin="8,0,0,0"
                                     IsVisible="{Binding IsDifference}" VerticalAlignment="Center">
                             <Slider Minimum="1" Maximum="32" Value="{Binding DifferenceGain, Mode=TwoWay}" Width="110"
-                                    VerticalAlignment="Center" ToolTip.Tip="Difference gain"
-                                    AutomationProperties.Name="Difference gain" />
+                                    VerticalAlignment="Center" ToolTip.Tip="{l:L compare.differenceGain}"
+                                    AutomationProperties.Name="{l:L compare.differenceGain}" />
                             <TextBlock Classes="mono muted" Text="{Binding DifferenceGain, StringFormat={}{0:0.#}×}"
                                        VerticalAlignment="Center" Width="36" />
                             <u:IconButton Classes="tool" Command="{Binding AutoGainCommand}"
-                                          ToolTip.Tip="Normalise the gain to the 99.9th percentile difference"
-                                          AutomationProperties.Name="Auto gain">
+                                          ToolTip.Tip="{l:L compare.normaliseTheGainTo}"
+                                          AutomationProperties.Name="{l:L compare.autoGain}">
                                 <u:IconButton.Icon><ic:SymbolIcon Symbol="TextGrammarWand" /></u:IconButton.Icon>
                             </u:IconButton>
                             <ComboBox ItemsSource="{Binding DifferenceChannelOptions}" SelectedItem="{Binding DifferenceChannels}"
-                                      MinWidth="130" VerticalAlignment="Center" AutomationProperties.Name="Difference channels">
+                                      MinWidth="130" VerticalAlignment="Center" AutomationProperties.Name="{l:L compare.differenceChannels}">
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding Converter={StaticResource Label}}" />
@@ -161,26 +162,26 @@
 
                         <ToggleSwitch IsChecked="{Binding AutoFlicker}" IsVisible="{Binding IsFlicker}"
                                       OnContent="Auto flicker" OffContent="Auto flicker" Margin="8,0,0,0"
-                                      VerticalAlignment="Center" ToolTip.Tip="Alternate every 240 ms (or hold F)" />
+                                      VerticalAlignment="Center" ToolTip.Tip="{l:L compare.alternateEvery240Ms}" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
                         <!-- zoom -->
-                        <u:IconButton Classes="tool" Click="OnFit" ToolTip.Tip="Fit to pane"
-                                      AutomationProperties.Name="Fit to pane">
+                        <u:IconButton Classes="tool" Click="OnFit" ToolTip.Tip="{l:L compare.fitToPane}"
+                                      AutomationProperties.Name="{l:L compare.fitToPane}">
                             <u:IconButton.Icon><ic:SymbolIcon Symbol="ZoomFit" /></u:IconButton.Icon>
                         </u:IconButton>
                         <Button Classes="tool" Click="OnActualSize" Content="1:1" FontWeight="SemiBold"
-                                ToolTip.Tip="Actual pixels" AutomationProperties.Name="Actual size" />
-                        <TextBlock x:Name="ZoomLabel" Classes="mono muted" Text="fit" VerticalAlignment="Center"
+                                ToolTip.Tip="{l:L compare.actualPixels}" AutomationProperties.Name="{l:L compare.actualSize}" />
+                        <TextBlock x:Name="ZoomLabel" Classes="mono muted" Text="{l:L compare.fit}" VerticalAlignment="Center"
                                    MinWidth="104" TextAlignment="Center" FontSize="13" />
 
                         <u:ToolBarSeparator Orientation="Vertical" Margin="6,6" />
 
                         <!-- graph -->
                         <u:IconToggleButton Classes="tool" IsChecked="{Binding FixedScale}" Content="0–100"
-                                            ToolTip.Tip="Pin the graph to 0–100 instead of autoscaling"
-                                            AutomationProperties.Name="Fixed graph scale">
+                                            ToolTip.Tip="{l:L compare.pinTheGraphTo}"
+                                            AutomationProperties.Name="{l:L compare.fixedGraphScale}">
                             <u:IconToggleButton.Icon><ic:SymbolIcon Symbol="DataLine" /></u:IconToggleButton.Icon>
                         </u:IconToggleButton>
 
@@ -188,8 +189,8 @@
 
                         <!-- model / backend chips open settings -->
                         <Button x:Name="SettingsButton" Classes="tool" Padding="4"
-                                ToolTip.Tip="Scoring settings: model, backend, ffmpeg"
-                                AutomationProperties.Name="Settings">
+                                ToolTip.Tip="{l:L compare.scoringSettingsModelBackend}"
+                                AutomationProperties.Name="{l:L common.settings}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <Border Classes="chip accent">
                                     <TextBlock Text="{Binding ModelChip}" />
@@ -205,9 +206,9 @@
                             <Button.Flyout>
                                 <Flyout Placement="BottomEdgeAlignedRight">
                                     <StackPanel Width="440" Spacing="10" Margin="4">
-                                        <TextBlock Text="SCORING" Classes="section" />
+                                        <TextBlock Text="{l:L common.scoring}" Classes="section" />
                                         <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto" RowSpacing="8">
-                                            <TextBlock Text="Model" Classes="muted" VerticalAlignment="Center" />
+                                            <TextBlock Text="{l:L compare.model2}" Classes="muted" VerticalAlignment="Center" />
                                             <ComboBox Grid.Column="1" ItemsSource="{Binding ModelOptions}"
                                                       SelectedItem="{Binding SelectedModel}" HorizontalAlignment="Stretch">
                                                 <ComboBox.ItemTemplate>
@@ -216,7 +217,7 @@
                                                     </DataTemplate>
                                                 </ComboBox.ItemTemplate>
                                             </ComboBox>
-                                            <TextBlock Grid.Row="1" Text="Backend" Classes="muted" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Row="1" Text="{l:L common.backend}" Classes="muted" VerticalAlignment="Center" />
                                             <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding BackendOptions}"
                                                       SelectedItem="{Binding SelectedBackend}" HorizontalAlignment="Stretch">
                                                 <ComboBox.ItemTemplate>
@@ -227,12 +228,12 @@
                                             </ComboBox>
                                         </Grid>
                                         <u:Divider />
-                                        <TextBlock Text="FFMPEG EXECUTABLE" Classes="section" />
+                                        <TextBlock Text="{l:L compare.ffmpegExecutable}" Classes="section" />
                                         <TextBox Text="{Binding FfmpegPath, UpdateSourceTrigger=LostFocus}" />
                                         <TextBlock Text="{Binding BackendStatus}" TextWrapping="Wrap" FontSize="12" Classes="muted" />
                                         <TextBlock Text="{Binding LogPath}" TextWrapping="Wrap" FontSize="11" Classes="muted" />
                                         <TextBlock TextWrapping="Wrap" FontSize="11" Classes="muted"
-                                                   Text="Left as 'ffmpeg', the app resolves a VMAF-enabled build automatically. Model and backend apply to the next score." />
+                                                   Text="{l:L compare.leftAsFfmpegThe}" />
                                     </StackPanel>
                                 </Flyout>
                             </Button.Flyout>
@@ -260,7 +261,7 @@
                             <Grid Classes="cardheader" ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8" Margin="{StaticResource VqHeaderPadding}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <Ellipse Width="8" Height="8" Fill="{StaticResource VqReferenceBrush}" VerticalAlignment="Center" />
-                                    <TextBlock Classes="label" Text="REFERENCE" />
+                                    <TextBlock Classes="label" Text="{l:L compare.reference}" />
                                 </StackPanel>
                                 <Border Grid.Column="1" Classes="chip warn" IsVisible="{Binding HasReferenceBadge}">
                                     <StackPanel Orientation="Horizontal" Spacing="4">
@@ -364,11 +365,11 @@
                                     <Panel>
                                         <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding !FlickerShowsDistorted}">
                                             <Ellipse Width="8" Height="8" Fill="{StaticResource VqReferenceBrush}" VerticalAlignment="Center" />
-                                            <TextBlock Text="A · reference" FontSize="12" />
+                                            <TextBlock Text="{l:L compare.aReference}" FontSize="12" />
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding FlickerShowsDistorted}">
                                             <Ellipse Width="8" Height="8" Fill="{StaticResource VqEncodeBrush}" VerticalAlignment="Center" />
-                                            <TextBlock Text="B · encode" FontSize="12" />
+                                            <TextBlock Text="{l:L compare.bEncode}" FontSize="12" />
                                         </StackPanel>
                                     </Panel>
                                 </Border>
@@ -399,7 +400,7 @@
             </Panel>
 
             <GridSplitter Grid.Row="3" x:Name="ViewerSplitter" Classes="viewer"
-                          ToolTip.Tip="Drag to resize the viewer; double-click to fit it to the video again" />
+                          ToolTip.Tip="{l:L compare.dragToResizeThe}" />
 
             <!-- ======================================================== surface: graph + table -->
             <Grid Grid.Row="4" ColumnDefinitions="2*,1.25*" ColumnSpacing="12">
@@ -407,14 +408,14 @@
                     <Grid RowDefinitions="Auto,*">
                         <Grid Classes="cardheader" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10"
                               Margin="{StaticResource VqHeaderPadding}">
-                            <TextBlock Classes="label" Text="PER-FRAME SCORE" />
+                            <TextBlock Classes="label" Text="{l:L compare.perFrameScore}" />
                             <TextBlock Grid.Column="1" x:Name="GraphSubtitle" Classes="muted" FontSize="11"
                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                                <CheckBox Content="Smooth" IsChecked="{Binding ShowSmoothed}" FontSize="12"
-                                          ToolTip.Tip="5-frame moving average" />
-                                <CheckBox Content="Δ baseline" IsChecked="{Binding ShowDelta}" FontSize="12"
-                                          ToolTip.Tip="Plot the difference from the first visible encode" />
+                                <CheckBox Content="{l:L compare.smooth}" IsChecked="{Binding ShowSmoothed}" FontSize="12"
+                                          ToolTip.Tip="{l:L compare.5FrameMovingAverage}" />
+                                <CheckBox Content="{l:L compare.baseline}" IsChecked="{Binding ShowDelta}" FontSize="12"
+                                          ToolTip.Tip="{l:L compare.plotTheDifferenceFrom}" />
                             </StackPanel>
                         </Grid>
                         <sp:AvaPlot Grid.Row="1" x:Name="PlotView" Margin="4,0,4,4" />
@@ -425,15 +426,15 @@
                     <DockPanel>
                         <Grid DockPanel.Dock="Top" Classes="cardheader" ColumnDefinitions="22,14,*,48,46,46,70,72"
                               ColumnSpacing="6" Margin="6,0">
-                            <TextBlock Grid.Column="2" Classes="label" Text="ENCODE" />
-                            <TextBlock Grid.Column="3" Classes="label" Text="MODEL" />
-                            <TextBlock Grid.Column="4" Classes="label" Text="MEAN" HorizontalAlignment="Right" />
-                            <TextBlock Grid.Column="5" Classes="label" Text="P1" HorizontalAlignment="Right" />
-                            <TextBlock Grid.Column="6" Classes="label" Text="BITRATE" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="2" Classes="label" Text="{l:L compare.encode}" />
+                            <TextBlock Grid.Column="3" Classes="label" Text="{l:L compare.model}" />
+                            <TextBlock Grid.Column="4" Classes="label" Text="{l:L compare.mean}" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="5" Classes="label" Text="{l:L compare.p1}" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="6" Classes="label" Text="{l:L compare.bitrate}" HorizontalAlignment="Right" />
                         </Grid>
 
                         <Panel>
-                            <TextBlock Classes="muted" Text="No encodes yet — drop files anywhere on the window."
+                            <TextBlock Classes="muted" Text="{l:L compare.noEncodesYetDrop}"
                                        IsVisible="{Binding !HasEncodes}" TextWrapping="Wrap"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16" />
 
@@ -462,8 +463,8 @@
 
                                             <!-- swatch: click to show/hide the curve -->
                                             <Button Grid.Column="1" Classes="rowaction" Padding="0" Click="OnToggleEncodeVisibility"
-                                                    ToolTip.Tip="Show / hide this curve" VerticalAlignment="Center"
-                                                    AutomationProperties.Name="Toggle curve">
+                                                    ToolTip.Tip="{l:L compare.showHideThisCurve}" VerticalAlignment="Center"
+                                                    AutomationProperties.Name="{l:L compare.toggleCurve}">
                                                 <Ellipse Width="10" Height="10" Fill="{Binding Swatch}" Opacity="{Binding SwatchOpacity}" />
                                             </Button>
 
@@ -495,16 +496,16 @@
                                             <!-- hover actions -->
                                             <StackPanel Grid.Column="7" Classes="actions" Orientation="Horizontal" Spacing="0"
                                                         HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                <Button Classes="rowaction" Click="OnRescoreEncode" ToolTip.Tip="Re-score"
-                                                        AutomationProperties.Name="Re-score encode">
+                                                <Button Classes="rowaction" Click="OnRescoreEncode" ToolTip.Tip="{l:L compare.reScore}"
+                                                        AutomationProperties.Name="{l:L compare.reScoreEncode}">
                                                     <ic:SymbolIcon Symbol="ArrowSync" />
                                                 </Button>
-                                                <Button Classes="rowaction" Click="OnRevealEncode" ToolTip.Tip="Reveal in folder"
-                                                        AutomationProperties.Name="Reveal in folder">
+                                                <Button Classes="rowaction" Click="OnRevealEncode" ToolTip.Tip="{l:L compare.revealInFolder}"
+                                                        AutomationProperties.Name="{l:L compare.revealInFolder}">
                                                     <ic:SymbolIcon Symbol="FolderOpen" />
                                                 </Button>
-                                                <Button Classes="rowaction" Click="OnRemoveEncode" ToolTip.Tip="Remove"
-                                                        AutomationProperties.Name="Remove encode">
+                                                <Button Classes="rowaction" Click="OnRemoveEncode" ToolTip.Tip="{l:L common.remove}"
+                                                        AutomationProperties.Name="{l:L compare.removeEncode}">
                                                     <ic:SymbolIcon Symbol="Dismiss" />
                                                 </Button>
                                             </StackPanel>
@@ -526,7 +527,7 @@
                             IsEnabled="{Binding HasFrames}"
                             Value="{Binding CurrentFrameValue, Mode=TwoWay}"
                             TickFrequency="1" IsSnapToTickEnabled="True"
-                            VerticalAlignment="Center" AutomationProperties.Name="Frame" />
+                            VerticalAlignment="Center" AutomationProperties.Name="{l:L compare.frame}" />
                     <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="mono muted" Text="{Binding StatsText}"
                                FontSize="12" Margin="0,0,0,2" />
                 </Grid>
@@ -542,8 +543,8 @@
                     <ProgressBar Width="160" Minimum="0" Maximum="100"
                                  Value="{Binding ProgressPercent}"
                                  IsIndeterminate="{Binding ProgressIndeterminate}" VerticalAlignment="Center" />
-                    <u:IconButton Classes="tool" Command="{Binding CancelAnalysisCommand}" Content="Cancel"
-                                  ToolTip.Tip="Cancel every queued and running job">
+                    <u:IconButton Classes="tool" Command="{Binding CancelAnalysisCommand}" Content="{l:L compare.cancel}"
+                                  ToolTip.Tip="{l:L compare.cancelEveryQueuedAnd}">
                         <u:IconButton.Icon><ic:SymbolIcon Symbol="Dismiss" FontSize="14" /></u:IconButton.Icon>
                     </u:IconButton>
                 </StackPanel>
@@ -554,7 +555,7 @@
         <Panel x:Name="DropOverlay" Classes="overlay" Classes.visible="{Binding IsDragging}"
                Background="{StaticResource VqScrimBrush}" DragDrop.AllowDrop="True">
             <ContentControl Content="{Binding}" ContentTemplate="{StaticResource DropZones}" />
-            <TextBlock Classes="muted" Text="Drop anywhere else: the first file becomes the reference if none is set"
+            <TextBlock Classes="muted" Text="{l:L compare.dropAnywhereElseThe}"
                        HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,48" />
         </Panel>
     </Panel>

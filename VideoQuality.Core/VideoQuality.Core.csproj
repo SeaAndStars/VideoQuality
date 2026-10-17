@@ -15,6 +15,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- UI text catalogs, one flat key → text map per language (see Localization/Loc.cs). -->
+    <EmbeddedResource Include="Localization\*.json" LogicalName="VideoQuality.Core.Localization.%(Filename).json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="VideoQuality.Tests" />
   </ItemGroup>
 

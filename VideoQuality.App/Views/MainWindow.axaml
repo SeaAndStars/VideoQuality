@@ -1,5 +1,6 @@
 <u:UrsaWindow xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:VideoQuality.App.Localization"
         xmlns:vm="using:VideoQuality.App.ViewModels"
         xmlns:views="using:VideoQuality.App.Views"
         xmlns:u="https://irihi.tech/ursa"
@@ -33,8 +34,8 @@
         <Border Classes="rail">
             <DockPanel>
                 <Button DockPanel.Dock="Top" Classes="tool" HorizontalAlignment="Left" Margin="8,8,8,4"
-                        Click="OnToggleRail" ToolTip.Tip="Collapse / expand the navigation"
-                        AutomationProperties.Name="Toggle navigation">
+                        Click="OnToggleRail" ToolTip.Tip="{l:L shell.collapseExpandTheNavigation}"
+                        AutomationProperties.Name="{l:L shell.toggleNavigation}">
                     <ic:SymbolIcon Symbol="Navigation" />
                 </Button>
                 <u:NavMenu DockPanel.Dock="Bottom" x:Name="SettingsNav" Classes="rail"

@@ -5,6 +5,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Ursa.Controls;
 using VideoQuality.App.ViewModels;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.App.Services;
 
@@ -52,7 +53,7 @@ public static class ToastHost
             action.Click += (_, _) =>
             {
                 action.IsEnabled = false;
-                action.Content = "Done";
+                action.Content = Loc.T("common.done");
                 request.Action();
             };
 

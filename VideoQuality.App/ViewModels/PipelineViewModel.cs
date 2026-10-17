@@ -7,6 +7,7 @@ using VideoQuality.Core.Ingest;
 using VideoQuality.Core.Mkv;
 using VideoQuality.Core.Models;
 using VideoQuality.Core.Scoring;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.App.ViewModels;
 
@@ -73,13 +74,13 @@ public partial class PipelineViewModel : ObservableObject
 
     public ObservableCollection<string> Scripts { get; } = [];
 
-    public PipelineStep SubsetStep { get; } = new() { Title = "Subset fonts", Description = "Collect the characters each font draws, subset and rename." };
+    public PipelineStep SubsetStep { get; } = new() { Title = Loc.T("pipeline.step.subset"), Description = Loc.T("pipeline.step.subset.description") };
 
-    public PipelineStep MuxStep { get; } = new() { Title = "Mux", Description = "Encode + scripts (with languages) + subset fonts → MKV." };
+    public PipelineStep MuxStep { get; } = new() { Title = Loc.T("pipeline.step.mux"), Description = Loc.T("pipeline.step.mux.description") };
 
-    public PipelineStep VerifyStep { get; } = new() { Title = "Verify", Description = "Re-read the MKV: video, one subtitle track per script, every font attached." };
+    public PipelineStep VerifyStep { get; } = new() { Title = Loc.T("pipeline.step.verify"), Description = Loc.T("pipeline.step.verify.description") };
 
-    public PipelineStep VmafStep { get; } = new() { Title = "VMAF check", Description = "Score the muxed file against the reference (optional)." };
+    public PipelineStep VmafStep { get; } = new() { Title = Loc.T("pipeline.step.vmaf"), Description = Loc.T("pipeline.step.vmaf.description") };
 
     public IReadOnlyList<PipelineStep> Steps => [SubsetStep, MuxStep, VerifyStep, VmafStep];
 
@@ -104,7 +105,7 @@ public partial class PipelineViewModel : ObservableObject
     public partial bool IsBusy { get; set; }
 
     [ObservableProperty]
-    public partial string Status { get; set; } = "Drop the encoded episode, its scripts and the font folder.";
+    public partial string Status { get; set; } = Loc.T("pipeline.status.start");
 
     public event EventHandler<ToastRequest>? ToastRequested;
 
@@ -166,7 +167,7 @@ public partial class PipelineViewModel : ObservableObject
             step.Progress = 0;
         }
 
-        Status = "Drop the encoded episode, its scripts and the font folder.";
+        Status = Loc.T("pipeline.status.start");
     }
 
     private bool CanRun() => !IsBusy && Video.Length > 0 && Settings.HasMkvToolNix;
@@ -195,7 +196,7 @@ public partial class PipelineViewModel : ObservableObject
             // 1. Subset
             if (Scripts.Count == 0)
             {
-                Skip(SubsetStep, "No scripts: nothing to subset.");
+                Skip(SubsetStep, Loc.T("pipeline.subset.noScripts"));
             }
             else
             {
@@ -209,12 +210,12 @@ public partial class PipelineViewModel : ObservableObject
                 subset = await Task.Run(() => FontSubsetter.Run(options, new Progress<string>(m => SubsetStep.Detail = m)));
                 if (!subset.Succeeded)
                 {
-                    Fail(SubsetStep, "Missing font(s): " + string.Join(", ", subset.MissingFonts));
+                    Fail(SubsetStep, Loc.T("pipeline.subset.missingFonts", string.Join(", ", subset.MissingFonts)));
                     return;
                 }
 
-                Done(SubsetStep, $"{subset.Fonts.Count} font(s), {FontSubsetViewModel.Size(subset.Fonts.Sum(f => f.SourceBytes))} → " +
-                                 $"{FontSubsetViewModel.Size(subset.Fonts.Sum(f => f.SubsetBytes))}");
+                Done(SubsetStep, Loc.T("pipeline.subset.done", subset.Fonts.Count, FontSubsetViewModel.Size(subset.Fonts.Sum(f => f.SourceBytes)),
+                                 FontSubsetViewModel.Size(subset.Fonts.Sum(f => f.SubsetBytes))));
             }
 
             // 2. Mux
@@ -239,7 +240,7 @@ public partial class PipelineViewModel : ObservableObject
                 return;
             }
 
-            Done(MuxStep, $"{Path.GetFileName(Output)}" + (mux.Warnings.Count > 0 ? $" ({mux.Warnings.Count} warning(s): {mux.Warnings[0]})" : string.Empty));
+            Done(MuxStep, $"{Path.GetFileName(Output)}" + (mux.Warnings.Count > 0 ? " " + Loc.T("pipeline.mux.warnings", mux.Warnings.Count, mux.Warnings[0]) : string.Empty));
 
             // 3. Verify
             Begin(VerifyStep);
@@ -247,7 +248,7 @@ public partial class PipelineViewModel : ObservableObject
             var problems = new List<string>();
             if (!written.Tracks.Any(t => t.Type == MkvTrackType.Video))
             {
-                problems.Add("no video track");
+                problems.Add(Loc.T("pipeline.verify.noVideo"));
             }
 
             // At least one per script; subtitle tracks already in the video come on top.
@@ -255,14 +256,14 @@ public partial class PipelineViewModel : ObservableObject
             int subtitles = written.Tracks.Count(t => t.Type == MkvTrackType.Subtitles);
             if (subtitles < expectedSubtitles)
             {
-                problems.Add($"{subtitles} subtitle track(s), expected {expectedSubtitles}");
+                problems.Add(Loc.T("pipeline.verify.subtitles", subtitles, expectedSubtitles));
             }
 
             var attached = written.Attachments.Select(a => a.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var missingFonts = fonts.Select(Path.GetFileName).Where(f => !attached.Contains(f!)).ToList();
             if (missingFonts.Count > 0)
             {
-                problems.Add("fonts not attached: " + string.Join(", ", missingFonts));
+                problems.Add(Loc.T("pipeline.verify.fontsMissing", string.Join(", ", missingFonts)));
             }
 
             if (problems.Count > 0)
@@ -271,13 +272,13 @@ public partial class PipelineViewModel : ObservableObject
                 return;
             }
 
-            Done(VerifyStep, $"{written.Tracks.Count} track(s), {written.Attachments.Count} attachment(s), " +
-                             $"{TimeSpan.FromSeconds(written.DurationSeconds):hh\\:mm\\:ss}");
+            Done(VerifyStep, Loc.T("pipeline.verify.done", written.Tracks.Count, written.Attachments.Count,
+                             TimeSpan.FromSeconds(written.DurationSeconds).ToString(@"hh\:mm\:ss", CultureInfo.InvariantCulture)));
 
             // 4. VMAF
             if (Reference.Length == 0)
             {
-                Skip(VmafStep, "No reference: drop the source video too to score the release.");
+                Skip(VmafStep, Loc.T("pipeline.vmaf.noReference"));
             }
             else
             {
@@ -285,14 +286,14 @@ public partial class PipelineViewModel : ObservableObject
                 string ffmpeg = await VmafRunner.ResolveFfmpegAsync(Compare.FfmpegPath);
                 var vmafOptions = new VmafOptions { FfmpegPath = ffmpeg, Backend = Compare.SelectedBackend, Model = Compare.SelectedModel };
                 VmafReport report = await VmafRunner.RunAsync(Reference, Output, vmafOptions,
-                    new Progress<VmafProgress>(p => VmafStep.Detail = p.FrameNumber is int f ? $"frame {f}" : VmafStep.Detail));
-                Done(VmafStep, string.Format(CultureInfo.InvariantCulture,
-                    "{0} mean {1:F2} · p1 {2:F2} · min {3:F2} · {4}",
+                    new Progress<VmafProgress>(p => VmafStep.Detail = p.FrameNumber is int f ? Loc.T("pipeline.vmaf.frame", f) : VmafStep.Detail));
+                Done(VmafStep, Loc.T(
+                    "pipeline.vmaf.done",
                     VmafModels.ShortName(report.Model), report.Stats.Mean, report.Stats.P1, report.Stats.Min, report.Backend.ToDisplayName()));
             }
 
-            Status = $"Release ready: {Output}";
-            ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Success, "Pipeline finished: " + Path.GetFileName(Output)));
+            Status = Loc.T("pipeline.status.ready", Output);
+            ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Success, Loc.T("pipeline.toast.done", Path.GetFileName(Output))));
         }
         catch (Exception ex) when (ex is InvalidOperationException or IOException or InvalidDataException or UnauthorizedAccessException)
         {
@@ -302,7 +303,7 @@ public partial class PipelineViewModel : ObservableObject
                 Fail(running, ex.Message);
             }
 
-            Status = "Pipeline stopped: " + ex.Message;
+            Status = Loc.T("pipeline.status.stopped", ex.Message);
         }
         finally
         {
@@ -337,8 +338,8 @@ public partial class PipelineViewModel : ObservableObject
     {
         step.State = StepState.Failed;
         step.Detail = detail;
-        Status = $"{step.Title} failed.";
-        ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, $"{step.Title} failed: {detail}"));
+        Status = Loc.T("pipeline.status.stepFailed", step.Title);
+        ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, Loc.T("pipeline.toast.stepFailed", step.Title, detail)));
     }
 
     private static void Skip(PipelineStep step, string detail)

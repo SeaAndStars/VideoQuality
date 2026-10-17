@@ -74,6 +74,8 @@
 - **Honest about what it did:** backend and precision (`CUDA·8b` when a 10-bit source was converted
   on the GPU), colour metadata warnings, resolution/fps/frame-count mismatch warnings, and a session
   log.
+- **English and 简体中文.** Every UI text comes from a translation catalog
+  (`VideoQuality.Core/Localization/*.json`); pick the language in Settings or follow the system.
 - **Portable.** On Windows the release is one `VideoQuality.exe` with ffmpeg bundled, and settings
   live in `settings.json` beside it.
 

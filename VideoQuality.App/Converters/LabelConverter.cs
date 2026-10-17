@@ -3,6 +3,7 @@ using Avalonia.Data.Converters;
 using VideoQuality.App.ViewModels;
 using VideoQuality.Core.Imaging;
 using VideoQuality.Core.Scoring;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.App.Converters;
 
@@ -11,14 +12,14 @@ public sealed class LabelConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch
     {
-        CompareMode.SideBySide => "Side by side",
-        CompareMode.Wipe => "Wipe",
-        CompareMode.Flicker => "Flicker",
-        CompareMode.Difference => "Difference",
-        DifferenceChannels.Luma => "Luma",
-        DifferenceChannels.Chroma => "Chroma",
-        DifferenceChannels.Both => "Luma + chroma",
-        VmafBackend.Auto => "Auto",
+        CompareMode.SideBySide => Loc.T("label.mode.sideBySide"),
+        CompareMode.Wipe => Loc.T("label.mode.wipe"),
+        CompareMode.Flicker => Loc.T("label.mode.flicker"),
+        CompareMode.Difference => Loc.T("label.mode.difference"),
+        DifferenceChannels.Luma => Loc.T("label.channel.luma"),
+        DifferenceChannels.Chroma => Loc.T("label.channel.chroma"),
+        DifferenceChannels.Both => Loc.T("label.channel.both"),
+        VmafBackend.Auto => Loc.T("label.backend.auto"),
         VmafBackend.Cpu => "CPU",
         VmafBackend.Cuda => "CUDA",
         string model => VmafModels.DisplayName(model),

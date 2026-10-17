@@ -1,4 +1,5 @@
 using FFmpeg.AutoGen;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.Core.Decoding;
 
@@ -25,19 +26,19 @@ public static unsafe class MediaProbe
             int result = ffmpeg.avformat_open_input(&format, path, null, null);
             if (result < 0)
             {
-                throw new InvalidOperationException($"Could not open '{path}': {FfmpegRuntime.ErrorText(result)}");
+                throw new InvalidOperationException(Loc.T("probe.error.open", path, FfmpegRuntime.ErrorText(result)));
             }
 
             result = ffmpeg.avformat_find_stream_info(format, null);
             if (result < 0)
             {
-                throw new InvalidOperationException($"Could not read stream info for '{path}': {FfmpegRuntime.ErrorText(result)}");
+                throw new InvalidOperationException(Loc.T("probe.error.streamInfo", path, FfmpegRuntime.ErrorText(result)));
             }
 
             int streamIndex = ffmpeg.av_find_best_stream(format, AVMediaType.AVMEDIA_TYPE_VIDEO, -1, -1, null, 0);
             if (streamIndex < 0)
             {
-                throw new InvalidOperationException($"'{path}' has no video stream.");
+                throw new InvalidOperationException(Loc.T("probe.error.noVideo", path));
             }
 
             AVStream* stream = format->streams[streamIndex];

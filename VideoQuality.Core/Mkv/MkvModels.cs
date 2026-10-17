@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.Core.Mkv;
 
@@ -53,7 +54,7 @@ public sealed record MkvFileInfo(
         JsonElement container = root.GetProperty("container");
         if (!container.TryGetProperty("recognized", out JsonElement recognized) || !recognized.GetBoolean())
         {
-            throw new InvalidDataException("mkvmerge does not recognise this file's format.");
+            throw new InvalidDataException(Loc.T("mkv.error.unrecognised"));
         }
 
         JsonElement containerProps = container.TryGetProperty("properties", out JsonElement cp) ? cp : default;

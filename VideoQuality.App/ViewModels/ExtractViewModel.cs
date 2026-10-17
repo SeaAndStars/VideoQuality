@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FluentIcons.Common;
 using VideoQuality.Core.Mkv;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.App.ViewModels;
 
@@ -68,7 +70,7 @@ public partial class ExtractViewModel : ObservableObject
     public partial double Progress { get; set; }
 
     [ObservableProperty]
-    public partial string Status { get; set; } = "Drop a video (MKV, MP4, …) to list its tracks and attachments.";
+    public partial string Status { get; set; } = Loc.T("extract.status.start");
 
     public bool HasSource => Source.Length > 0;
 
@@ -76,8 +78,8 @@ public partial class ExtractViewModel : ObservableObject
 
     public string Summary => Info is null
         ? string.Empty
-        : $"{Info.Container} · {TimeSpan.FromSeconds(Info.DurationSeconds):hh\\:mm\\:ss} · {Info.Tracks.Count} track(s) · " +
-          $"{Info.Attachments.Count} attachment(s){(Info.ChapterEntries > 0 ? $" · {Info.ChapterEntries} chapter(s)" : string.Empty)}";
+        : Loc.T("extract.summary", Info.Container, TimeSpan.FromSeconds(Info.DurationSeconds).ToString(@"hh\:mm\:ss", CultureInfo.InvariantCulture), Info.Tracks.Count, Info.Attachments.Count) +
+          (Info.ChapterEntries > 0 ? " · " + Loc.T("extract.summary.chapters", Info.ChapterEntries) : string.Empty);
 
     public event EventHandler<ToastRequest>? ToastRequested;
 
@@ -85,7 +87,7 @@ public partial class ExtractViewModel : ObservableObject
     {
         if (Settings.MkvToolNix is not { } tools)
         {
-            Status = "mkvtoolnix is required: install it or set its folder in Settings.";
+            Status = Loc.T("common.mkvtoolnixRequired");
             return;
         }
 
@@ -93,7 +95,7 @@ public partial class ExtractViewModel : ObservableObject
         Items.Clear();
         Info = null;
         Source = path;
-        Status = "Reading tracks…";
+        Status = Loc.T("extract.status.reading");
         try
         {
             MkvFileInfo info = await tools.IdentifyAsync(path);
@@ -113,10 +115,10 @@ public partial class ExtractViewModel : ObservableObject
                         MkvTrackType.Subtitles => Symbol.ClosedCaption,
                         _ => Symbol.Document,
                     },
-                    Kind = $"#{track.Id} {track.Type.ToString().ToLowerInvariant()}",
+                    Kind = $"#{track.Id} {Loc.T("track.type." + track.Type.ToString().ToLowerInvariant())}",
                     Title = track.Name.Length > 0 ? track.Name : track.Codec,
                     Details = string.Join(" · ", new[] { track.Codec, track.Language, track.Details,
-                        track.Default ? "default" : null, track.Forced ? "forced" : null }.Where(s => !string.IsNullOrEmpty(s))),
+                        track.Default ? Loc.T("track.flag.default") : null, track.Forced ? Loc.T("track.flag.forced") : null }.Where(s => !string.IsNullOrEmpty(s))),
                     OutputName = $"{stem}.track{track.Id}{language}{track.Extension}",
                     IsSelected = track.Type == MkvTrackType.Subtitles,
                 });
@@ -132,7 +134,7 @@ public partial class ExtractViewModel : ObservableObject
                            Path.GetExtension(attachment.FileName).ToLowerInvariant() is ".ttf" or ".otf" or ".ttc"
                         ? Symbol.TextFont
                         : Symbol.Attach,
-                    Kind = $"attachment {attachment.Id}",
+                    Kind = Loc.T("extract.attachment", attachment.Id),
                     Title = attachment.FileName,
                     Details = $"{attachment.MimeType} · {FontSubsetViewModel.Size(attachment.Size)}",
                     OutputName = Path.Combine("attachments", attachment.FileName),
@@ -146,7 +148,7 @@ public partial class ExtractViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is InvalidDataException or InvalidOperationException or System.Text.Json.JsonException)
         {
-            Status = "Could not read the file: " + ex.Message;
+            Status = Loc.T("extract.status.unreadable", ex.Message);
         }
         finally
         {
@@ -184,7 +186,7 @@ public partial class ExtractViewModel : ObservableObject
         var attachments = Items.Where(i => i.IsSelected && i.IsAttachment).ToList();
         if (tracks.Count == 0 && attachments.Count == 0 && !ExtractChapters)
         {
-            Status = "Nothing selected.";
+            Status = Loc.T("extract.status.nothingSelected");
             return;
         }
 
@@ -201,7 +203,7 @@ public partial class ExtractViewModel : ObservableObject
             if (!info.Container.Contains("Matroska", StringComparison.OrdinalIgnoreCase) &&
                 !info.Container.Contains("WebM", StringComparison.OrdinalIgnoreCase))
             {
-                Status = $"Remuxing {info.Container} to Matroska first…";
+                Status = Loc.T("extract.status.remuxing", info.Container);
                 temporary = Path.Combine(OutputDirectory, $".vq-remux-{Guid.NewGuid():N}.mkv");
                 MkvRunResult remux = await tools.MuxAsync(
                     MkvToolNix.BuildMuxArguments(new MuxPlan(temporary, [new MuxInput(source)]), new Dictionary<string, MkvFileInfo>()),
@@ -215,7 +217,7 @@ public partial class ExtractViewModel : ObservableObject
                 source = temporary;
             }
 
-            Status = "Extracting…";
+            Status = Loc.T("extract.status.extracting");
             IReadOnlyList<string> args = MkvToolNix.BuildExtractArguments(
                 source,
                 tracks.Select(t => (t.Id, Path.Combine(OutputDirectory, t.OutputName))),
@@ -227,19 +229,19 @@ public partial class ExtractViewModel : ObservableObject
             if (result.Succeeded)
             {
                 Progress = 1;
-                Status = $"Extracted {tracks.Count} track(s), {attachments.Count} attachment(s) to {OutputDirectory}" +
-                         (result.Warnings.Count > 0 ? $" ({result.Warnings.Count} warning(s))." : ".");
-                ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Success, "Extraction finished."));
+                Status = Loc.T("extract.status.done", tracks.Count, attachments.Count, OutputDirectory) +
+                         (result.Warnings.Count > 0 ? Loc.T("extract.status.warnings", result.Warnings.Count) : ".");
+                ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Success, Loc.T("extract.toast.done")));
             }
             else
             {
-                Status = "Extraction failed: " + string.Join("; ", result.Errors);
+                Status = Loc.T("extract.status.failed", string.Join("; ", result.Errors));
                 ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, Status));
             }
         }
         catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
         {
-            Status = "Extraction failed: " + ex.Message;
+            Status = Loc.T("extract.status.failed", ex.Message);
             ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, Status));
         }
         finally

@@ -3,6 +3,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VideoQuality.Core.Fonts;
+using VideoQuality.Core.Localization;
 
 namespace VideoQuality.App.ViewModels;
 
@@ -32,7 +33,7 @@ public partial class FontSubsetViewModel : ObservableObject
     public partial bool IsBusy { get; set; }
 
     [ObservableProperty]
-    public partial string Status { get; set; } = "Drop .ass scripts (or their folder) to start.";
+    public partial string Status { get; set; } = Loc.T("subset.status.start");
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasResult))]
@@ -103,7 +104,7 @@ public partial class FontSubsetViewModel : ObservableObject
             OutputDirectory = Path.Combine(folder, "output");
         }
 
-        Status = $"{Scripts.Count} script(s) ready.";
+        Status = Loc.T("subset.status.ready", Scripts.Count);
     }
 
     [RelayCommand]
@@ -118,7 +119,7 @@ public partial class FontSubsetViewModel : ObservableObject
         Result = null;
         FontDirectory = string.Empty;
         OutputDirectory = string.Empty;
-        Status = "Drop .ass scripts (or their folder) to start.";
+        Status = Loc.T("subset.status.start");
     }
 
     private bool CanRun() => !IsBusy && Scripts.Count > 0;
@@ -143,13 +144,13 @@ public partial class FontSubsetViewModel : ObservableObject
             FontSubsetReport report = await Task.Run(() => FontSubsetter.Run(options, progress));
             Show(report);
             ToastRequested?.Invoke(this, report.Succeeded
-                ? new ToastRequest(ToastKind.Success, $"Subset {report.Fonts.Count} font(s) for {report.ScriptsWritten.Count} script(s).")
-                : new ToastRequest(ToastKind.Warning, $"{report.MissingFonts.Count} font(s) are missing; see the report."));
+                ? new ToastRequest(ToastKind.Success, Loc.T("subset.toast.done", report.Fonts.Count, report.ScriptsWritten.Count))
+                : new ToastRequest(ToastKind.Warning, Loc.T("subset.toast.missing", report.MissingFonts.Count)));
         }
         catch (Exception ex) when (ex is InvalidOperationException or IOException or InvalidDataException or UnauthorizedAccessException)
         {
-            Status = "Failed: " + ex.Message;
-            ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, "Font subset failed: " + ex.Message));
+            Status = Loc.T("common.failed", ex.Message);
+            ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, Loc.T("subset.toast.failed", ex.Message)));
         }
         finally
         {
@@ -173,39 +174,39 @@ public partial class FontSubsetViewModel : ObservableObject
 
         foreach (FontRequest missing in report.MissingFonts)
         {
-            Notes.Add(new SubsetNote(ToastKind.Error, $"Missing font: {missing} — no file in the font folder provides it."));
+            Notes.Add(new SubsetNote(ToastKind.Error, Loc.T("subset.note.missing", missing)));
         }
 
         foreach ((FontRequest request, FontMatch match) in report.Synthesized)
         {
             string what = (match.FauxBold, match.FauxItalic) switch
             {
-                (true, true) => "bold and italic",
-                (true, false) => "bold",
-                _ => "italic",
+                (true, true) => Loc.T("subset.style.boldItalic"),
+                (true, false) => Loc.T("subset.style.bold"),
+                _ => Loc.T("subset.style.italic"),
             };
-            Notes.Add(new SubsetNote(ToastKind.Warning, $"{request}: no real {what} face; the renderer will synthesise it from {match.Face}."));
+            Notes.Add(new SubsetNote(ToastKind.Warning, Loc.T("subset.note.synthesized", request, what, match.Face)));
         }
 
         foreach ((string font, IReadOnlyList<int> codepoints) in report.MissingGlyphs)
         {
             string sample = string.Join(" ", codepoints.Take(8).Select(c => $"{char.ConvertFromUtf32(c)} U+{c:X4}"));
-            Notes.Add(new SubsetNote(ToastKind.Warning, $"{font} has no glyph for {codepoints.Count} character(s): {sample}{(codepoints.Count > 8 ? " …" : string.Empty)}"));
+            Notes.Add(new SubsetNote(ToastKind.Warning, Loc.T("subset.note.missingGlyphs", font, codepoints.Count, sample + (codepoints.Count > 8 ? " …" : string.Empty))));
         }
 
         foreach (string unused in report.UnusedStyleFonts)
         {
-            Notes.Add(new SubsetNote(ToastKind.Info, $"{unused}: named by a style but never drawn; not shipped."));
+            Notes.Add(new SubsetNote(ToastKind.Info, Loc.T("subset.note.unused", unused)));
         }
 
         foreach ((string path, string error) in report.UnreadableFonts)
         {
-            Notes.Add(new SubsetNote(ToastKind.Warning, $"Could not read {Path.GetFileName(path)}: {error}"));
+            Notes.Add(new SubsetNote(ToastKind.Warning, Loc.T("subset.note.unreadable", Path.GetFileName(path), error)));
         }
 
         long before = report.Fonts.Sum(f => f.SourceBytes);
         long after = report.Fonts.Sum(f => f.SubsetBytes);
-        Status = $"{report.Fonts.Count} font(s), {Size(before)} → {Size(after)}; scripts in {OutputDirectory}.";
+        Status = Loc.T("subset.status.done", report.Fonts.Count, Size(before), Size(after), OutputDirectory);
     }
 
     private bool CanSendToMux() => Result is { Fonts.Count: > 0 } or { ScriptsWritten.Count: > 0 };

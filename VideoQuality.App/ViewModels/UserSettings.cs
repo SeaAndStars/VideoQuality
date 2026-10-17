@@ -16,6 +16,9 @@ public sealed class UserSettings
     /// <summary>Folder holding mkvmerge/mkvextract; empty means find them automatically.</summary>
     public string? MkvToolNixFolder { get; set; }
 
+    /// <summary>UI language code (<c>en</c>, <c>zh-Hans</c>); empty follows the system.</summary>
+    public string? Language { get; set; }
+
     public CompareMode CompareMode { get; set; } = CompareMode.SideBySide;
 
     public bool FixedScale { get; set; }

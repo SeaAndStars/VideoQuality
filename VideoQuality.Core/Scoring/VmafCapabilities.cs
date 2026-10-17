@@ -1,3 +1,4 @@
+using VideoQuality.Core.Localization;
 namespace VideoQuality.Core.Scoring;
 
 /// <summary>
@@ -17,9 +18,9 @@ public sealed record VmafCapabilities(
 
     public string Describe()
     {
-        string libvmaf = HasLibvmaf ? "libvmaf" : "no libvmaf";
-        string cuda = HasLibvmafCuda ? "libvmaf_cuda" : "no libvmaf_cuda";
-        string gpu = HasNvidiaGpu ? "NVIDIA GPU present" : "no NVIDIA GPU";
+        string libvmaf = HasLibvmaf ? "libvmaf" : Loc.T("capabilities.noLibvmaf");
+        string cuda = HasLibvmafCuda ? "libvmaf_cuda" : Loc.T("capabilities.noLibvmafCuda");
+        string gpu = Loc.T(HasNvidiaGpu ? "capabilities.gpu" : "capabilities.noGpu");
         return $"{libvmaf}, {cuda}, {gpu}";
     }
 }

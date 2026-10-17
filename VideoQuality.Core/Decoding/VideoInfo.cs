@@ -1,3 +1,5 @@
+using VideoQuality.Core.Localization;
+
 namespace VideoQuality.Core.Decoding;
 
 /// <summary>Basic properties of a decoded video stream.</summary>
@@ -41,7 +43,7 @@ public sealed record VideoInfo(
 
             if (IsLossy)
             {
-                parts.Add("lossy");
+                parts.Add(Loc.T("video.badge.lossy"));
             }
 
             return string.Join(" · ", parts);

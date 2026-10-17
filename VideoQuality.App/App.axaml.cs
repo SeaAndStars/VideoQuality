@@ -1,10 +1,14 @@
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Styling;
 using VideoQuality.App.ViewModels;
 using VideoQuality.App.Views;
 using VideoQuality.Core.Decoding;
 using VideoQuality.Core.Diagnostics;
+using VideoQuality.Core.Localization;
+using VideoQuality.Core.Settings;
 
 namespace VideoQuality.App;
 
@@ -13,6 +17,7 @@ public partial class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+        ApplyLanguage(SettingsFile.Load<UserSettings>().Language);
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -74,10 +79,32 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
+    /// <summary>
+    /// Picks the text catalog before any view is created (the language is fixed per process) and
+    /// gives the Semi/Ursa themes the matching locale for their own built-in text (Yes/No, …).
+    /// </summary>
+    private void ApplyLanguage(string? language)
+    {
+        Loc.SetLanguage(language);
+        var culture = new CultureInfo(Loc.Language == "zh-Hans" ? "zh-CN" : "en-US");
+        foreach (IStyle style in Styles)
+        {
+            switch (style)
+            {
+                case Semi.Avalonia.SemiTheme semi:
+                    semi.Locale = culture;
+                    break;
+                case Ursa.Themes.Semi.UrsaSemiTheme ursa:
+                    ursa.Locale = culture;
+                    break;
+            }
+        }
+    }
+
     /// <summary>The work the splash waits for: libav, then ffmpeg resolution and capability probe.</summary>
     private static async Task StartupAsync(MainViewModel viewModel, SplashViewModel splash)
     {
-        splash.Status = "Loading FFmpeg libraries…";
+        splash.Status = Loc.T("splash.loadingLibav");
         try
         {
             await Task.Run(FfmpegRuntime.Initialize).ConfigureAwait(true);
@@ -88,9 +115,9 @@ public partial class App : Application
             VqLog.Warn("startup", "libav did not load", ex);
         }
 
-        splash.Status = "Finding a VMAF-capable ffmpeg…";
+        splash.Status = Loc.T("splash.findingFfmpeg");
         await viewModel.InitializeAsync().ConfigureAwait(true);
-        splash.Status = "Ready";
+        splash.Status = Loc.T("splash.ready");
         splash.IsReady = true;
     }
 }
