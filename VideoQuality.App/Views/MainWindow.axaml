@@ -402,7 +402,7 @@
                           ToolTip.Tip="Drag to resize the viewer; double-click to fit it to the video again" />
 
             <!-- ======================================================== surface: graph + table -->
-            <Grid Grid.Row="4" ColumnDefinitions="2.1*,1*" ColumnSpacing="12">
+            <Grid Grid.Row="4" ColumnDefinitions="2*,1.25*" ColumnSpacing="12">
                 <Border Classes="surface">
                     <Grid RowDefinitions="Auto,*">
                         <Grid ColumnDefinitions="*,Auto" Margin="{StaticResource VqHeaderPadding}">
@@ -440,18 +440,21 @@
                                     <DataTemplate x:DataType="vm:EncodeEntry">
                                         <Grid ColumnDefinitions="22,14,*,48,46,46,66,72" ColumnSpacing="6" Margin="6,6"
                                               ToolTip.Tip="{Binding StatusText}">
-                                            <!-- status -->
-                                            <Panel Width="18" Height="18" VerticalAlignment="Center">
-                                                <ic:SymbolIcon Symbol="Clock" FontSize="16" Foreground="{DynamicResource SemiColorText3}"
-                                                               IsVisible="{Binding IsPending}" />
+                                            <!-- status: drawn circles with a small centred glyph; a filled
+                                                 font glyph alone sits off-centre because of its font metrics -->
+                                            <Panel Width="18" Height="18" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                <Ellipse Classes="statusring" IsVisible="{Binding IsPending}" />
                                                 <u:LoadingIcon IsLoading="{Binding IsWorking}" IsVisible="{Binding IsWorking}"
                                                                Width="16" Height="16" />
-                                                <ic:SymbolIcon Symbol="CheckmarkCircle" IconVariant="Filled" FontSize="16"
-                                                               Foreground="{StaticResource VqOkBrush}" IsVisible="{Binding IsDone}" />
-                                                <ic:SymbolIcon Symbol="ErrorCircle" IconVariant="Filled" FontSize="16"
-                                                               Foreground="{StaticResource VqErrorBrush}" IsVisible="{Binding IsFailed}" />
-                                                <ic:SymbolIcon Symbol="ArrowSync" FontSize="16"
-                                                               Foreground="{StaticResource VqWarnBrush}" IsVisible="{Binding IsStale}" />
+                                                <Border Classes="statusdot" Background="{StaticResource VqOkBrush}" IsVisible="{Binding IsDone}">
+                                                    <ic:SymbolIcon Symbol="Checkmark" IconVariant="Filled" />
+                                                </Border>
+                                                <Border Classes="statusdot" Background="{StaticResource VqErrorBrush}" IsVisible="{Binding IsFailed}">
+                                                    <ic:SymbolIcon Symbol="Dismiss" IconVariant="Filled" />
+                                                </Border>
+                                                <Border Classes="statusdot" Background="{StaticResource VqWarnBrush}" IsVisible="{Binding IsStale}">
+                                                    <ic:SymbolIcon Symbol="ArrowSync" IconVariant="Filled" />
+                                                </Border>
                                             </Panel>
 
                                             <!-- swatch: click to show/hide the curve -->
@@ -461,19 +464,22 @@
                                                 <Ellipse Width="10" Height="10" Fill="{Binding Swatch}" Opacity="{Binding SwatchOpacity}" />
                                             </Button>
 
+                                            <!-- name trims at the column edge; a horizontal StackPanel would give it
+                                                 unlimited width and let long names run over MODEL and MEAN -->
                                             <StackPanel Grid.Column="2" Spacing="3" VerticalAlignment="Center">
-                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
                                                     <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis"
-                                                               ToolTip.Tip="{Binding Path}" MaxWidth="220" />
-                                                    <ic:SymbolIcon Symbol="Warning" FontSize="13" Foreground="{StaticResource VqWarnBrush}"
+                                                               VerticalAlignment="Center" ToolTip.Tip="{Binding Path}" />
+                                                    <ic:SymbolIcon Grid.Column="1" Symbol="Warning" FontSize="13"
+                                                                   Foreground="{StaticResource VqWarnBrush}"
                                                                    IsVisible="{Binding HasWarning}" ToolTip.Tip="{Binding Warning}" />
-                                                </StackPanel>
+                                                </Grid>
                                                 <ProgressBar Height="3" MinHeight="3" Minimum="0" Maximum="1" Value="{Binding Progress}"
                                                              IsVisible="{Binding IsWorking}" />
                                             </StackPanel>
 
                                             <TextBlock Grid.Column="3" Text="{Binding ModelText}" FontSize="11" Classes="muted"
-                                                       VerticalAlignment="Center"
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                                        ToolTip.Tip="{Binding BackendText, StringFormat='Model; backend {0}'}" />
                                             <TextBlock Grid.Column="4" Text="{Binding MeanText}" FontSize="12" Classes="mono"
                                                        HorizontalAlignment="Right" VerticalAlignment="Center" />
