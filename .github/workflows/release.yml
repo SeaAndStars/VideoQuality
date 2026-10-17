@@ -5,9 +5,14 @@
 #   git tag -s v0.2.0 -m "VideoQuality 0.2.0"
 #   git push origin main v0.2.0
 #
-# Supply-chain notes: third-party actions are pinned to full commit SHAs (a moved tag cannot change
-# what runs), the job token is read-only except for the final publish, and nothing builds unless the
-# tag is signed by the release key pinned below.
+# Trust anchors live outside the repository, because a tag runs the workflow *from the tagged
+# commit*: anything in the repo (a key file, a pinned fingerprint, this file) can be rewritten by
+# whoever pushes that commit. So:
+#   - the signer's public key is fetched from the owner's GitHub account (github.com/<owner>.gpg),
+#   - the expected fingerprint is the repository variable RELEASE_KEY_FINGERPRINT (admin-only),
+#   - publishing runs in the `release` environment, which requires the owner's approval and only
+#     accepts v* tags, and repository rulesets restrict who can update main and create v* tags.
+# Third-party actions are pinned to full commit SHAs, and the token is read-only except to publish.
 name: release
 
 on:
@@ -24,9 +29,6 @@ concurrency:
 env:
   DOTNET_NOLOGO: "1"
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
-  # Fingerprint of the key in .github/release-signing-key.asc. Changing the key file alone is not
-  # enough to get a release out: the signer must also match this value.
-  RELEASE_KEY_FINGERPRINT: 41A90A5DA8C9222F2AE9DA5762D69FC1BCCBB34A
 
 jobs:
   verify:
@@ -40,12 +42,20 @@ jobs:
           fetch-depth: 0
 
       - name: Tag is annotated and signed by the release key
+        env:
+          # Set in Settings → Secrets and variables → Actions → Variables (admins only).
+          RELEASE_KEY_FINGERPRINT: ${{ vars.RELEASE_KEY_FINGERPRINT }}
+          OWNER: ${{ github.repository_owner }}
         run: |
+          [[ "$RELEASE_KEY_FINGERPRINT" =~ ^[0-9A-F]{40}$ ]] \
+            || { echo "::error::repository variable RELEASE_KEY_FINGERPRINT is missing or malformed"; exit 1; }
           tag="${GITHUB_REF_NAME}"
           # checkout may leave a lightweight ref for the triggering tag; fetch the real tag object.
           git fetch --force origin "refs/tags/$tag:refs/tags/$tag"
           [[ "$(git cat-file -t "refs/tags/$tag")" == tag ]] || { echo "::error::$tag is not an annotated tag"; exit 1; }
-          gpg --batch --import .github/release-signing-key.asc
+          # The key comes from the owner's GitHub account, not from this repository.
+          curl -fsSL "https://github.com/${OWNER}.gpg" -o owner-keys.asc
+          gpg --batch --import owner-keys.asc
           status=$(git verify-tag --raw "$tag" 2>&1) || { echo "$status"; echo "::error::bad or missing signature on $tag"; exit 1; }
           echo "$status" | grep -q "VALIDSIG ${RELEASE_KEY_FINGERPRINT} " \
             || { echo "$status"; echo "::error::$tag is not signed by ${RELEASE_KEY_FINGERPRINT}"; exit 1; }
@@ -145,6 +155,9 @@ jobs:
     name: Package and publish
     needs: [verify, test, ffmpeg-windows, ffmpeg-linux]
     runs-on: ubuntu-24.04
+    # Required reviewer (the owner) and a v* tag policy are configured on the environment in the
+    # repository settings; the job waits for approval before it gets a write token.
+    environment: release
     permissions:
       contents: write
     steps:

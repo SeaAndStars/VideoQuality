@@ -152,7 +152,6 @@ scripts/build-ffmpeg-linux.sh     the same for Linux: relocatable ($ORIGIN), min
 scripts/build-ffmpeg-linux-docker.sh  runs the Linux build in Ubuntu 22.04 (glibc 2.35 baseline)
 scripts/package.sh <rid>          release archive for win-x64 (.zip) or linux-x64 (.tar.gz)
 .github/workflows/release.yml     tag-triggered CI/CD (verify signature → test → FFmpeg → publish)
-.github/release-signing-key.asc   public key that release tags must be signed with
 artifacts/                 release output (ignored)
 scripts/verify.sh          clean build, solution-membership check, tests, probe
 scripts/capture-docs.sh    regenerates the documentation screenshots
@@ -187,22 +186,40 @@ git push origin main v0.2.0          # → .github/workflows/release.yml
 ```
 
 **Signing.** Commits and tags are signed with the release key (fingerprint
-`41A9 0A5D A8C9 222F 2AE9 DA57 62D6 9FC1 BCCB B34A`, public half in
-`.github/release-signing-key.asc`). The key lives on a smartcard read by GnuPG on Windows; in WSL
-the repository is configured with `gpg.program = /usr/local/bin/gpg-win`, a wrapper that calls
-`gpg.exe` and translates temp-file paths so `git verify-commit` / `git log --show-signature` work
-too. Check any commit or tag with `git verify-commit <sha>` / `git verify-tag <tag>`.
+`41A9 0A5D A8C9 222F 2AE9 DA57 62D6 9FC1 BCCB B34A`), published on the owner's GitHub account
+(`https://github.com/SeaAndStars.gpg`), so GitHub marks the commits Verified. The key lives on a
+smartcard read by GnuPG on Windows; in WSL the repository is configured with
+`gpg.program = /usr/local/bin/gpg-win`, a wrapper that calls `gpg.exe` and translates temp-file
+paths so `git verify-commit` / `git log --show-signature` work too. The card's signature PIN is not
+forced, so the PIN is asked once per session.
+
+**Where trust lives.** A tag runs the workflow *from the tagged commit*, so nothing inside the
+repository can be the trust anchor: whoever pushes a commit can rewrite a key file, a pinned
+fingerprint, or the workflow itself. The anchors are therefore outside it:
+
+| Anchor | Where | Who can change it |
+|---|---|---|
+| Signer's public key | owner's GitHub account (`github.com/<owner>.gpg`) | the account owner |
+| Expected fingerprint | repository variable `RELEASE_KEY_FINGERPRINT` | repository admins |
+| `main` integrity | ruleset: verified signed commits, no force push, no deletion (no bypass) | repository admins |
+| Who may move `main` / create `v*` tags | rulesets with admin-only bypass | repository admins |
+| Publishing | `release` environment: owner approval required, `v*` tags only | repository admins |
+| Token | workflow default permissions: read-only | repository admins |
+
+Even a malicious workflow change that skipped the checks could not publish: the write token only
+exists inside the `release` environment, after the owner approves the run.
 
 **Release pipeline** (`.github/workflows/release.yml`), on a pushed `v*` tag:
 
-1. **verify**: the tag must be annotated, signed by the pinned fingerprint, and point at a commit
-   on `main`; otherwise nothing builds.
+1. **verify**: the tag must be annotated, signed by a key from the owner's account whose fingerprint
+   equals `RELEASE_KEY_FINGERPRINT`, and point at a commit on `main`; otherwise nothing builds.
 2. **test**: `dotnet build` and the unit tests.
 3. **ffmpeg-windows** / **ffmpeg-linux**: the redistributable FFmpeg + libvmaf CUDA builds,
    cached by a hash of their build scripts (a release without FFmpeg changes reuses them).
-4. **release**: `scripts/package.sh` for both platforms, `SHA256SUMS.txt`, and the GitHub release.
+4. **release** (environment `release`, waits for approval): `scripts/package.sh` for both
+   platforms, `SHA256SUMS.txt`, and the GitHub release.
 
-Third-party actions are pinned to full commit SHAs; the token is read-only except in the publish job.
+Third-party actions are pinned to full commit SHAs.
 
 Other conventions:
 
