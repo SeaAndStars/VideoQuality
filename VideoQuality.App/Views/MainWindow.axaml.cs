@@ -912,6 +912,7 @@ public partial class MainWindow : UrsaWindow
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
             _viewModel.Viewport.PropertyChanged -= OnViewportPropertyChanged;
             _viewModel.ToastRequested -= OnToastRequested;
+            _viewModel.FlushSettings();
             _viewModel.Dispose();
         }
 

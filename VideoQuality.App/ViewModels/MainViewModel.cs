@@ -17,6 +17,7 @@ using VideoQuality.Core.Ingest;
 using VideoQuality.Core.Jobs;
 using VideoQuality.Core.Models;
 using VideoQuality.Core.Scoring;
+using VideoQuality.Core.Settings;
 
 namespace VideoQuality.App.ViewModels;
 
@@ -60,10 +61,85 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         Viewport = new ViewportState();
         Encodes.CollectionChanged += OnEncodesChanged;
 
+        LoadSettings();
+
         string? configuredFfmpeg = Environment.GetEnvironmentVariable("VQ_FFMPEG");
         if (!string.IsNullOrWhiteSpace(configuredFfmpeg))
         {
+            _settingsQuiet = true;
             FfmpegPath = configuredFfmpeg;
+            _settingsQuiet = false;
+        }
+    }
+
+    // ---------------------------------------------------------------- settings.json
+
+    private UserSettings _settings = new();
+    private bool _settingsQuiet;
+    private DispatcherTimer? _saveTimer;
+
+    private void LoadSettings()
+    {
+        if (Avalonia.Controls.Design.IsDesignMode)
+        {
+            return;
+        }
+
+        _settings = SettingsFile.Load<UserSettings>();
+        _settingsQuiet = true;
+        try
+        {
+            SelectedModel = string.IsNullOrWhiteSpace(_settings.Model) ? VmafModels.Default : _settings.Model;
+            SelectedBackend = _settings.Backend;
+            CompareMode = _settings.CompareMode;
+            FixedScale = _settings.FixedScale;
+            ShowSmoothed = _settings.ShowSmoothed;
+
+            // A saved ffmpeg that has since moved or been deleted would only break scoring.
+            if (_settings.FfmpegPath is { Length: > 0 } saved && File.Exists(saved))
+            {
+                FfmpegPath = saved;
+            }
+        }
+        finally
+        {
+            _settingsQuiet = false;
+        }
+    }
+
+    /// <summary>Applies a startup --mode without remembering it as the user's preference.</summary>
+    public void ApplyStartupMode(CompareMode mode)
+    {
+        _settingsQuiet = true;
+        CompareMode = mode;
+        _settingsQuiet = false;
+    }
+
+    /// <summary>Saves half a second after the last change, so dragging a control writes once.</summary>
+    private void ScheduleSave(Action<UserSettings> change)
+    {
+        if (_settingsQuiet || Avalonia.Controls.Design.IsDesignMode)
+        {
+            return;
+        }
+
+        change(_settings);
+        _saveTimer ??= new DispatcherTimer(TimeSpan.FromMilliseconds(500), DispatcherPriority.Background, (_, _) =>
+        {
+            _saveTimer!.Stop();
+            SettingsFile.Save(_settings);
+        });
+        _saveTimer.Stop();
+        _saveTimer.Start();
+    }
+
+    /// <summary>Writes pending changes immediately (window closing).</summary>
+    public void FlushSettings()
+    {
+        if (_saveTimer is { IsEnabled: true })
+        {
+            _saveTimer.Stop();
+            SettingsFile.Save(_settings);
         }
     }
 
@@ -360,7 +436,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             string resolved = await VmafRunner.ResolveFfmpegAsync(FfmpegPath).ConfigureAwait(true);
             if (!string.Equals(resolved, FfmpegPath, StringComparison.Ordinal))
             {
+                _settingsQuiet = true; // auto-detected, not the user's choice
                 FfmpegPath = resolved;
+                _settingsQuiet = false;
                 return;
             }
         }
@@ -1011,6 +1089,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnCompareModeChanged(CompareMode value)
     {
+        ScheduleSave(s => s.CompareMode = value);
         OnPropertyChanged(nameof(IsTwoPane));
         OnPropertyChanged(nameof(IsSinglePane));
         OnPropertyChanged(nameof(IsWipe));
@@ -1098,11 +1177,32 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         AnalyzeCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnSelectedBackendChanged(VmafBackend value) => OnPropertyChanged(nameof(BackendChip));
+    partial void OnSelectedBackendChanged(VmafBackend value)
+    {
+        OnPropertyChanged(nameof(BackendChip));
+        ScheduleSave(s => s.Backend = value);
+    }
 
-    partial void OnSelectedModelChanged(string value) => OnPropertyChanged(nameof(ModelChip));
+    partial void OnSelectedModelChanged(string value)
+    {
+        OnPropertyChanged(nameof(ModelChip));
+        ScheduleSave(s => s.Model = value);
+    }
 
-    partial void OnFfmpegPathChanged(string value) => _ = ProbeBackendAsync();
+    partial void OnFfmpegPathChanged(string value)
+    {
+        _ = ProbeBackendAsync();
+
+        // Back to "ffmpeg" (or empty) means "resolve automatically": forget the saved path.
+        ScheduleSave(s => s.FfmpegPath =
+            string.IsNullOrWhiteSpace(value) || string.Equals(value.Trim(), "ffmpeg", StringComparison.Ordinal)
+                ? null
+                : value.Trim());
+    }
+
+    partial void OnFixedScaleChanged(bool value) => ScheduleSave(s => s.FixedScale = value);
+
+    partial void OnShowSmoothedChanged(bool value) => ScheduleSave(s => s.ShowSmoothed = value);
 
     [RelayCommand(CanExecute = nameof(CanAnalyze))]
     private Task AnalyzeAsync() => SelectedEncode is { } entry ? RescoreAsync(entry) : Task.CompletedTask;

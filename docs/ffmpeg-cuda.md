@@ -137,10 +137,21 @@ apt-get install -y gcc-mingw-w64-x86-64-posix g++-mingw-w64-x86-64-posix nasm me
 ./scripts/package-windows.sh          # artifacts/VideoQuality-<version>-win-x64.zip  (VQ_VERSION=1.0.0)
 ```
 
-The zip (≈67 MB) unpacks to one folder: `VideoQuality.App.exe` and `VideoQuality.Cli.exe` with the
-.NET runtime, `ffmpeg\` (ffmpeg.exe, ffprobe.exe, the libav/libvmaf/dav1d DLLs and the mingw runtime,
-stripped), `licenses\` and `THIRD-PARTY-NOTICES.txt` (FFmpeg source tag and configure line for LGPL,
-native library licenses, and every NuGet package's license read from its nuspec). The packager refuses
+The zip (≈69 MB) unpacks to one folder whose root holds only the application and its settings:
+
+```
+VideoQuality.exe     single-file app: .NET runtime, Avalonia and every managed/native DLL inside
+settings.json        created on the first settings change
+ffmpeg\              ffmpeg.exe, ffprobe.exe, libav/libvmaf/dav1d DLLs, mingw runtime (stripped)
+tools\vq.exe         the CLI, single-file and trimmed (≈12 MB)
+licenses\            THIRD-PARTY-NOTICES.txt (FFmpeg source tag and configure line for LGPL,
+                     native library licenses, every NuGet package's license) and license texts
+logs\                created at run time
+```
+
+The app's native libraries (Skia, HarfBuzz, ANGLE) are extracted once per version to the user's
+temp folder on first start. `AppPaths.Root` treats `tools\` as part of the release, so the CLI finds
+the same `ffmpeg\`, `logs\` and settings as the app. The packager refuses
 a staged FFmpeg built with `--enable-nonfree` or `--enable-cuda-nvcc`. The only thing the target
 machine needs is an NVIDIA driver for GPU scoring; without one, scoring falls back to CPU.
 

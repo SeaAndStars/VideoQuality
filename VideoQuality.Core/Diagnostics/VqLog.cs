@@ -31,7 +31,7 @@ public static class VqLog
                 return configured;
             }
 
-            return Path.Combine(AppContext.BaseDirectory, "logs");
+            return Path.Combine(AppPaths.Root, "logs");
         }
     }
 

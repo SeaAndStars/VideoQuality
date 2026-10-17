@@ -245,8 +245,7 @@ public static partial class VmafRunner
         get
         {
             string path = Path.Combine(
-                AppContext.BaseDirectory,
-                "ffmpeg",
+                AppPaths.BundledFfmpegDirectory,
                 OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg");
             return File.Exists(path) ? path : null;
         }

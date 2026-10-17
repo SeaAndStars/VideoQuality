@@ -27,7 +27,7 @@ public partial class App : Application
             if (modeArgument is not null &&
                 Enum.TryParse(modeArgument["--mode=".Length..], ignoreCase: true, out CompareMode mode))
             {
-                viewModel.CompareMode = mode;
+                viewModel.ApplyStartupMode(mode);
             }
 
             var splashViewModel = new SplashViewModel();

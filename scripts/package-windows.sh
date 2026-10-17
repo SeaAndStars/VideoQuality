@@ -7,11 +7,13 @@
 #   ./scripts/package-windows.sh             # -> artifacts/VideoQuality-<version>-win-x64.zip
 #   VQ_VERSION=1.0.0 ./scripts/package-windows.sh
 #
-# Layout:
-#   VideoQuality.App.exe, VideoQuality.Cli.exe, .NET runtime files
-#   ffmpeg\        ffmpeg.exe, ffprobe.exe, avcodec-63.dll, …, libvmaf.dll, libdav1d.dll
-#   licenses\      third-party license texts
-#   THIRD-PARTY-NOTICES.txt
+# Layout (the root holds only the application and its settings):
+#   VideoQuality.exe   the app: .NET runtime, Avalonia and every managed/native DLL in one file
+#   settings.json      created on the first settings change (portable; see SettingsFile)
+#   ffmpeg\            ffmpeg.exe, ffprobe.exe, avcodec-63.dll, …, libvmaf.dll, libdav1d.dll
+#   tools\vq.exe       the command-line tool, also a single file
+#   licenses\          THIRD-PARTY-NOTICES.txt and license texts
+#   logs\              created at run time
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -36,15 +38,26 @@ rm -rf "$out" "$out.zip"
 mkdir -p "$out/licenses"
 
 echo "== publish ($version)"
-for project in App Cli; do
-    dotnet publish "$root/VideoQuality.$project" -c Release -r win-x64 --self-contained \
+# Single-file: native libraries (Skia, HarfBuzz, ANGLE) are bundled too and extracted once per
+# version to the user's temp folder on first start. Compression roughly halves the exe.
+publish_tmp=$(mktemp -d)
+trap 'rm -rf "$publish_tmp"' EXIT
+publish() { # project output-exe [extra msbuild args…]
+    local project=$1 exe=$2
+    shift 2
+    dotnet publish "$root/VideoQuality.$project" -c Release -r win-x64 --self-contained "$@" \
+        -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+        -p:EnableCompressionInSingleFile=true \
         -p:Version="${version%%+*}" -p:InformationalVersion="$version" \
         -p:DebugType=None -p:GenerateDocumentationFile=false \
-        -o "$out" -v q
-done
-
-# Native debug symbols from packages (SkiaSharp's alone are ~100 MB) are not needed at run time.
-find "$out" -maxdepth 1 -name '*.pdb' -delete
+        -o "$publish_tmp/$project" -v q
+    mkdir -p "$(dirname "$exe")"
+    cp "$publish_tmp/$project/VideoQuality.$project.exe" "$exe"
+}
+publish App "$out/VideoQuality.exe"
+# The CLI has no UI framework, so trimming unused framework code is safe (partial mode trims only
+# framework assemblies); it removes most of the second runtime copy.
+publish Cli "$out/tools/vq.exe" -p:PublishTrimmed=true -p:TrimMode=partial
 
 echo "== bundle FFmpeg"
 cp -r "$stage" "$out/ffmpeg"
@@ -107,7 +120,7 @@ for name in sorted(seen, key=str.lower):
 PY
     echo
     echo ".NET runtime (self-contained): MIT, https://github.com/dotnet/runtime"
-} > "$out/THIRD-PARTY-NOTICES.txt"
+} > "$out/licenses/THIRD-PARTY-NOTICES.txt"
 
 echo "== zip"
 (cd "$root/artifacts" && zip -qr "$name.zip" "$name")

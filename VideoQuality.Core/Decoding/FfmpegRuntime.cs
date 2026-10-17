@@ -193,7 +193,7 @@ public static class FfmpegRuntime
         }
 
         // A release bundles ffmpeg and its libraries in ffmpeg/ beside the app.
-        yield return Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+        yield return AppPaths.BundledFfmpegDirectory;
         yield return AppContext.BaseDirectory;
 
         if (OperatingSystem.IsWindows())

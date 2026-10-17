@@ -43,6 +43,12 @@ ffmpeg, then shows the main window. The window draws its own dark title bar (app
 the current comparison in the middle, minimise/maximise/close on the right) instead of the
 system's.
 
+Settings persist in `settings.json` beside the application (model, backend, view mode, graph scale
+and smoothing, and an ffmpeg path only if you typed one; the auto-detected one is not saved, so a
+moved folder keeps finding its bundled build). If that folder is not writable the file goes to
+`%APPDATA%\VideoQuality` (Windows) or `~/.config/videoquality` (Linux). `--mode=` on the command line
+does not overwrite the saved view.
+
 The UI uses the Semi theme with Ursa controls and Fluent System Icons, in four layers:
 
 | Layer | Used for |
