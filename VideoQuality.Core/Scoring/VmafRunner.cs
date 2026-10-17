@@ -78,11 +78,9 @@ public static partial class VmafRunner
         var backend = ResolveBackend(options.Backend, capabilities);
         string model = string.IsNullOrWhiteSpace(options.Model) ? "vmaf_v0.6.1" : options.Model.Trim();
 
-        // Only needed for the report and for deciding whether CUDA is scoring a converted 8-bit
-        // picture; probing reads headers, it does not decode.
-        int sourceBitDepth = backend == VmafExecutionBackend.Cuda
-            ? ProbeSourceBitDepth(reference, distorted)
-            : 8;
+        // Needed for the report on both backends (exports must say what was scored) and for deciding
+        // whether CUDA is scoring a converted 8-bit picture. Probing reads headers, not frames.
+        int sourceBitDepth = ProbeSourceBitDepth(reference, distorted);
 
         VqLog.Info("vmaf", $"start backend={backend} model={model} depth={sourceBitDepth} " +
                            $"ref={reference} dis={distorted}");
