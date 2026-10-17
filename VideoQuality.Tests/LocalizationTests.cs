@@ -55,8 +55,13 @@ public partial class LocalizationTests
 
         Assert.NotEmpty(used);
         // Keys built at run time end with '.'; their completions are listed explicitly.
+        var dynamicKeys = new Dictionary<string, string[]>
+        {
+            ["track.type."] = Enum.GetNames<Core.Mkv.MkvTrackType>(),
+            ["mediainfo.kind."] = Enum.GetNames<Core.Media.StreamKind>(),
+        };
         IEnumerable<string> expanded = used.SelectMany(key => key.EndsWith('.')
-            ? Enum.GetNames<Core.Mkv.MkvTrackType>().Select(name => key + name.ToLowerInvariant())
+            ? dynamicKeys[key].Select(name => key + name.ToLowerInvariant())
             : [key]);
         string[] undefined = [.. expanded.Where(key => !Loc.Keys.Contains(key))];
         Assert.True(undefined.Length == 0, "undefined keys: " + string.Join(", ", undefined));

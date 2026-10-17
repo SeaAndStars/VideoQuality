@@ -107,6 +107,7 @@ public static class GreenTeaSpec
                 Channels = audio.Channels,
                 SampleBits = audio.SampleBits,
                 FirstTrackOnly = true,
+                Language = "jpn",
             },
             Burn = burned ? new SubtitleBurn() : null,
             Streams = new StreamSettings { KeepChapters = true, KeepMetadata = false },
@@ -160,10 +161,23 @@ public static class GreenTeaSpec
             bool codec = track.Codec == target.Codec;
             bool rate = track.SampleRate == target.SampleRate;
             bool channels = track.Channels == target.Channels;
-            bool bitrate = target.BitrateKbps == 0 || track.BitRate == 0 || Math.Abs(track.BitRate / 1000.0 - target.BitrateKbps) <= target.BitrateKbps * 0.1;
             bool bits = target.SampleBits == 0 || track.SampleBits == target.SampleBits;
-            Add(codec && rate && channels && bitrate && bits, "spec.ok.audio", "spec.bad.audio", FindingLevel.Fail,
+            Add(codec && rate && channels && bits, "spec.ok.audio", "spec.bad.audio", FindingLevel.Fail,
                 track.Index, MediaInfo.Describe(track), Expected(target));
+
+            // The encoder's bitrate is a target: simple audio comes out lower. Above it is a problem.
+            if (codec && target.BitrateKbps > 0 && track.BitRate > 0)
+            {
+                double kbps = track.BitRate / 1000.0;
+                if (kbps > target.BitrateKbps * 1.1)
+                {
+                    findings.Add(new SpecFinding(FindingLevel.Fail, Loc.T("spec.bad.audioBitrateHigh", track.Index, kbps.ToString("0", CultureInfo.InvariantCulture), target.BitrateKbps)));
+                }
+                else if (kbps < target.BitrateKbps * 0.9)
+                {
+                    findings.Add(new SpecFinding(FindingLevel.Warning, Loc.T("spec.bad.audioBitrateLow", track.Index, kbps.ToString("0", CultureInfo.InvariantCulture), target.BitrateKbps)));
+                }
+            }
             Add(IsLanguage(track.Language, "ja"), "spec.ok.audioLanguage", "spec.bad.audioLanguage", FindingLevel.Fail, track.Index, track.Language);
             if (track.Title.Length > 0)
             {

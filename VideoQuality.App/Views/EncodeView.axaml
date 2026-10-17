@@ -1,0 +1,365 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:VideoQuality.App.Localization"
+             xmlns:vm="using:VideoQuality.App.ViewModels"
+             xmlns:enc="using:VideoQuality.Core.Encode"
+             xmlns:conv="using:VideoQuality.App.Converters"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:ic="using:FluentIcons.Avalonia"
+             x:Class="VideoQuality.App.Views.EncodeView"
+             x:DataType="vm:EncodeViewModel">
+    <UserControl.Resources>
+        <conv:LabelConverter x:Key="Label" />
+    </UserControl.Resources>
+    <UserControl.Styles>
+        <Style Selector="Grid.form">
+            <Setter Property="RowSpacing" Value="6" />
+            <Setter Property="ColumnSpacing" Value="10" />
+            <Setter Property="Margin" Value="4,6,4,10" />
+        </Style>
+        <Style Selector="Grid.form > TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="Grid.form NumericUpDown, Grid.form ComboBox, Grid.form TextBox">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="Expander">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+    </UserControl.Styles>
+    <Panel>
+        <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="12">
+            <Border Classes="raised" Padding="16,12">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                    <Border Classes="pageicon"><ic:SymbolIcon Symbol="VideoClip" /></Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Classes="pagetitle" Text="{l:L nav.encode}" />
+                        <TextBlock Classes="pagesub" Text="{l:L encode.encodeWithFfmpegPresets}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <u:IconButton Classes="tool" Content="{l:L mux.addFiles}" Click="OnAddFiles">
+                            <u:IconButton.Icon><ic:SymbolIcon Symbol="Add" /></u:IconButton.Icon>
+                        </u:IconButton>
+                        <Button Classes="primary" Command="{Binding StartCommand}" IsEnabled="{Binding HasInputs}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <ic:SymbolIcon Symbol="Play" FontSize="16" />
+                                <TextBlock Text="{l:L encode.addToQueue}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" ColumnDefinitions="5*,6*" ColumnSpacing="12">
+                <Grid RowDefinitions="2*,3*" RowSpacing="12">
+                    <!-- inputs -->
+                    <Border Classes="surface">
+                        <Grid RowDefinitions="Auto,*,Auto" Margin="12,0,12,12" RowSpacing="6">
+                            <Grid Classes="cardheader"><TextBlock Classes="label" Text="{l:L pipeline.inputs}" /></Grid>
+                            <Panel Grid.Row="1">
+                                <TextBlock Classes="muted" Text="{l:L encode.dropVideosOrA}" IsVisible="{Binding !HasInputs}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <ScrollViewer IsVisible="{Binding HasInputs}">
+                                    <ItemsControl ItemsSource="{Binding Inputs}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:EncodeInput">
+                                                <Border Classes="row">
+                                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                                        <ic:SymbolIcon Symbol="Video" FontSize="16" />
+                                                        <StackPanel Grid.Column="1">
+                                                            <TextBlock Text="{Binding FileName}" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" />
+                                                            <TextBlock Text="{Binding Details}" FontSize="11" Classes="muted" />
+                                                        </StackPanel>
+                                                        <Button Grid.Column="2" Classes="rowaction" ToolTip.Tip="{l:L common.remove}"
+                                                                Command="{Binding $parent[UserControl].((vm:EncodeViewModel)DataContext).RemoveInputCommand}" CommandParameter="{Binding}">
+                                                            <ic:SymbolIcon Symbol="Dismiss" />
+                                                        </Button>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Panel>
+                            <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                <TextBlock Classes="label" Text="{l:L subset.outputFolder}" VerticalAlignment="Center" />
+                                <TextBox Grid.Column="1" Text="{Binding OutputDirectory}" Watermark="{l:L encode.besideEachInput}" />
+                                <Button Grid.Column="2" Classes="tool" Click="OnPickOutput" ToolTip.Tip="{l:L common.chooseFolder}">
+                                    <ic:SymbolIcon Symbol="FolderOpen" />
+                                </Button>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- queue -->
+                    <Border Grid.Row="1" Classes="surface">
+                        <Grid RowDefinitions="Auto,*" Margin="12,0,12,12">
+                            <Grid Classes="cardheader" ColumnDefinitions="*,Auto">
+                                <TextBlock Classes="label" Text="{l:L encode.queue}" />
+                                <Button Grid.Column="1" Classes="tool" Content="{l:L encode.clearFinished}" Command="{Binding ClearFinishedCommand}" IsVisible="{Binding HasJobs}" />
+                            </Grid>
+                            <Panel Grid.Row="1">
+                                <TextBlock Classes="muted" Text="{l:L encode.queuedEncodesAppearHere}" IsVisible="{Binding !HasJobs}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <ScrollViewer IsVisible="{Binding HasJobs}">
+                                    <ItemsControl ItemsSource="{Binding Jobs}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:EncodeJobRow">
+                                                <Border Classes="row">
+                                                    <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="3">
+                                                        <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Output}" />
+                                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+                                                            <Button Classes="rowaction" ToolTip.Tip="{l:L compare.pause}" IsVisible="{Binding IsRunning}"
+                                                                    Command="{Binding $parent[UserControl].((vm:EncodeViewModel)DataContext).PauseCommand}" CommandParameter="{Binding}">
+                                                                <ic:SymbolIcon Symbol="Pause" />
+                                                            </Button>
+                                                            <Button Classes="rowaction" ToolTip.Tip="{l:L encode.resume}" IsVisible="{Binding IsPaused}"
+                                                                    Command="{Binding $parent[UserControl].((vm:EncodeViewModel)DataContext).ResumeCommand}" CommandParameter="{Binding}">
+                                                                <ic:SymbolIcon Symbol="Play" />
+                                                            </Button>
+                                                            <Button Classes="rowaction" ToolTip.Tip="{l:L encode.stop}"
+                                                                    Command="{Binding $parent[UserControl].((vm:EncodeViewModel)DataContext).StopCommand}" CommandParameter="{Binding}">
+                                                                <Button.IsVisible>
+                                                                    <MultiBinding Converter="{x:Static BoolConverters.Or}">
+                                                                        <Binding Path="IsActive" />
+                                                                        <Binding Path="IsQueued" />
+                                                                    </MultiBinding>
+                                                                </Button.IsVisible>
+                                                                <ic:SymbolIcon Symbol="Stop" />
+                                                            </Button>
+                                                            <Button Classes="rowaction" ToolTip.Tip="{l:L encode.retry}" IsVisible="{Binding IsFailed}"
+                                                                    Command="{Binding $parent[UserControl].((vm:EncodeViewModel)DataContext).RetryCommand}" CommandParameter="{Binding}">
+                                                                <ic:SymbolIcon Symbol="ArrowClockwise" />
+                                                            </Button>
+                                                            <Button Classes="rowaction" ToolTip.Tip="{l:L encode.scoreWithVmafIn}" IsVisible="{Binding IsDone}"
+                                                                    Command="{Binding $parent[UserControl].((vm:EncodeViewModel)DataContext).ScoreInCompareCommand}" CommandParameter="{Binding}">
+                                                                <ic:SymbolIcon Symbol="DataLine" />
+                                                            </Button>
+                                                            <Button Classes="rowaction" ToolTip.Tip="{l:L compare.revealInFolder}" IsVisible="{Binding IsDone}"
+                                                                    Command="{Binding $parent[UserControl].((vm:EncodeViewModel)DataContext).RevealCommand}" CommandParameter="{Binding}">
+                                                                <ic:SymbolIcon Symbol="FolderOpen" />
+                                                            </Button>
+                                                            <Button Classes="rowaction" ToolTip.Tip="{l:L common.remove}" IsVisible="{Binding !IsActive}"
+                                                                    Command="{Binding $parent[UserControl].((vm:EncodeViewModel)DataContext).RemoveJobCommand}" CommandParameter="{Binding}">
+                                                                <ic:SymbolIcon Symbol="Dismiss" />
+                                                            </Button>
+                                                        </StackPanel>
+                                                        <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Minimum="0" Maximum="1" Value="{Binding Progress}" />
+                                                        <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding Details}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Panel>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- preset editor -->
+                <Border Grid.Column="1" Classes="surface">
+                    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="12,0,12,12" RowSpacing="8" DataContext="{Binding}">
+                        <Grid Classes="cardheader"><TextBlock Classes="label" Text="{l:L encode.preset}" /></Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,140,Auto" ColumnSpacing="6">
+                            <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset, Converter={x:Static conv:KeepSelectionConverter.Instance}}"
+                                      DisplayMemberBinding="{Binding Name, x:DataType=enc:EncodePreset}" />
+                            <Button Grid.Column="1" Classes="tool" Command="{Binding DeletePresetCommand}" ToolTip.Tip="{l:L encode.deleteThisPreset}"
+                                    IsEnabled="{Binding !Editor.IsBuiltIn}">
+                                <ic:SymbolIcon Symbol="Delete" />
+                            </Button>
+                            <TextBox Grid.Column="2" Text="{Binding SaveName}" Watermark="{l:L encode.presetName}" />
+                            <u:IconButton Grid.Column="3" Classes="tool" Content="{l:L encode.save}" Command="{Binding SavePresetCommand}">
+                                <u:IconButton.Icon><ic:SymbolIcon Symbol="Save" /></u:IconButton.Icon>
+                            </u:IconButton>
+                        </Grid>
+                        <ScrollViewer Grid.Row="2" DataContext="{Binding Editor}" x:DataType="vm:PresetEditor">
+                            <StackPanel>
+                                <TextBlock Text="{Binding Description}" Classes="muted" FontSize="12" TextWrapping="Wrap" Margin="2,0,2,8"
+                                           IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                <Expander Header="{l:L picker.type.video}" IsExpanded="True">
+                                    <Grid Classes="form" ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                                        <TextBlock Text="{l:L encode.encoder}" />
+                                        <ComboBox Grid.Column="1" ItemsSource="{Binding VideoEncoders}" SelectedItem="{Binding Encoder, Converter={x:Static conv:KeepSelectionConverter.Instance}}"
+                                                  DisplayMemberBinding="{Binding Name, x:DataType=enc:VideoEncoderInfo}" />
+                                        <TextBlock Grid.Row="1" Text="{l:L encode.rateControl}" IsVisible="{Binding !IsCopy}" />
+                                        <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Modes}" SelectedItem="{Binding Mode, Converter={x:Static conv:KeepSelectionConverter.Instance}}" IsVisible="{Binding !IsCopy}">
+                                            <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                        <TextBlock Grid.Row="2" Text="{l:L encode.qualityCrfCq}" IsVisible="{Binding UsesQuality}" />
+                                        <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding Quality}" Minimum="0" Maximum="255" Increment="0.5" FormatString="0.##" IsVisible="{Binding UsesQuality}" />
+                                        <TextBlock Grid.Row="3" Text="{l:L encode.bitrateKbS}" IsVisible="{Binding UsesBitrate}" />
+                                        <NumericUpDown Grid.Row="3" Grid.Column="1" Value="{Binding BitrateKbps}" Minimum="50" Maximum="200000" Increment="100" FormatString="0" IsVisible="{Binding UsesBitrate}" />
+                                        <TextBlock Grid.Row="4" Text="{l:L encode.sizePer24Min}" IsVisible="{Binding UsesTargetSize}" />
+                                        <NumericUpDown Grid.Row="4" Grid.Column="1" Value="{Binding TargetMbPer24Minutes}" Minimum="10" Maximum="20000" Increment="50" FormatString="0" IsVisible="{Binding UsesTargetSize}" />
+                                        <TextBlock Grid.Row="5" Text="{l:L encode.encoderPreset}" IsVisible="{Binding !IsCopy}" />
+                                        <ComboBox Grid.Row="5" Grid.Column="1" ItemsSource="{Binding EncoderPresets}" SelectedItem="{Binding EncoderPreset, Converter={x:Static conv:KeepSelectionConverter.Instance}}" IsVisible="{Binding !IsCopy}" />
+                                        <TextBlock Grid.Row="6" Text="{l:L encode.tuneProfile}" IsVisible="{Binding !IsCopy}" />
+                                        <Grid Grid.Row="6" Grid.Column="1" ColumnDefinitions="*,*" ColumnSpacing="6" IsVisible="{Binding !IsCopy}">
+                                            <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Tunes}" SelectedItem="{Binding Tune, Converter={x:Static conv:KeepSelectionConverter.Instance}}" />
+                                            <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding Profiles}" SelectedItem="{Binding Profile, Converter={x:Static conv:KeepSelectionConverter.Instance}}" />
+                                        </Grid>
+                                        <TextBlock Grid.Row="7" Text="{l:L encode.bitDepthPixFmt}" IsVisible="{Binding !IsCopy}" />
+                                        <Grid Grid.Row="7" Grid.Column="1" ColumnDefinitions="*,*" ColumnSpacing="6" IsVisible="{Binding !IsCopy}">
+                                            <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding BitDepths}" SelectedItem="{Binding BitDepth, Converter={x:Static conv:KeepSelectionConverter.Instance}}" ToolTip.Tip="{l:L encode.0KeepsTheSource}" />
+                                            <TextBox Grid.Column="1" Text="{Binding PixelFormat}" Watermark="{l:L encode.pixFmtOverrides}" />
+                                        </Grid>
+                                        <TextBlock Grid.Row="8" Text="{l:L encode.frameRate}" IsVisible="{Binding !IsCopy}" />
+                                        <Grid Grid.Row="8" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding !IsCopy}">
+                                            <TextBox Text="{Binding FrameRate}" Watermark="{l:L encode.sourceEG24000}" />
+                                            <CheckBox Grid.Column="1" Content="{l:L encode.constantCfr}" IsChecked="{Binding ConstantFrameRate}" />
+                                        </Grid>
+                                        <TextBlock Grid.Row="9" Text="{l:L encode.keyframeInterval}" IsVisible="{Binding !IsCopy}" />
+                                        <NumericUpDown Grid.Row="9" Grid.Column="1" Value="{Binding KeyframeInterval}" Minimum="0" Maximum="10000" FormatString="0" IsVisible="{Binding !IsCopy}" ToolTip.Tip="{l:L encode.0EncoderDefault}" />
+                                        <TextBlock Grid.Row="10" Text="{l:L encode.encoderParams}" IsVisible="{Binding HasParams}" />
+                                        <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding EncoderParams}" Watermark="{l:L encode.keyValueKeyValue}" IsVisible="{Binding HasParams}" />
+                                    </Grid>
+                                </Expander>
+                                <Expander Header="{l:L common.output2}">
+                                    <Grid Classes="form" ColumnDefinitions="140,*" RowDefinitions="Auto,Auto">
+                                        <TextBlock Text="{l:L encode.container}" />
+                                        <ComboBox Grid.Column="1" ItemsSource="{Binding Containers}" SelectedItem="{Binding Container, Converter={x:Static conv:KeepSelectionConverter.Instance}}" />
+                                        <TextBlock Grid.Row="1" Text="{l:L encode.fileName}" />
+                                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding OutputPattern}" Watermark="{}{name}.encoded" ToolTip.Tip="{}{name} is the input's name without extension" />
+                                    </Grid>
+                                </Expander>
+                                <Expander Header="{l:L encode.picture}">
+                                    <Grid Classes="form" ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                                        <TextBlock Text="{l:L encode.size0Keeps2}" />
+                                        <Grid Grid.Column="1" ColumnDefinitions="*,*,*" ColumnSpacing="6">
+                                            <NumericUpDown Value="{Binding Width}" Minimum="-2" Maximum="8192" FormatString="0" />
+                                            <NumericUpDown Grid.Column="1" Value="{Binding Height}" Minimum="-2" Maximum="8192" FormatString="0" />
+                                            <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" ItemsSource="{Binding ScaleAlgorithms}" SelectedItem="{Binding ScaleAlgorithm, Converter={x:Static conv:KeepSelectionConverter.Instance}}" />
+                                        </Grid>
+                                        <TextBlock Grid.Row="1" Text="{l:L encode.cropLTR}" />
+                                        <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*,*,*,*" ColumnSpacing="6">
+                                            <NumericUpDown Value="{Binding CropLeft}" Minimum="0" Maximum="4096" FormatString="0" />
+                                            <NumericUpDown Grid.Column="1" Value="{Binding CropTop}" Minimum="0" Maximum="4096" FormatString="0" />
+                                            <NumericUpDown Grid.Column="2" Value="{Binding CropRight}" Minimum="0" Maximum="4096" FormatString="0" />
+                                            <NumericUpDown Grid.Column="3" Value="{Binding CropBottom}" Minimum="0" Maximum="4096" FormatString="0" />
+                                        </Grid>
+                                        <TextBlock Grid.Row="2" Text="{l:L encode.deinterlace}" />
+                                        <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding DeinterlaceOptions}" SelectedItem="{Binding Deinterlace, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
+                                            <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                        <TextBlock Grid.Row="3" Text="{l:L encode.denoiseStrength}" />
+                                        <Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*,*" ColumnSpacing="6">
+                                            <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding DenoiseOptions}" SelectedItem="{Binding Denoise, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
+                                                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <NumericUpDown Grid.Column="1" Value="{Binding DenoiseStrength}" Minimum="1" Maximum="10" FormatString="0" />
+                                        </Grid>
+                                        <TextBlock Grid.Row="4" Text="{l:L encode.debandSharpen}" />
+                                        <Grid Grid.Row="4" Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                            <CheckBox Content="{l:L encode.deband}" IsChecked="{Binding Deband}" />
+                                            <NumericUpDown Grid.Column="1" Value="{Binding Sharpen}" Minimum="0" Maximum="3" Increment="0.1" FormatString="0.0" ToolTip.Tip="{l:L encode.unsharpAmount0Off}" />
+                                        </Grid>
+                                        <TextBlock Grid.Row="5" Text="{l:L encode.flipRotate}" />
+                                        <Grid Grid.Row="5" Grid.Column="1" ColumnDefinitions="*,*" ColumnSpacing="6">
+                                            <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding FlipOptions}" SelectedItem="{Binding Flip, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
+                                                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding Rotations}" SelectedItem="{Binding Rotate, Converter={x:Static conv:KeepSelectionConverter.Instance}}" />
+                                        </Grid>
+                                        <TextBlock Grid.Row="6" Text="{l:L encode.colourTags}" />
+                                        <Grid Grid.Row="6" Grid.Column="1" ColumnDefinitions="*,*,*,*" ColumnSpacing="6">
+                                            <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding ColorPrimariesOptions}" SelectedItem="{Binding Primaries, Converter={x:Static conv:KeepSelectionConverter.Instance}}" ToolTip.Tip="{l:L encode.primaries}" />
+                                            <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding ColorTransferOptions}" SelectedItem="{Binding Transfer, Converter={x:Static conv:KeepSelectionConverter.Instance}}" ToolTip.Tip="{l:L encode.transfer}" />
+                                            <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" ItemsSource="{Binding ColorMatrixOptions}" SelectedItem="{Binding Matrix, Converter={x:Static conv:KeepSelectionConverter.Instance}}" ToolTip.Tip="{l:L encode.matrix}" />
+                                            <ComboBox Grid.Column="3" HorizontalAlignment="Stretch" ItemsSource="{Binding ColorRangeOptions}" SelectedItem="{Binding Range, Converter={x:Static conv:KeepSelectionConverter.Instance}}" ToolTip.Tip="{l:L encode.range}" />
+                                        </Grid>
+                                    </Grid>
+                                </Expander>
+                                <Expander Header="{l:L encode.burnInSubtitles}">
+                                    <Grid Classes="form" ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+                                        <TextBlock Text="{l:L encode.burnIn}" />
+                                        <CheckBox Grid.Column="1" Content="{l:L encode.renderSubtitlesIntoThe}" IsChecked="{Binding BurnEnabled}" />
+                                        <TextBlock Grid.Row="1" Text="{l:L encode.script}" IsVisible="{Binding BurnEnabled}" />
+                                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding BurnFile}" Watermark="{l:L encode.sameNameAsThe}" IsVisible="{Binding BurnEnabled}" />
+                                        <TextBlock Grid.Row="2" Text="{l:L encode.orStream}" IsVisible="{Binding BurnEnabled}" />
+                                        <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding BurnStream}" Minimum="0" Maximum="99" FormatString="0" IsVisible="{Binding BurnEnabled}" />
+                                        <TextBlock Grid.Row="3" Text="{l:L encode.fontsFolder}" IsVisible="{Binding BurnEnabled}" />
+                                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding BurnFonts}" Watermark="{l:L encode.theScriptSFonts}" IsVisible="{Binding BurnEnabled}" />
+                                        <TextBlock Grid.Row="4" Text="{l:L encode.forceStyle}" IsVisible="{Binding BurnEnabled}" />
+                                        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding ForceStyle}" Watermark="{l:L encode.fontsize24Outline2}" IsVisible="{Binding BurnEnabled}" />
+                                        <TextBlock Grid.Row="5" Text="{l:L encode.srtEncoding}" IsVisible="{Binding BurnEnabled}" />
+                                        <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding CharacterEncoding}" Watermark="{l:L encode.utf8}" IsVisible="{Binding BurnEnabled}" />
+                                    </Grid>
+                                </Expander>
+                                <Expander Header="{l:L common.audio}">
+                                    <Grid Classes="form" ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                        <TextBlock Text="{l:L encode.encoderBitrate}" />
+                                        <Grid Grid.Column="1" ColumnDefinitions="*,*" ColumnSpacing="6">
+                                            <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding AudioEncoders}" SelectedItem="{Binding AudioEncoder, Converter={x:Static conv:KeepSelectionConverter.Instance}}"
+                                                      DisplayMemberBinding="{Binding Name, x:DataType=enc:AudioEncoderInfo}" />
+                                            <NumericUpDown Grid.Column="1" Value="{Binding AudioBitrateKbps}" Minimum="32" Maximum="1536" Increment="32" FormatString="0 'kb/s'" IsEnabled="{Binding AudioHasBitrate}" />
+                                        </Grid>
+                                        <TextBlock Grid.Row="1" Text="{l:L encode.rateChannelsBits}" />
+                                        <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*,*,*" ColumnSpacing="6">
+                                            <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding SampleRates}" SelectedItem="{Binding SampleRate, Converter={x:Static conv:KeepSelectionConverter.Instance}}" ToolTip.Tip="{l:L encode.sampleRate0Keeps}" />
+                                            <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding ChannelCounts}" SelectedItem="{Binding Channels, Converter={x:Static conv:KeepSelectionConverter.Instance}}" ToolTip.Tip="{l:L encode.channels0Keeps}" />
+                                            <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" ItemsSource="{Binding SampleBitOptions}" SelectedItem="{Binding SampleBits, Converter={x:Static conv:KeepSelectionConverter.Instance}}" ToolTip.Tip="{l:L encode.losslessSampleBits0}" />
+                                        </Grid>
+                                        <CheckBox Grid.Row="2" Grid.Column="1" Content="{l:L encode.copyTracksAlreadyIn}" IsChecked="{Binding CopyWhenCompatible}" />
+                                        <CheckBox Grid.Row="3" Grid.Column="1" Content="{l:L encode.firstAudioTrackOnly}" IsChecked="{Binding FirstTrackOnly}" />
+                                    </Grid>
+                                </Expander>
+                                <Expander Header="{l:L encode.streamsAndRange}">
+                                    <Grid Classes="form" ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                        <TextBlock Text="{l:L encode.keep}" />
+                                        <WrapPanel Grid.Column="1">
+                                            <CheckBox Content="{l:L extract.subtitles}" IsChecked="{Binding KeepSubtitles}" Margin="0,0,12,0" />
+                                            <CheckBox Content="{l:L nav.chapters}" IsChecked="{Binding KeepChapters}" Margin="0,0,12,0" />
+                                            <CheckBox Content="{l:L encode.globalTags}" IsChecked="{Binding KeepMetadata}" Margin="0,0,12,0" />
+                                            <CheckBox Content="{l:L mux.attachments}" IsChecked="{Binding KeepAttachments}" />
+                                        </WrapPanel>
+                                        <TextBlock Grid.Row="1" Text="{l:L encode.startEnd}" />
+                                        <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*,*" ColumnSpacing="6">
+                                            <TextBox Text="{Binding Start}" Watermark="00:00:00.000" />
+                                            <TextBox Grid.Column="1" Text="{Binding End}" Watermark="{l:L encode.endOfFile}" />
+                                        </Grid>
+                                        <TextBlock Grid.Row="2" Text="{l:L encode.title}" />
+                                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Title}" Watermark="{l:L encode.keepTheSourceS}" />
+                                    </Grid>
+                                </Expander>
+                                <Expander Header="{l:L encode.customArguments}">
+                                    <Grid Classes="form" ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                                        <TextBlock Text="{l:L encode.beforeInput}" />
+                                        <TextBox Grid.Column="1" Text="{Binding CustomInput}" Watermark="{l:L encode.hwaccelCuda}" />
+                                        <TextBlock Grid.Row="1" Text="{l:L picker.type.video}" />
+                                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomVideo}" />
+                                        <TextBlock Grid.Row="2" Text="{l:L common.audio}" />
+                                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CustomAudio}" />
+                                        <TextBlock Grid.Row="3" Text="{l:L encode.extraFilters}" />
+                                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CustomFilter}" Watermark="{l:L encode.eqGamma105}" />
+                                        <TextBlock Grid.Row="4" Text="{l:L encode.beforeOutput}" />
+                                        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding CustomOutput}" />
+                                    </Grid>
+                                </Expander>
+                            </StackPanel>
+                        </ScrollViewer>
+                        <StackPanel Grid.Row="3" Spacing="4">
+                            <ItemsControl ItemsSource="{Binding Warnings}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                            <ic:SymbolIcon Symbol="Warning" FontSize="14" Foreground="{DynamicResource SemiColorWarning}" />
+                                            <TextBlock Grid.Column="1" Text="{Binding}" FontSize="11" TextWrapping="Wrap" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBox Text="{Binding CommandPreview}" IsReadOnly="True" TextWrapping="Wrap" FontSize="11" MaxHeight="110"
+                                     FontFamily="Cascadia Mono, JetBrains Mono, DejaVu Sans Mono, monospace" ToolTip.Tip="{l:L encode.theFfmpegCommandFor}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <TextBlock Grid.Row="2" Text="{Binding Status}" Classes="muted" FontSize="12" Margin="4,0" TextTrimming="CharacterEllipsis" />
+        </Grid>
+        <Border Classes="dropglow" />
+    </Panel>
+</UserControl>

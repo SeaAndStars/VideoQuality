@@ -51,6 +51,12 @@
                            IsHorizontalCollapsed="{Binding IsNavCollapsed}" ExpandWidth="200" CollapseWidth="56"
                            HeaderBinding="{Binding Title, x:DataType=vm:NavPage}"
                            IconBinding="{Binding Icon, x:DataType=vm:NavPage}">
+                    <u:NavMenu.Styles>
+                        <!-- Group separators come from the page list itself. -->
+                        <Style Selector="u|NavMenuItem" x:DataType="vm:NavPage">
+                            <Setter Property="IsSeparator" Value="{Binding IsSeparator}" />
+                        </Style>
+                    </u:NavMenu.Styles>
                     <u:NavMenu.IconTemplate>
                         <DataTemplate x:DataType="fic:Symbol">
                             <ic:SymbolIcon Symbol="{Binding}" />
@@ -62,12 +68,18 @@
 
         <!-- Every page stays alive; only the selected one is shown, so switching never loses work. -->
         <Panel Grid.Column="1">
-            <views:CompareView DataContext="{Binding Compare}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).IsCompare}" />
-            <views:FontSubsetView DataContext="{Binding FontSubset}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).IsFontSubset}" />
-            <views:ExtractView DataContext="{Binding Extract}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).IsExtract}" />
-            <views:MuxView DataContext="{Binding Mux}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).IsMux}" />
-            <views:PipelineView DataContext="{Binding Pipeline}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).IsPipeline}" />
-            <views:SettingsView DataContext="{Binding Settings}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).IsSettings}" />
+            <views:CompareView DataContext="{Binding Compare}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).PageKey, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=compare}" />
+            <views:MediaInfoView DataContext="{Binding MediaInfo}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).PageKey, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=mediainfo}" />
+            <views:ExtractView DataContext="{Binding Extract}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).PageKey, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=extract}" />
+            <views:EncodeView DataContext="{Binding Encode}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).PageKey, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=encode}" />
+            <views:TrimMergeView DataContext="{Binding TrimMerge}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).PageKey, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=trim}" />
+            <views:FontSubsetView DataContext="{Binding FontSubset}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).PageKey, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=subset}" />
+            <views:ChaptersView DataContext="{Binding Chapters}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).PageKey, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=chapters}" />
+            <views:MuxView DataContext="{Binding Mux}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).PageKey, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=mux}" />
+            <views:NamingView DataContext="{Binding Naming}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).PageKey, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=naming}" />
+            <views:PipelineView DataContext="{Binding Pipeline}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).PageKey, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=pipeline}" />
+            <views:MonitorView DataContext="{Binding Monitor}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).PageKey, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=monitor}" />
+            <views:SettingsView DataContext="{Binding Settings}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).PageKey, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=settings}" />
         </Panel>
     </Grid>
 </u:UrsaWindow>

@@ -25,7 +25,7 @@ public partial class PipelineView : UserControl
         IReadOnlyList<string> files = await PageIo.PickFilesAsync(this, Loc.T("pipeline.picker.video"), false);
         if (files.Count > 0 && ViewModel is { } vm)
         {
-            vm.Video = files[0];
+            vm.SetVideo(files[0]);
         }
     }
 
@@ -51,10 +51,18 @@ public partial class PipelineView : UserControl
 
     private async void OnPickOutput(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel is { } vm &&
-            await PageIo.PickSaveFileAsync(this, Loc.T("pipeline.picker.output"), Path.GetFileName(vm.Output) is { Length: > 0 } n ? n : "release.mkv", "mkv") is { } file)
+        if (await PageIo.PickFolderAsync(this, Loc.T("picker.outputFolder")) is { } folder && ViewModel is { } vm)
         {
-            vm.Output = file;
+            vm.OutputDirectory = folder;
+        }
+    }
+
+    private async void OnPickChapters(object? sender, RoutedEventArgs e)
+    {
+        IReadOnlyList<string> files = await PageIo.PickFilesAsync(this, Loc.T("mux.picker.chapters"), false, (Loc.T("picker.type.chapters"), ["*.xml", "*.txt"]));
+        if (files.Count > 0 && ViewModel is { } vm)
+        {
+            vm.ChaptersFile = files[0];
         }
     }
 }

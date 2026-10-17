@@ -28,6 +28,16 @@ public class ChapterListTests
     }
 
     [Fact]
+    public void Ffmetadata_ends_each_chapter_at_the_next_and_escapes_titles()
+    {
+        string text = ChapterList.ToFfMetadata([new(TimeSpan.Zero, "OP=1;#\\x"), new(TimeSpan.FromSeconds(90), "ED")], TimeSpan.FromMinutes(24));
+        Assert.Equal(";FFMETADATA1\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=90000\ntitle=OP\\=1\\;\\#\\\\x\n" +
+                     "[CHAPTER]\nTIMEBASE=1/1000\nSTART=90000\nEND=1440000\ntitle=ED\n", text);
+        // A last chapter past the (unknown) duration ends where it starts.
+        Assert.EndsWith("START=5000\nEND=5000\ntitle=\n", ChapterList.ToFfMetadata([new(TimeSpan.FromSeconds(5), "")], TimeSpan.Zero), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Matroska_xml_round_trips_with_nanoseconds()
     {
         string xml = ChapterList.ToXml(Marks, "jpn");

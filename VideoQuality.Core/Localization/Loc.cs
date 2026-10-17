@@ -63,6 +63,9 @@ public static class Loc
     /// <summary>The catalog "follow the system" picks on this machine.</summary>
     public static string SystemLanguage => Resolve(SystemLanguageTag());
 
+    /// <summary>Whether the active catalog (or English) has text for the key.</summary>
+    public static bool Has(string key) => _strings.ContainsKey(key) || Fallback.ContainsKey(key);
+
     public static string T(string key) =>
         _strings.TryGetValue(key, out string? value) || Fallback.TryGetValue(key, out value) ? value : key;
 

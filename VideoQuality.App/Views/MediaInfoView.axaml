@@ -1,0 +1,102 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:VideoQuality.App.Localization"
+             xmlns:vm="using:VideoQuality.App.ViewModels"
+             xmlns:conv="using:VideoQuality.App.Converters"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:ic="using:FluentIcons.Avalonia"
+             xmlns:controls="using:VideoQuality.App.Controls"
+             x:Class="VideoQuality.App.Views.MediaInfoView"
+             x:DataType="vm:MediaInfoViewModel">
+    <UserControl.Resources>
+        <conv:LabelConverter x:Key="Label" />
+    </UserControl.Resources>
+    <Panel>
+        <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="12">
+            <Border Classes="raised" Padding="16,12">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                    <Border Classes="pageicon"><ic:SymbolIcon Symbol="Info" /></Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Classes="pagetitle" Text="{l:L nav.mediainfo}" />
+                        <TextBlock Classes="pagesub" Text="{l:L mediainfo.whatAFileContains}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <u:IconButton Classes="tool" Content="{l:L extract.openFile}" Click="OnOpen">
+                            <u:IconButton.Icon><ic:SymbolIcon Symbol="FolderOpen" /></u:IconButton.Icon>
+                        </u:IconButton>
+                        <u:IconButton Classes="tool" Content="{l:L mediainfo.copyReport}" Command="{Binding CopyCommand}" IsEnabled="{Binding HasInfo}">
+                            <u:IconButton.Icon><ic:SymbolIcon Symbol="Copy" /></u:IconButton.Icon>
+                        </u:IconButton>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" ColumnDefinitions="3*,2*" ColumnSpacing="12">
+                <Border Classes="surface">
+                    <Grid RowDefinitions="Auto,*" Margin="12,0,12,12">
+                        <Grid Classes="cardheader"><TextBlock Classes="label" Text="{l:L extract.contents}" /></Grid>
+                        <Panel Grid.Row="1">
+                            <StackPanel IsVisible="{Binding !HasInfo}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+                                <ic:SymbolIcon Symbol="DocumentArrowDown" FontSize="36" Foreground="{DynamicResource SemiColorText2}" />
+                                <TextBlock Classes="muted" Text="{l:L mediainfo.dropAVideoOr}" />
+                            </StackPanel>
+                            <ScrollViewer IsVisible="{Binding HasInfo}">
+                                <ItemsControl ItemsSource="{Binding Rows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:MediaRow">
+                                            <Border Classes="row">
+                                                <Grid ColumnDefinitions="Auto,150,*" ColumnSpacing="10">
+                                                    <ic:SymbolIcon Symbol="{Binding Icon}" FontSize="18" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
+                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" />
+                                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Details}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Panel>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="1" Classes="surface">
+                    <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="12,0,12,12" RowSpacing="8">
+                        <Grid Classes="cardheader"><TextBlock Classes="label" Text="{l:L mediainfo.rulesCheckGreenteaV2}" /></Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Profiles}" SelectedItem="{Binding Profile, Converter={x:Static conv:KeepSelectionConverter.Instance}}" ToolTip.Tip="{l:L mediainfo.sourceAndLengthClass}">
+                                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding Deliveries}" SelectedItem="{Binding Delivery, Converter={x:Static conv:KeepSelectionConverter.Instance}}" ToolTip.Tip="{l:L mediainfo.softSubtitlesMkvOr}">
+                                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </Grid>
+                        <TextBlock Grid.Row="2" Text="{Binding Verdict}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <ScrollViewer Grid.Row="3">
+                            <ItemsControl ItemsSource="{Binding Findings}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FindingRow">
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,3">
+                                            <Panel Width="18" VerticalAlignment="Top" Margin="0,1,0,0">
+                                                <ic:SymbolIcon Symbol="CheckmarkCircle" IconVariant="Filled" FontSize="16" Foreground="{DynamicResource SemiColorSuccess}" IsVisible="{Binding IsPass}" />
+                                                <ic:SymbolIcon Symbol="Warning" IconVariant="Filled" FontSize="16" Foreground="{DynamicResource SemiColorWarning}" IsVisible="{Binding IsWarning}" />
+                                                <ic:SymbolIcon Symbol="ErrorCircle" IconVariant="Filled" FontSize="16" Foreground="{DynamicResource SemiColorDanger}" IsVisible="{Binding IsFail}" />
+                                            </Panel>
+                                            <TextBlock Grid.Column="1" Text="{Binding Message}" FontSize="12" TextWrapping="Wrap" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Grid Grid.Row="2" ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="4,0">
+                <controls:Spinner IsVisible="{Binding IsBusy}" />
+                <TextBlock Grid.Column="1" Text="{Binding Status}" Classes="muted" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            </Grid>
+        </Grid>
+        <Border Classes="dropglow" />
+    </Panel>
+</UserControl>

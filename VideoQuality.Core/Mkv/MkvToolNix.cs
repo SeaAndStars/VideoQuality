@@ -284,7 +284,7 @@ public sealed partial class MkvToolNix
     // ---------------------------------------------------------------- process plumbing
 
     /// <summary>Parses one line of --gui-mode output.</summary>
-    internal static (double? Progress, string? Warning, string? Error) ParseGuiLine(string line)
+    public static (double? Progress, string? Warning, string? Error) ParseGuiLine(string line)
     {
         if (ProgressPattern().Match(line) is { Success: true } progress)
         {

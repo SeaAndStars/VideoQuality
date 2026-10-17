@@ -1,13 +1,13 @@
-using System.Diagnostics;
-using Avalonia;
-using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VideoQuality.Core;
 using VideoQuality.Core.Fonts;
 using VideoQuality.Core.Localization;
 using VideoQuality.Core.Mkv;
+using VideoQuality.Core.Encode;
 using VideoQuality.Core.Settings;
+using VideoQuality.Core.Tools;
+using VideoQuality.App.Services;
 
 namespace VideoQuality.App.ViewModels;
 
@@ -23,16 +23,22 @@ public sealed record LanguageOption(string Code, string Name)
 /// </summary>
 public partial class SettingsViewModel : ObservableObject
 {
-    public SettingsViewModel(MainViewModel compare)
+    public SettingsViewModel(MainViewModel compare, AppServices? services = null)
     {
         Compare = compare;
+        Services = services ?? AppServices.Default;
         MkvToolNixFolder = compare.PersistedSettings.MkvToolNixFolder ?? string.Empty;
+        EncoderFolder = compare.PersistedSettings.EncoderFolder ?? string.Empty;
+        TrackNaming = Enum.TryParse(compare.PersistedSettings.TrackNaming, out TrackNamingProfile profile) ? profile : TrackNamingProfile.GreenTea;
+        EncodeConcurrency = Math.Clamp(compare.PersistedSettings.EncodeConcurrency, 1, 4);
         LanguageOptions = [new LanguageOption(string.Empty, Loc.T("settings.language.system")),
             .. Loc.Languages.Select(l => new LanguageOption(l.Code, l.NativeName))];
         string saved = compare.PersistedSettings.Language ?? string.Empty;
         SelectedLanguage = LanguageOptions.FirstOrDefault(o => o.Code == saved) ?? LanguageOptions[0];
         _ = LocateToolsAsync();
     }
+
+    public AppServices Services { get; }
 
     /// <summary>Model, backend and ffmpeg path live on the Compare view model; bound directly.</summary>
     public MainViewModel Compare { get; }
@@ -94,23 +100,41 @@ public partial class SettingsViewModel : ObservableObject
     private void Restart()
     {
         Compare.FlushSettings();
-        string? process = Environment.ProcessPath;
-        if (process is null)
-        {
-            return;
-        }
-
-        var start = new ProcessStartInfo(process) { UseShellExecute = false };
-        // Under `dotnet VideoQuality.App.dll` the process is the host; pass the app again.
-        if (Path.GetFileNameWithoutExtension(process).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
-        {
-            start.ArgumentList.Add(Environment.GetCommandLineArgs()[0]);
-        }
-
-        start.ArgumentList.Add("--page=settings");
-        Process.Start(start);
-        (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+        Services.Restart(["--page=settings"]);
     }
+
+    public IReadOnlyList<TrackNamingProfile> TrackNamingOptions { get; } = Enum.GetValues<TrackNamingProfile>();
+
+    /// <summary>How Mux and Pipeline tag tracks (GreenTea rules by default).</summary>
+    [ObservableProperty]
+    public partial TrackNamingProfile TrackNaming { get; set; }
+
+    partial void OnTrackNamingChanged(TrackNamingProfile value) =>
+        Compare.UpdateSettings(s => s.TrackNaming = value.ToString());
+
+    public IReadOnlyList<int> ConcurrencyOptions { get; } = [1, 2, 3, 4];
+
+    [ObservableProperty]
+    public partial int EncodeConcurrency { get; set; }
+
+    partial void OnEncodeConcurrencyChanged(int value) =>
+        Compare.UpdateSettings(s => s.EncodeConcurrency = value);
+
+    [ObservableProperty]
+    public partial string EncoderFolder { get; set; }
+
+    /// <summary>The encoder ffmpeg (GPL build: x264/x265/libass …), or null.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasEncoder))]
+    public partial EncoderTool? Encoder { get; set; }
+
+    [ObservableProperty]
+    public partial string EncoderStatus { get; set; } = Loc.T("settings.encoder.looking");
+
+    public bool HasEncoder => Encoder is not null;
+
+    partial void OnEncoderFolderChanged(string value) =>
+        Compare.UpdateSettings(s => s.EncoderFolder = string.IsNullOrWhiteSpace(value) ? null : value.Trim());
 
     partial void OnMkvToolNixFolderChanged(string value)
     {
@@ -122,9 +146,17 @@ public partial class SettingsViewModel : ObservableObject
     {
         MkvToolNixStatus = Loc.T("settings.mkv.looking");
         string? folder = string.IsNullOrWhiteSpace(MkvToolNixFolder) ? null : MkvToolNixFolder.Trim();
-        MkvToolNix = await MkvToolNix.LocateAsync(folder);
+        MkvToolNix = await MkvToolNix.LocateAsync(folder, Services.Processes);
         MkvToolNixStatus = MkvToolNix is { } tools
             ? $"{tools.Version}  ·  {tools.MkvMerge}"
             : Loc.T("settings.mkv.notFound");
+
+        EncoderStatus = Loc.T("settings.encoder.looking");
+        string? encoderFolder = string.IsNullOrWhiteSpace(EncoderFolder) ? null : EncoderFolder.Trim();
+        Encoder = await EncoderTool.LocateAsync(encoderFolder, Services.Processes);
+        EncoderStatus = Encoder is { } encoder
+            ? Loc.T("settings.encoder.found", encoder.Version, encoder.Path,
+                string.Join(", ", EncoderCatalog.AvailableVideo(encoder).Where(e => e.Name != "copy").Select(e => e.Name)))
+            : Loc.T("settings.encoder.notFound");
     }
 }

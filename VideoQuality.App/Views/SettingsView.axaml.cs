@@ -24,6 +24,15 @@ public partial class SettingsView : UserControl
         }
     }
 
+    private async void OnPickEncoder(object? sender, RoutedEventArgs e)
+    {
+        if (await PageIo.PickFolderAsync(this, Loc.T("settings.picker.encoder")) is { } folder && ViewModel is { } vm)
+        {
+            vm.EncoderFolder = folder;
+            await vm.LocateToolsAsync();
+        }
+    }
+
     private async void OnOpenAppFolder(object? sender, RoutedEventArgs e)
     {
         if (ViewModel is { } vm)

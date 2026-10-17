@@ -118,7 +118,7 @@ public class GreenTeaSpecTests
         IReadOnlyList<SpecFinding> findings = GreenTeaSpec.Check(bad, ReleaseProfile.WebEpisode, SubtitleDelivery.Embedded);
 
         Assert.Single(findings, f => f.Level == FindingLevel.Pass); // it does carry a subtitle track
-        Assert.Equal(4, findings.Count(f => f.Level == FindingLevel.Warning)); // resolution, frame rate, audio title, fonts
+        Assert.Equal(5, findings.Count(f => f.Level == FindingLevel.Warning)); // resolution, frame rate, audio title, low bitrate, fonts
         Assert.Equal(8, findings.Count(f => f.Level == FindingLevel.Fail));
     }
 
@@ -147,6 +147,17 @@ public class GreenTeaSpecTests
 
         MediaInfo sixteen = flac with { Streams = [.. flac.Streams.Select(s => s.Kind == StreamKind.Audio ? s with { SampleBits = 16 } : s)] };
         Assert.Contains(GreenTeaSpec.Check(sixteen, ReleaseProfile.BdEpisode, SubtitleDelivery.Embedded), f => f.Level == FindingLevel.Fail && f.Message.Contains("24-bit", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Audio_above_the_target_bitrate_fails()
+    {
+        MediaInfo loud = Release() with
+        {
+            Streams = [.. Release().Streams.Select(s => s.Kind == StreamKind.Audio ? s with { BitRate = 400_000 } : s)],
+        };
+        Assert.Contains(GreenTeaSpec.Check(loud, ReleaseProfile.WebEpisode, SubtitleDelivery.Embedded),
+            f => f.Level == FindingLevel.Fail && f.Message.Contains("400", StringComparison.Ordinal));
     }
 
     [Theory]

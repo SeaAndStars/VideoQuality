@@ -317,6 +317,23 @@ public class EncodeCommandTests
     }
 
     [Fact]
+    public void Audio_language_is_written_on_every_track()
+    {
+        IReadOnlyList<string> args = Single(new EncodePreset { Audio = new AudioSettings { Language = " jpn " } });
+        Assert.Equal("language=jpn", After(args, "-metadata:s:a:0"));
+        Assert.Equal("language=jpn", After(args, "-metadata:s:a:1"));
+        Assert.DoesNotContain("-metadata:s:a:0", Single(new EncodePreset()));
+    }
+
+    [Fact]
+    public void Chapters_can_come_from_an_ffmetadata_file()
+    {
+        IReadOnlyList<string> args = Single(new EncodePreset { Streams = new StreamSettings { ChaptersFile = "/w/ch.ffmeta" } });
+        Assert.Equal(["-i", "/media/in.mkv", "-f", "ffmetadata", "-i", "/w/ch.ffmeta"], args.Skip(3).Take(6));
+        Assert.Equal("1", After(args, "-map_chapters"));
+    }
+
+    [Fact]
     public void No_audio_and_lossless_audio()
     {
         Assert.Contains("-an", Single(new EncodePreset { Audio = new AudioSettings { Encoder = "none" } }));

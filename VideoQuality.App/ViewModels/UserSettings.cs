@@ -16,6 +16,15 @@ public sealed class UserSettings
     /// <summary>Folder holding mkvmerge/mkvextract; empty means find them automatically.</summary>
     public string? MkvToolNixFolder { get; set; }
 
+    /// <summary>Folder holding the encoder ffmpeg; empty means the bundled copy, then PATH.</summary>
+    public string? EncoderFolder { get; set; }
+
+    /// <summary>How Mux and Pipeline tag tracks: <c>GreenTea</c> (default) or <c>Generic</c>.</summary>
+    public string? TrackNaming { get; set; }
+
+    /// <summary>Encodes run at once in the Encode queue.</summary>
+    public int EncodeConcurrency { get; set; } = 1;
+
     /// <summary>UI language code (<c>en</c>, <c>zh-Hans</c>); empty follows the system.</summary>
     public string? Language { get; set; }
 

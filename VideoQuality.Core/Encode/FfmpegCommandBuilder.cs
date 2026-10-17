@@ -77,6 +77,11 @@ public static class FfmpegCommandBuilder
         }
 
         head.AddRange(["-i", source]);
+        bool chapterInput = !string.IsNullOrWhiteSpace(preset.Streams.ChaptersFile);
+        if (chapterInput)
+        {
+            head.AddRange(["-f", "ffmetadata", "-i", preset.Streams.ChaptersFile!]);
+        }
         if (preset.Streams.Start is not null || preset.Streams.End is not null)
         {
             head.AddRange(["-t", Seconds(duration.TotalSeconds)]);
@@ -145,7 +150,7 @@ public static class FfmpegCommandBuilder
             }
         }
 
-        streamArgs.AddRange(["-map_chapters", preset.Streams.KeepChapters ? "0" : "-1"]);
+        streamArgs.AddRange(["-map_chapters", chapterInput ? "1" : preset.Streams.KeepChapters ? "0" : "-1"]);
         // Dropping metadata means the global tags only: stream languages and chapter titles stay.
         streamArgs.AddRange(preset.Streams.KeepMetadata ? ["-map_metadata", "0"] : ["-map_metadata:g", "-1"]);
         if (!string.IsNullOrWhiteSpace(preset.Streams.Title))
@@ -272,6 +277,14 @@ public static class FfmpegCommandBuilder
         else
         {
             args.AddRange(["-map", "0:a"]);
+        }
+
+        if (!string.IsNullOrWhiteSpace(audio.Language))
+        {
+            for (int i = 0; i < tracks.Count; i++)
+            {
+                args.AddRange([$"-metadata:s:a:{i.ToString(CultureInfo.InvariantCulture)}", "language=" + audio.Language.Trim()]);
+            }
         }
 
         if (audio.Encoder == "copy")

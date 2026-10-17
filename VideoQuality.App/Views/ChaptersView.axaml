@@ -1,0 +1,104 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:VideoQuality.App.Localization"
+             xmlns:vm="using:VideoQuality.App.ViewModels"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:ic="using:FluentIcons.Avalonia"
+             x:Class="VideoQuality.App.Views.ChaptersView"
+             x:DataType="vm:ChaptersViewModel">
+    <Panel>
+        <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="12">
+            <Border Classes="raised" Padding="16,12">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                    <Border Classes="pageicon"><ic:SymbolIcon Symbol="BookOpen" /></Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Classes="pagetitle" Text="{l:L nav.chapters}" />
+                        <TextBlock Classes="pagesub" Text="{l:L chapters.importEditAndName}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <u:IconButton Classes="tool" Content="{l:L chapters.import}" Click="OnImport">
+                            <u:IconButton.Icon><ic:SymbolIcon Symbol="ArrowImport" /></u:IconButton.Icon>
+                        </u:IconButton>
+                        <u:IconButton Classes="tool" Content="{l:L chapters.saveAs}" Click="OnSave" IsEnabled="{Binding HasRows}">
+                            <u:IconButton.Icon><ic:SymbolIcon Symbol="Save" /></u:IconButton.Icon>
+                        </u:IconButton>
+                        <Button Classes="primary" Command="{Binding SendToMuxCommand}" IsEnabled="{Binding HasRows}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <ic:SymbolIcon Symbol="Merge" FontSize="16" />
+                                <TextBlock Text="{l:L subset.sendToMux}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" ColumnDefinitions="3*,2*" ColumnSpacing="12">
+                <Border Classes="surface">
+                    <Grid RowDefinitions="Auto,*" Margin="12,0,12,12">
+                        <Grid Classes="cardheader" ColumnDefinitions="140,*,50,50,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                            <TextBlock Classes="label" Text="{l:L chapters.start}" />
+                            <TextBlock Grid.Column="1" Classes="label" Text="{l:L mux.name}" />
+                            <TextBlock Grid.Column="2" Classes="label" Text="{l:L chapters.op}" HorizontalAlignment="Center" />
+                            <TextBlock Grid.Column="3" Classes="label" Text="{l:L chapters.ed}" HorizontalAlignment="Center" />
+                            <Button Grid.Column="4" Classes="tool" Content="{l:L chapters.name}" Command="{Binding AutoNameCommand}" ToolTip.Tip="{l:L chapters.opEdForThe}" />
+                            <Button Grid.Column="5" Classes="tool" Content="{l:L chapters.sort}" Command="{Binding SortCommand}" />
+                            <Button Grid.Column="6" Classes="tool" Command="{Binding AddCommand}" ToolTip.Tip="{l:L chapters.addAChapter}">
+                                <ic:SymbolIcon Symbol="Add" />
+                            </Button>
+                            <Button Grid.Column="7" Classes="tool" Command="{Binding ClearCommand}" ToolTip.Tip="{l:L chapters.removeAll}">
+                                <ic:SymbolIcon Symbol="Delete" />
+                            </Button>
+                        </Grid>
+                        <Panel Grid.Row="1">
+                            <TextBlock Classes="muted" Text="{l:L chapters.dropAVideoA}" IsVisible="{Binding !HasRows}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <ScrollViewer IsVisible="{Binding HasRows}">
+                                <ItemsControl ItemsSource="{Binding Rows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ChapterRow">
+                                            <Grid ColumnDefinitions="140,*,50,50,Auto" ColumnSpacing="8" Margin="0,2">
+                                                <TextBox Text="{Binding Time}" FontFamily="Cascadia Mono, JetBrains Mono, DejaVu Sans Mono, monospace" />
+                                                <TextBox Grid.Column="1" Text="{Binding Name}" />
+                                                <CheckBox Grid.Column="2" IsChecked="{Binding IsOpening}" HorizontalAlignment="Center" />
+                                                <CheckBox Grid.Column="3" IsChecked="{Binding IsEnding}" HorizontalAlignment="Center" />
+                                                <Button Grid.Column="4" Classes="rowaction" ToolTip.Tip="{l:L common.remove}"
+                                                        Command="{Binding $parent[UserControl].((vm:ChaptersViewModel)DataContext).RemoveCommand}" CommandParameter="{Binding}">
+                                                    <ic:SymbolIcon Symbol="Dismiss" />
+                                                </Button>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Panel>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="1" Classes="surface">
+                    <Grid RowDefinitions="Auto,*" Margin="12,0,12,12">
+                        <Grid Classes="cardheader"><TextBlock Classes="label" Text="{l:L chapters.checks}" /></Grid>
+                        <Panel Grid.Row="1">
+                            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !Problems.Count}" VerticalAlignment="Top">
+                                <ic:SymbolIcon Symbol="CheckmarkCircle" IconVariant="Filled" FontSize="16" Foreground="{DynamicResource SemiColorSuccess}" />
+                                <TextBlock Text="{l:L chapters.noProblemsFound}" FontSize="12" />
+                            </StackPanel>
+                            <ItemsControl ItemsSource="{Binding Problems}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,3">
+                                            <ic:SymbolIcon Symbol="Warning" FontSize="16" Foreground="{DynamicResource SemiColorWarning}" />
+                                            <TextBlock Grid.Column="1" Text="{Binding}" FontSize="12" TextWrapping="Wrap" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Panel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <TextBlock Grid.Row="2" Text="{Binding Status}" Classes="muted" FontSize="12" Margin="4,0" TextTrimming="CharacterEllipsis" />
+        </Grid>
+        <Border Classes="dropglow" />
+    </Panel>
+</UserControl>

@@ -1,0 +1,132 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:VideoQuality.App.Localization"
+             xmlns:vm="using:VideoQuality.App.ViewModels"
+             xmlns:conv="using:VideoQuality.App.Converters"
+             xmlns:enc="using:VideoQuality.Core.Encode"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:ic="using:FluentIcons.Avalonia"
+             xmlns:controls="using:VideoQuality.App.Controls"
+             x:Class="VideoQuality.App.Views.TrimMergeView"
+             x:DataType="vm:TrimMergeViewModel">
+    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="12">
+        <Border Classes="raised" Padding="16,12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                <Border Classes="pageicon"><ic:SymbolIcon Symbol="Cut" /></Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                    <TextBlock Classes="pagetitle" Text="{l:L trim.trimAndMerge}" />
+                    <TextBlock Classes="pagesub" Text="{l:L trim.cutARangeOut}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="12">
+            <!-- cut -->
+            <Border Classes="surface" x:Name="CutCard">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto" ColumnDefinitions="110,*,Auto" RowSpacing="8" ColumnSpacing="8" Margin="12,0,12,12">
+                    <Grid Classes="cardheader" Grid.ColumnSpan="3"><TextBlock Classes="label" Text="{l:L trim.cut}" /></Grid>
+                    <TextBlock Grid.Row="1" Text="{l:L common.source}" VerticalAlignment="Center" />
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Source.Path, FallbackValue=''}" IsReadOnly="True" Watermark="{l:L trim.dropAVideoOn}" />
+                    <Button Grid.Row="1" Grid.Column="2" Classes="tool" Click="OnPickCutSource" ToolTip.Tip="{l:L pipeline.chooseVideo}">
+                        <ic:SymbolIcon Symbol="FolderOpen" />
+                    </Button>
+                    <TextBlock Grid.Row="2" Text="{l:L trim.fromTo}" VerticalAlignment="Center" />
+                    <Grid Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" ColumnDefinitions="*,*" ColumnSpacing="6">
+                        <TextBox Text="{Binding Start}" Watermark="00:00:00.000" />
+                        <TextBox Grid.Column="1" Text="{Binding End}" Watermark="00:24:00.000" />
+                    </Grid>
+                    <TextBlock Grid.Row="3" Text="{l:L trim.method}" VerticalAlignment="Center" />
+                    <StackPanel Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="16">
+                        <RadioButton Content="{l:L trim.streamCopyInstantStarts}" IsChecked="{Binding !ReEncode}" />
+                        <RadioButton Content="{l:L trim.reEncodeFrameExact}" IsChecked="{Binding ReEncode}" />
+                    </StackPanel>
+                    <TextBlock Grid.Row="4" Text="{l:L trim.preset}" VerticalAlignment="Center" IsVisible="{Binding ReEncode}" />
+                    <ComboBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2" HorizontalAlignment="Stretch" IsVisible="{Binding ReEncode}"
+                              ItemsSource="{Binding Encode.Presets}" SelectedItem="{Binding CutPreset, Converter={x:Static conv:KeepSelectionConverter.Instance}}"
+                              DisplayMemberBinding="{Binding Name, x:DataType=enc:EncodePreset}" />
+                    <TextBlock Grid.Row="5" Text="{l:L common.output2}" VerticalAlignment="Center" />
+                    <TextBox Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding CutOutput}" />
+                    <Button Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="2" Classes="primary" HorizontalAlignment="Right"
+                            Command="{Binding CutCommand}" IsEnabled="{Binding HasSource}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ic:SymbolIcon Symbol="Cut" FontSize="16" />
+                            <TextBlock Text="{l:L trim.cut2}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- merge -->
+            <Border Grid.Column="1" Classes="surface" x:Name="MergeCard">
+                <Grid RowDefinitions="Auto,*,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="8" ColumnSpacing="8" Margin="12,0,12,12">
+                    <Grid Classes="cardheader" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="label" Text="{l:L trim.join}" />
+                        <Button Grid.Column="1" Classes="tool" Click="OnAddMergeFiles" ToolTip.Tip="{l:L mux.addFiles}">
+                            <ic:SymbolIcon Symbol="Add" />
+                        </Button>
+                    </Grid>
+                    <Panel Grid.Row="1" Grid.ColumnSpan="2">
+                        <TextBlock Classes="muted" Text="{l:L trim.dropThePartsHere}" IsVisible="{Binding !HasMergeInputs}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <ScrollViewer IsVisible="{Binding HasMergeInputs}">
+                            <ItemsControl ItemsSource="{Binding MergeInputs}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:MergeInput">
+                                        <Border Classes="row">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding FileName}" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" />
+                                                    <TextBlock Text="{Binding Details}" FontSize="11" Classes="muted" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+                                                    <Button Classes="rowaction" ToolTip.Tip="{l:L trim.moveUp}"
+                                                            Command="{Binding $parent[UserControl].((vm:TrimMergeViewModel)DataContext).MoveUpCommand}" CommandParameter="{Binding}">
+                                                        <ic:SymbolIcon Symbol="ArrowUp" />
+                                                    </Button>
+                                                    <Button Classes="rowaction" ToolTip.Tip="{l:L trim.moveDown}"
+                                                            Command="{Binding $parent[UserControl].((vm:TrimMergeViewModel)DataContext).MoveDownCommand}" CommandParameter="{Binding}">
+                                                        <ic:SymbolIcon Symbol="ArrowDown" />
+                                                    </Button>
+                                                    <Button Classes="rowaction" ToolTip.Tip="{l:L common.remove}"
+                                                            Command="{Binding $parent[UserControl].((vm:TrimMergeViewModel)DataContext).RemoveMergeInputCommand}" CommandParameter="{Binding}">
+                                                        <ic:SymbolIcon Symbol="Dismiss" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Panel>
+                    <ItemsControl Grid.Row="2" Grid.ColumnSpan="2" ItemsSource="{Binding MergeProblems}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                    <ic:SymbolIcon Symbol="Warning" FontSize="14" Foreground="{DynamicResource SemiColorWarning}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding}" FontSize="11" TextWrapping="Wrap" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBox Grid.Row="3" Text="{Binding MergeOutput}" Watermark="{l:L trim.joinedMkvMkvJoins}" />
+                    <Button Grid.Row="3" Grid.Column="1" Classes="tool" Click="OnPickMergeOutput" ToolTip.Tip="{l:L common.chooseFile}">
+                        <ic:SymbolIcon Symbol="Save" />
+                    </Button>
+                    <Button Grid.Row="4" Grid.ColumnSpan="2" Classes="primary" HorizontalAlignment="Right" Command="{Binding MergeCommand}" IsEnabled="{Binding HasMergeInputs}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ic:SymbolIcon Symbol="Merge" FontSize="16" />
+                            <TextBlock Text="{l:L trim.join2}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,200" ColumnSpacing="8" Margin="4,0">
+            <controls:Spinner IsVisible="{Binding IsBusy}" />
+            <TextBlock Grid.Column="1" Text="{Binding Status}" Classes="muted" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            <ProgressBar Grid.Column="2" Minimum="0" Maximum="1" Value="{Binding Progress}" IsVisible="{Binding IsBusy}" VerticalAlignment="Center" />
+        </Grid>
+    </Grid>
+</UserControl>

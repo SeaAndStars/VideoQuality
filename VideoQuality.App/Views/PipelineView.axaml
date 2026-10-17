@@ -8,6 +8,9 @@
              xmlns:controls="using:VideoQuality.App.Controls"
              x:Class="VideoQuality.App.Views.PipelineView"
              x:DataType="vm:PipelineViewModel">
+    <UserControl.Resources>
+        <conv:LabelConverter x:Key="Label" />
+    </UserControl.Resources>
     <Panel>
         <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12" Margin="12">
             <Border Classes="raised" Padding="16,12">
@@ -15,7 +18,7 @@
                     <Border Classes="pageicon"><ic:SymbolIcon Symbol="FlowchartCircle" /></Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                         <TextBlock Classes="pagetitle" Text="{l:L pipeline.releasePipeline}" />
-                        <TextBlock Classes="pagesub" Text="{l:L pipeline.onePassFromEncode}" />
+                        <TextBlock Classes="pagesub" Text="{l:L pipeline.sourceToReleaseIn}" />
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                         <u:IconButton Classes="tool" Content="{l:L common.clear}" Command="{Binding ClearCommand}">
@@ -34,39 +37,32 @@
                 </Grid>
             </Border>
 
-            <u:Banner Grid.Row="1" Type="Warning" IsVisible="{Binding !Settings.HasMkvToolNix}"
-                      Header="{l:L common.mkvtoolnixNotFound}"
-                      Content="{l:L pipeline.mkvtoolnixMissingHint}" />
+            <u:Banner Grid.Row="1" Type="Warning" IsVisible="{Binding !Settings.HasEncoder}"
+                      Header="{l:L pipeline.encoderFfmpegNotFound}" Content="{l:L pipeline.theEncodeAndBurn}" />
 
             <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="12">
                 <Border Classes="surface">
                     <ScrollViewer>
-                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto"
-                              RowSpacing="6" ColumnSpacing="6" Margin="12,0,12,12">
-                            <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="{l:L pipeline.inputs}" /></Grid>
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="130,*,Auto"
+                              RowSpacing="8" ColumnSpacing="8" Margin="12,0,12,12">
+                            <Grid Classes="cardheader" Grid.ColumnSpan="3"><TextBlock Classes="label" Text="{l:L pipeline.inputs}" /></Grid>
 
-                            <TextBlock Grid.Row="1" Classes="label" Text="{l:L pipeline.encodedVideo}" />
-                            <TextBox Grid.Row="2" Text="{Binding Video}" Watermark="{l:L pipeline.episodeMkvMp4Hevc}" />
-                            <Button Grid.Row="2" Grid.Column="1" Classes="tool" Click="OnPickVideo" ToolTip.Tip="{l:L pipeline.chooseVideo}">
+                            <TextBlock Grid.Row="1" Text="{l:L pipeline.sourceVideo}" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Video}" Watermark="{l:L pipeline.theWebripBdSource}" />
+                            <Button Grid.Row="1" Grid.Column="2" Classes="tool" Click="OnPickVideo" ToolTip.Tip="{l:L pipeline.chooseVideo}">
+                                <ic:SymbolIcon Symbol="FolderOpen" />
+                            </Button>
+                            <CheckBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Content="{l:L pipeline.alreadyEncodedSkipEncoding}" IsChecked="{Binding AlreadyEncoded}" />
+                            <TextBlock Grid.Row="3" Text="{l:L compare.reference2}" VerticalAlignment="Center" IsVisible="{Binding AlreadyEncoded}" />
+                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Reference}" Watermark="{l:L pipeline.sourceForVmafOptional}" IsVisible="{Binding AlreadyEncoded}" />
+                            <Button Grid.Row="3" Grid.Column="2" Classes="tool" Click="OnPickReference" ToolTip.Tip="{l:L pipeline.chooseVideo}" IsVisible="{Binding AlreadyEncoded}">
                                 <ic:SymbolIcon Symbol="FolderOpen" />
                             </Button>
 
-                            <TextBlock Grid.Row="3" Classes="label" Text="{l:L pipeline.referenceOptionalForVmaf}" Margin="0,4,0,0" />
-                            <TextBox Grid.Row="4" Text="{Binding Reference}" Watermark="{l:L pipeline.sourceRemux}" />
-                            <Button Grid.Row="4" Grid.Column="1" Classes="tool" Click="OnPickReference" ToolTip.Tip="{l:L common.chooseReference}">
-                                <ic:SymbolIcon Symbol="FolderOpen" />
-                            </Button>
-
-                            <Grid Grid.Row="5" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" Margin="0,4,0,0">
-                                <TextBlock Classes="label" Text="{l:L common.scripts}" VerticalAlignment="Center" />
-                                <Button Grid.Column="1" Classes="rowaction" Click="OnAddScripts" ToolTip.Tip="{l:L common.addScripts}">
-                                    <ic:SymbolIcon Symbol="Add" />
-                                </Button>
-                            </Grid>
-                            <Border Grid.Row="6" Grid.ColumnSpan="2" Background="{DynamicResource SemiColorFill0}"
-                                    CornerRadius="{StaticResource VqRadiusControl}" MinHeight="44" Padding="4">
+                            <TextBlock Grid.Row="4" Text="{l:L pipeline.scripts}" VerticalAlignment="Top" Margin="0,6,0,0" />
+                            <Border Grid.Row="4" Grid.Column="1" Background="{DynamicResource SemiColorFill0}" CornerRadius="{StaticResource VqRadiusControl}" MinHeight="44" Padding="4">
                                 <Panel>
-                                    <TextBlock Classes="muted" FontSize="12" Text="{l:L pipeline.dropAssScriptsHere}" Margin="6,0"
+                                    <TextBlock Classes="muted" FontSize="12" Text="{l:L pipeline.dropTheAssScripts}" Margin="6,0"
                                                VerticalAlignment="Center" IsVisible="{Binding !Scripts.Count}" />
                                     <ItemsControl ItemsSource="{Binding Scripts}">
                                         <ItemsControl.ItemTemplate>
@@ -77,8 +73,7 @@
                                                         <TextBlock Grid.Column="1" Text="{Binding Converter={x:Static conv:PathConverters.FileName}}" FontSize="12" TextTrimming="CharacterEllipsis"
                                                                    VerticalAlignment="Center" ToolTip.Tip="{Binding}" />
                                                         <Button Grid.Column="2" Classes="rowaction" ToolTip.Tip="{l:L common.remove}"
-                                                                Command="{Binding $parent[UserControl].((vm:PipelineViewModel)DataContext).RemoveScriptCommand}"
-                                                                CommandParameter="{Binding}">
+                                                                Command="{Binding $parent[UserControl].((vm:PipelineViewModel)DataContext).RemoveScriptCommand}" CommandParameter="{Binding}">
                                                             <ic:SymbolIcon Symbol="Dismiss" />
                                                         </Button>
                                                     </Grid>
@@ -88,21 +83,50 @@
                                     </ItemsControl>
                                 </Panel>
                             </Border>
+                            <Button Grid.Row="4" Grid.Column="2" Classes="tool" Click="OnAddScripts" ToolTip.Tip="{l:L common.addScripts}" VerticalAlignment="Top">
+                                <ic:SymbolIcon Symbol="Add" />
+                            </Button>
 
-                            <TextBlock Grid.Row="7" Classes="label" Text="{l:L common.fontFolder}" Margin="0,4,0,0" />
-                            <TextBox Grid.Row="8" Text="{Binding FontDirectory}" Watermark="{l:L pipeline.folderWithTheFonts}" />
-                            <Button Grid.Row="8" Grid.Column="1" Classes="tool" Click="OnPickFonts" ToolTip.Tip="{l:L common.chooseFolder}">
+                            <TextBlock Grid.Row="5" Text="{l:L pipeline.fontFolder}" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding FontDirectory}" Watermark="{l:L pipeline.folderWithTheFonts}" />
+                            <Button Grid.Row="5" Grid.Column="2" Classes="tool" Click="OnPickFonts" ToolTip.Tip="{l:L common.chooseFolder}">
                                 <ic:SymbolIcon Symbol="FolderOpen" />
                             </Button>
 
-                            <TextBlock Grid.Row="9" Classes="label" Text="{l:L pipeline.outputMkv}" Margin="0,4,0,0" />
-                            <TextBox Grid.Row="10" Text="{Binding Output}" Watermark="{l:L pipeline.episodeReleaseMkv}" />
-                            <Button Grid.Row="10" Grid.Column="1" Classes="tool" Click="OnPickOutput" ToolTip.Tip="{l:L common.chooseFile}">
-                                <ic:SymbolIcon Symbol="Save" />
+                            <TextBlock Grid.Row="6" Text="{l:L nav.chapters}" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding ChaptersFile}" Watermark="{l:L pipeline.theSourceSChapters}" />
+                            <Button Grid.Row="6" Grid.Column="2" Classes="tool" Click="OnPickChapters" ToolTip.Tip="{l:L mux.chooseChaptersFile}">
+                                <ic:SymbolIcon Symbol="FolderOpen" />
                             </Button>
 
-                            <TextBlock Grid.Row="11" Classes="label" Text="{l:L common.title}" Margin="0,4,0,0" />
-                            <TextBox Grid.Row="12" Grid.ColumnSpan="2" Text="{Binding Title}" Watermark="{l:L common.segmentTitleOptional}" />
+                            <Grid Classes="cardheader" Grid.Row="7" Grid.ColumnSpan="3"><TextBlock Classes="label" Text="{l:L naming.release}" /></Grid>
+                            <TextBlock Grid.Row="8" Text="{l:L pipeline.releaseKind}" VerticalAlignment="Center" />
+                            <ComboBox Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" HorizontalAlignment="Stretch" ItemsSource="{Binding Profiles}"
+                                      SelectedItem="{Binding Profile, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
+                                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Grid.Row="9" Text="{l:L pipeline.crfX26510Bit}" VerticalAlignment="Center" />
+                            <NumericUpDown Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="2" Value="{Binding Crf}" Minimum="0" Maximum="51" Increment="0.5" FormatString="0.#" HorizontalAlignment="Stretch" />
+                            <TextBlock Grid.Row="10" Text="{l:L pipeline.alsoMake}" VerticalAlignment="Center" />
+                            <StackPanel Grid.Row="10" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="16">
+                                <CheckBox Content="{l:L pipeline.burnedInMp4s}" IsChecked="{Binding MakeBurned}" />
+                                <CheckBox Content="{l:L pipeline.step.vmaf}" IsChecked="{Binding RunVmaf}" />
+                            </StackPanel>
+                            <TextBlock Grid.Row="11" Text="{l:L picker.outputFolder}" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="11" Grid.Column="1" Text="{Binding OutputDirectory}" />
+                            <Button Grid.Row="11" Grid.Column="2" Classes="tool" Click="OnPickOutput" ToolTip.Tip="{l:L common.chooseFolder}">
+                                <ic:SymbolIcon Symbol="FolderOpen" />
+                            </Button>
+                            <TextBlock Grid.Row="12" Text="{l:L pipeline.fileNames}" VerticalAlignment="Top" />
+                            <ItemsControl Grid.Row="12" Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{Binding OutputNames}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <TextBlock Text="{Binding}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Grid.Row="13" Grid.Column="1" Grid.ColumnSpan="2" Classes="muted" FontSize="11" TextWrapping="Wrap"
+                                       Text="{l:L pipeline.titleEpisodeAndSource}" />
                         </Grid>
                     </ScrollViewer>
                 </Border>
@@ -114,8 +138,7 @@
                             <ItemsControl ItemsSource="{Binding Steps}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:PipelineStep">
-                                        <Border Background="{DynamicResource SemiColorFill0}" CornerRadius="{StaticResource VqRadiusControl}"
-                                                Padding="12,10" Margin="0,0,0,8">
+                                        <Border Background="{DynamicResource SemiColorFill0}" CornerRadius="{StaticResource VqRadiusControl}" Padding="12,10" Margin="0,0,0,8">
                                             <Grid ColumnDefinitions="28,*" ColumnSpacing="12">
                                                 <Panel Width="24" Height="24" VerticalAlignment="Top" Margin="0,2,0,0">
                                                     <ic:SymbolIcon Symbol="Clock" FontSize="20" Foreground="{DynamicResource SemiColorText2}" IsVisible="{Binding IsPending}" />
@@ -127,7 +150,7 @@
                                                 <StackPanel Grid.Column="1" Spacing="3">
                                                     <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13" />
                                                     <TextBlock Text="{Binding Description}" Classes="muted" FontSize="12" TextWrapping="Wrap" />
-                                                    <TextBlock Text="{Binding Detail}" FontSize="12" TextWrapping="Wrap"
+                                                    <SelectableTextBlock Text="{Binding Detail}" FontSize="12" TextWrapping="Wrap"
                                                                IsVisible="{Binding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                                                     <ProgressBar Minimum="0" Maximum="1" Value="{Binding Progress}" IsVisible="{Binding IsRunning}" Margin="0,4,0,0" />
                                                 </StackPanel>

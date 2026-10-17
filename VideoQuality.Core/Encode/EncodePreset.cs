@@ -181,6 +181,9 @@ public sealed record AudioSettings
     /// <summary>Copy a track that is already this codec at or below this bitrate (no generation loss).</summary>
     public bool CopyWhenCompatible { get; init; } = true;
 
+    /// <summary>ISO 639-2 language written on every output audio track (<c>jpn</c>); empty keeps the source's.</summary>
+    public string? Language { get; init; }
+
     /// <summary>Only the first audio track (the usual Japanese track) instead of all of them.</summary>
     public bool FirstTrackOnly { get; init; }
 }
@@ -204,6 +207,9 @@ public sealed record StreamSettings
 
     /// <summary>End of the range to encode, in seconds.</summary>
     public double? End { get; init; }
+
+    /// <summary>Chapters from an ffmetadata file (see ChapterList.ToFfMetadata) instead of the input's.</summary>
+    public string? ChaptersFile { get; init; }
 
     /// <summary>Container title; empty keeps the source's.</summary>
     public string? Title { get; init; }

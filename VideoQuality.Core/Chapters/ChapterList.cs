@@ -88,6 +88,45 @@ public static partial class ChapterList
         return document.Declaration + Environment.NewLine + document;
     }
 
+    /// <summary>
+    /// ffmpeg's metadata format (for adding chapters while encoding, e.g. to an MP4). Each chapter ends
+    /// where the next starts; the last at <paramref name="duration"/>.
+    /// </summary>
+    public static string ToFfMetadata(IReadOnlyList<ChapterMark> chapters, TimeSpan duration)
+    {
+        var text = new StringBuilder(";FFMETADATA1\n");
+        for (int i = 0; i < chapters.Count; i++)
+        {
+            long start = (long)chapters[i].Start.TotalMilliseconds;
+            long end = (long)(i + 1 < chapters.Count ? chapters[i + 1].Start : Max(duration, chapters[i].Start)).TotalMilliseconds;
+            text.Append("[CHAPTER]\nTIMEBASE=1/1000\n")
+                .Append("START=").Append(start.ToString(CultureInfo.InvariantCulture)).Append('\n')
+                .Append("END=").Append(end.ToString(CultureInfo.InvariantCulture)).Append('\n')
+                .Append("title=").Append(EscapeMetadata(chapters[i].Name)).Append('\n');
+        }
+
+        return text.ToString();
+    }
+
+    private static TimeSpan Max(TimeSpan a, TimeSpan b) => a > b ? a : b;
+
+    // ffmetadata: '=', ';', '#', '\\' and newlines are escaped with a backslash.
+    private static string EscapeMetadata(string value)
+    {
+        var escaped = new StringBuilder(value.Length);
+        foreach (char c in value)
+        {
+            if (c is '=' or ';' or '#' or '\\' or '\n')
+            {
+                escaped.Append('\\');
+            }
+
+            escaped.Append(c);
+        }
+
+        return escaped.ToString();
+    }
+
     /// <summary>Writes Matroska XML for <c>.xml</c> paths and OGM text otherwise (UTF-8).</summary>
     public static void Save(string path, IReadOnlyList<ChapterMark> chapters) =>
         File.WriteAllText(path, path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase) ? ToXml(chapters) : ToOgm(chapters), new UTF8Encoding(false));

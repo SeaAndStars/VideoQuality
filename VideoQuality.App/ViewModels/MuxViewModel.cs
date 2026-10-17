@@ -182,7 +182,8 @@ public partial class MuxViewModel : ObservableObject
         {
             MkvFileInfo info = await tools.IdentifyAsync(full);
             var row = new MuxInputRow { Path = full, Info = info };
-            (string Language, string Name)? guess = SubtitleNaming.Guess(full);
+            (string Language, string Name)? guess = SubtitleNaming.Guess(full, Settings.TrackNaming);
+            bool greenTea = Settings.TrackNaming == TrackNamingProfile.GreenTea;
             string? guessedLanguage = guess?.Language;
             string? guessedName = guess?.Name;
             bool firstSubtitle = !Inputs.SelectMany(i => i.Tracks).Any(t => t.Type == MkvTrackType.Subtitles && t.Default);
@@ -190,6 +191,7 @@ public partial class MuxViewModel : ObservableObject
             foreach (MkvTrack track in info.Tracks)
             {
                 bool isSubtitle = track.Type == MkvTrackType.Subtitles;
+                bool isAudio = track.Type == MkvTrackType.Audio;
                 row.Tracks.Add(new MuxTrackRow
                 {
                     Id = track.Id,
@@ -203,10 +205,12 @@ public partial class MuxViewModel : ObservableObject
                     },
                     Codec = track.Codec,
                     Details = track.Details,
+                    // GreenTea rules: untagged audio is the Japanese original (ja) and only subtitles are named.
                     Language = isSubtitle && guessedLanguage is not null && track.Language is "" or "und"
                         ? guessedLanguage
-                        : track.Language,
-                    Name = isSubtitle && guessedName is not null && track.Name.Length == 0 ? guessedName : track.Name,
+                        : greenTea && isAudio && track.Language is "" or "und" ? "ja" : track.Language,
+                    Name = isSubtitle && guessedName is not null && track.Name.Length == 0 ? guessedName
+                        : greenTea && isAudio ? string.Empty : track.Name,
                     Default = isSubtitle ? firstSubtitle : track.Default,
                     Forced = track.Forced,
                 });

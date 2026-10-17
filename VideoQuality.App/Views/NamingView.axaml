@@ -1,0 +1,106 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:VideoQuality.App.Localization"
+             xmlns:vm="using:VideoQuality.App.ViewModels"
+             xmlns:conv="using:VideoQuality.App.Converters"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:ic="using:FluentIcons.Avalonia"
+             x:Class="VideoQuality.App.Views.NamingView"
+             x:DataType="vm:NamingViewModel">
+    <UserControl.Resources>
+        <conv:LabelConverter x:Key="Label" />
+    </UserControl.Resources>
+    <Panel>
+        <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="12">
+            <Border Classes="raised" Padding="16,12">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                    <Border Classes="pageicon"><ic:SymbolIcon Symbol="Rename" /></Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Classes="pagetitle" Text="{l:L nav.naming}" />
+                        <TextBlock Classes="pagesub" Text="{l:L naming.fileNamesAndThe}" />
+                    </StackPanel>
+                    <u:IconButton Grid.Column="2" Classes="tool" Content="{l:L naming.copyAll}" Command="{Binding CopyAllCommand}" VerticalAlignment="Center">
+                        <u:IconButton.Icon><ic:SymbolIcon Symbol="Copy" /></u:IconButton.Icon>
+                    </u:IconButton>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" ColumnDefinitions="2*,3*" ColumnSpacing="12">
+                <Border Classes="surface">
+                    <ScrollViewer>
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="130,*" RowSpacing="8" ColumnSpacing="10" Margin="12,0,12,12">
+                            <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="{l:L naming.release}" /></Grid>
+                            <TextBlock Grid.Row="1" Text="{l:L naming.group}" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Group}" />
+                            <TextBlock Grid.Row="2" Text="{l:L naming.collaborators}" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Collaborators}" Watermark="{l:L naming.groupaGroupb}" />
+                            <TextBlock Grid.Row="3" Text="{l:L naming.titleRomaji}" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Title}" Watermark="{l:L naming.takopiiNoGenzai}" />
+                            <TextBlock Grid.Row="4" Text="{l:L naming.kindNumber}" VerticalAlignment="Center" />
+                            <Grid Grid.Row="4" Grid.Column="1" ColumnDefinitions="*,80,80" ColumnSpacing="6">
+                                <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Kinds}" SelectedItem="{Binding Kind, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
+                                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <NumericUpDown Grid.Column="1" Value="{Binding Episode}" Minimum="0" Maximum="9999" FormatString="0" ToolTip.Tip="{l:L label.EpisodeKind.Episode}" />
+                                <NumericUpDown Grid.Column="2" Value="{Binding Version}" Minimum="1" Maximum="9" FormatString="'v'0" ToolTip.Tip="{l:L naming.reissueV2}" />
+                            </Grid>
+                            <TextBlock Grid.Row="5" Text="{l:L common.source}" VerticalAlignment="Center" />
+                            <ComboBox Grid.Row="5" Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding Sources}" SelectedItem="{Binding Source, Converter={x:Static conv:KeepSelectionConverter.Instance}}" />
+                            <TextBlock Grid.Row="6" Text="{l:L naming.videoResolution}" VerticalAlignment="Center" />
+                            <Grid Grid.Row="6" Grid.Column="1" ColumnDefinitions="*,*" ColumnSpacing="6">
+                                <TextBox Text="{Binding VideoCodec}" />
+                                <TextBox Grid.Column="1" Text="{Binding Resolution}" />
+                            </Grid>
+                            <TextBlock Grid.Row="7" Text="{l:L common.audio}" VerticalAlignment="Center" />
+                            <ComboBox Grid.Row="7" Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding AudioCodecs}" SelectedItem="{Binding AudioCodec, Converter={x:Static conv:KeepSelectionConverter.Instance}}" />
+                            <TextBlock Grid.Row="8" Text="{l:L extract.subtitles}" VerticalAlignment="Center" />
+                            <ComboBox Grid.Row="8" Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding SubtitleSets}" SelectedItem="{Binding Subtitles, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
+                                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Grid.Row="9" Text="{l:L naming.groupChinese}" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding ChineseGroup}" />
+                            <TextBlock Grid.Row="10" Text="{l:L naming.titleChinese}" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding ChineseTitle}" Watermark="章鱼哔的原罪" />
+                        </Grid>
+                    </ScrollViewer>
+                </Border>
+
+                <Border Grid.Column="1" Classes="surface">
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="12,0,12,12" RowSpacing="8">
+                        <Grid Classes="cardheader"><TextBlock Classes="label" Text="{l:L naming.fileNames}" /></Grid>
+                        <ItemsControl Grid.Row="1" ItemsSource="{Binding Files}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:NamedFile">
+                                    <Border Classes="row">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Purpose}" FontSize="11" Classes="muted" />
+                                                <SelectableTextBlock Text="{Binding Name}" FontSize="12" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <Button Grid.Column="1" Classes="rowaction" ToolTip.Tip="{l:L label.RateControl.Copy}"
+                                                    Command="{Binding $parent[UserControl].((vm:NamingViewModel)DataContext).CopyCommand}" CommandParameter="{Binding Name}">
+                                                <ic:SymbolIcon Symbol="Copy" />
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Grid Grid.Row="2" Classes="cardheader"><TextBlock Classes="label" Text="{l:L naming.releaseTitle}" /></Grid>
+                        <Border Grid.Row="3" Classes="row">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <SelectableTextBlock Text="{Binding ReleaseTitle}" FontSize="12" TextWrapping="Wrap" />
+                                <Button Grid.Column="1" Classes="rowaction" ToolTip.Tip="{l:L label.RateControl.Copy}" Command="{Binding CopyCommand}" CommandParameter="{Binding ReleaseTitle}">
+                                    <ic:SymbolIcon Symbol="Copy" />
+                                </Button>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <TextBlock Grid.Row="2" Text="{Binding Status}" Classes="muted" FontSize="12" Margin="4,0" TextTrimming="CharacterEllipsis" />
+        </Grid>
+        <Border Classes="dropglow" />
+    </Panel>
+</UserControl>

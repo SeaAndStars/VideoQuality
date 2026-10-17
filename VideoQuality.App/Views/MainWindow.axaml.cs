@@ -24,7 +24,17 @@ public partial class MainWindow : UrsaWindow
             ToastHost.Initialize(this);
             FitBelowTitleBar();
         };
+        DataContextChanged += (_, _) =>
+        {
+            if (Shell is { } shell)
+            {
+                shell.RevealRequested -= OnRevealRequested;
+                shell.RevealRequested += OnRevealRequested;
+            }
+        };
     }
+
+    private async void OnRevealRequested(object? sender, string path) => await PageIo.RevealAsync(this, path);
 
     private ShellViewModel? Shell => DataContext as ShellViewModel;
 
