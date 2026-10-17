@@ -106,7 +106,9 @@ public static class PixelDiff
             total++;
         }
 
-        long target = (long)(total * Math.Clamp(percentile, 0, 1));
+        // Ceiling, not truncation: with 100 pixels a 99.9th percentile must include the single
+        // largest value, otherwise the one non-zero pixel is silently ignored.
+        long target = Math.Max(1, (long)Math.Ceiling(total * Math.Clamp(percentile, 0, 1)));
         long accumulated = 0;
 
         for (int bin = 0; bin < Bins; bin++)

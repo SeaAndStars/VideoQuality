@@ -78,7 +78,7 @@ public partial class EncodeEntry : ObservableObject
 
     public string SizeText => $"{FileSize / 1024.0 / 1024.0:F1} MB";
 
-    public string BackendText => Report?.Backend.ToDisplayName() ?? "—";
+    public string BackendText => Report?.PrecisionShort ?? "—";
 
     public string FramesText => Report is null
         ? "—"

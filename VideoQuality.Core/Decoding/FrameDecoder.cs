@@ -200,7 +200,7 @@ public sealed unsafe class FrameDecoder : IDisposable
         }
     }
 
-    private static int ResolveBitDepth(AVCodecParameters* parameters, string pixelFormat)
+    internal static int ResolveBitDepth(AVCodecParameters* parameters, string pixelFormat)
     {
         if (parameters->bits_per_raw_sample > 0)
         {
@@ -234,7 +234,7 @@ public sealed unsafe class FrameDecoder : IDisposable
         return 8;
     }
 
-    private static string ResolveColorSpace(AVColorSpace space) => space switch
+    internal static string ResolveColorSpace(AVColorSpace space) => space switch
     {
         AVColorSpace.AVCOL_SPC_BT709 => "bt709",
         AVColorSpace.AVCOL_SPC_BT470BG => "bt601",
@@ -244,14 +244,14 @@ public sealed unsafe class FrameDecoder : IDisposable
         _ => string.Empty,
     };
 
-    private static string ResolveColorRange(AVColorRange range) => range switch
+    internal static string ResolveColorRange(AVColorRange range) => range switch
     {
         AVColorRange.AVCOL_RANGE_JPEG => "pc",
         AVColorRange.AVCOL_RANGE_MPEG => "tv",
         _ => string.Empty,
     };
 
-    private static bool IsLossyCodec(AVCodecID codec) => codec is not (
+    internal static bool IsLossyCodec(AVCodecID codec) => codec is not (
         AVCodecID.AV_CODEC_ID_RAWVIDEO or
         AVCodecID.AV_CODEC_ID_FFV1 or
         AVCodecID.AV_CODEC_ID_HUFFYUV or

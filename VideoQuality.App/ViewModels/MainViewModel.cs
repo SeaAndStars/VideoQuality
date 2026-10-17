@@ -4,6 +4,7 @@ using System.Collections.Specialized;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
+using VideoQuality.Core.Diagnostics;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -42,7 +43,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private DecodedFrame? _lastReferenceFrame;
     private DecodedFrame? _lastDistortedFrame;
     private bool _suppressEncodeOpen;
-    private string _lastScoreNote = string.Empty;
+    private VmafCapabilities? _capabilities;
 
     public MainViewModel()
     {
@@ -159,6 +160,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     public partial string ProgressDetail { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string LogPath { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial bool IsBusy { get; set; }
@@ -295,6 +299,33 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
 
         await ProbeBackendAsync().ConfigureAwait(true);
+        LogSession();
+    }
+
+    private void LogSession()
+    {
+        VqLog.SessionHeader("app session", new Dictionary<string, string>
+        {
+            ["core"] = typeof(VmafRunner).Assembly.GetName().Version?.ToString() ?? "?",
+            ["dotnet"] = Environment.Version.ToString(),
+            ["os"] = RuntimeInformation.OSDescription,
+            ["ffmpeg"] = FfmpegPath,
+            ["backend"] = _capabilities?.Describe() ?? "unknown",
+            ["libav"] = SafeLibav(),
+            ["log"] = VqLog.CurrentPath ?? "(disabled)",
+        });
+    }
+
+    private static string SafeLibav()
+    {
+        try
+        {
+            return FfmpegRuntime.Describe();
+        }
+        catch (Exception ex)
+        {
+            return "unavailable: " + ex.Message;
+        }
     }
 
     public async Task SetReferenceAsync(string path)
@@ -397,7 +428,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 await ScoreEntryAsync(entry, token).ConfigureAwait(true);
             }
 
-            Status = $"Scored {Encodes.Count} encode(s) against {Path.GetFileName(ReferencePath!)}.{_lastScoreNote}";
+            Status = $"Scored {Encodes.Count} encode(s) against {Path.GetFileName(ReferencePath!)}.{ScoreNote(SelectedEncode)}";
         }
         catch (OperationCanceledException)
         {
@@ -610,7 +641,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         try
         {
             await ScoreEntryAsync(entry, _analysisCancellation.Token).ConfigureAwait(true);
-            Status = $"Re-scored {entry.Name}.{_lastScoreNote}";
+            Status = $"Re-scored {entry.Name}.{ScoreNote(entry)}";
         }
         catch (OperationCanceledException)
         {
@@ -631,6 +662,33 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
     private bool CanAnalyze() => SelectedEncode is not null && !IsBusy;
+
+    private static string ScoreNote(EncodeEntry? entry)
+    {
+        if (entry?.Report is not { } report)
+        {
+            return string.Empty;
+        }
+
+        if (report.FellBackToCpu)
+        {
+            string reason = report.FallbackReason ?? "unknown error";
+            int newline = reason.IndexOfAny(['\r', '\n']);
+            if (newline >= 0)
+            {
+                reason = reason[..newline];
+            }
+
+            return $" CUDA scoring failed; fell back to CPU ({reason}).";
+        }
+
+        if (report.ConvertedTo8Bit)
+        {
+            return " 10-bit input was converted to 8-bit on the GPU; choose CPU for full precision.";
+        }
+
+        return string.Empty;
+    }
 
     [RelayCommand]
     private void CancelAnalysis() => _analysisCancellation?.Cancel();
@@ -732,9 +790,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         entry.Report = report;
 
-        _lastScoreNote = highBitDepth && report.Backend == VmafExecutionBackend.Cuda
-            ? " 10-bit input was converted to 8-bit on the GPU; choose CPU for full precision."
-            : string.Empty;
 
         // Fallback only; OpenSelectedEncodeAsync normally fills this from the packet index.
         if (entry.BitrateKbps <= 0)
@@ -954,6 +1009,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         try
         {
             VmafCapabilities capabilities = await VmafRunner.ProbeAsync(path).ConfigureAwait(true);
+            _capabilities = capabilities;
+            LogPath = VqLog.CurrentPath ?? string.Empty;
             BackendStatus = capabilities.Describe();
             if (!capabilities.HasLibvmaf && !capabilities.HasLibvmafCuda)
             {

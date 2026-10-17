@@ -55,6 +55,18 @@ public sealed unsafe class PacketIndex
         }
     }
 
+    /// <summary>Builds an index from already-collected packets (used by tests and diagnostics).</summary>
+    public static PacketIndex Create(IReadOnlyList<VideoPacket> packets, double durationSeconds)
+    {
+        long totalBytes = 0;
+        foreach (VideoPacket packet in packets)
+        {
+            totalBytes += packet.Size;
+        }
+
+        return new PacketIndex(packets, totalBytes, durationSeconds);
+    }
+
     public static PacketIndex Build(string path)
     {
         FfmpegRuntime.Initialize();

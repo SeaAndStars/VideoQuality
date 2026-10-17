@@ -4,6 +4,8 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using VideoQuality.Core.Decoding;
+using VideoQuality.Core.Diagnostics;
 using VideoQuality.Core.Models;
 
 namespace VideoQuality.Core.Scoring;
@@ -74,10 +76,62 @@ public static partial class VmafRunner
 
         var capabilities = await ProbeAsync(options.FfmpegPath, cancellationToken).ConfigureAwait(false);
         var backend = ResolveBackend(options.Backend, capabilities);
+        string model = string.IsNullOrWhiteSpace(options.Model) ? "vmaf_v0.6.1" : options.Model.Trim();
 
+        // Only needed for the report and for deciding whether CUDA is scoring a converted 8-bit
+        // picture; probing reads headers, it does not decode.
+        int sourceBitDepth = backend == VmafExecutionBackend.Cuda
+            ? ProbeSourceBitDepth(reference, distorted)
+            : 8;
+
+        VqLog.Info("vmaf", $"start backend={backend} model={model} depth={sourceBitDepth} " +
+                           $"ref={reference} dis={distorted}");
+
+        try
+        {
+            VmafReport report = await RunBackendAsync(
+                backend, options, model, sourceBitDepth, reference, distorted, progress, cancellationToken)
+                .ConfigureAwait(false);
+
+            VqLog.Info("vmaf", $"done backend={backend} frames={report.FrameCount} mean={report.Stats.Mean:F3} " +
+                               $"elapsed={report.Duration.TotalSeconds:F2}s");
+            return report;
+        }
+        catch (Exception ex) when (options.Backend == VmafBackend.Auto &&
+                                   backend == VmafExecutionBackend.Cuda &&
+                                   ex is not OperationCanceledException)
+        {
+            // A CUDA run can fail for reasons outside our control (an NVDEC profile the GPU does
+            // not support, a driver reset, a filter-format mismatch). Auto is allowed to fall back;
+            // an explicitly requested CUDA run is not.
+            VqLog.Warn("vmaf", "CUDA scoring failed; retrying on CPU", ex);
+            VmafReport report = await RunBackendAsync(
+                VmafExecutionBackend.Cpu, options, model, sourceBitDepth, reference, distorted, progress, cancellationToken)
+                .ConfigureAwait(false);
+
+            return report with
+            {
+                FellBackToCpu = true,
+                FallbackReason = ex.Message,
+            };
+        }
+    }
+
+    private static async Task<VmafReport> RunBackendAsync(
+        VmafExecutionBackend backend,
+        VmafOptions options,
+        string model,
+        int sourceBitDepth,
+        string reference,
+        string distorted,
+        IProgress<VmafProgress>? progress,
+        CancellationToken cancellationToken)
+    {
         string logPath = Path.Combine(Path.GetTempPath(), $"vq_vmaf_{Guid.NewGuid():N}.json");
         var arguments = BuildArguments(options, backend, logPath, reference, distorted);
         string commandLine = FormatCommandLine(options.FfmpegPath, arguments);
+
+        VqLog.Info("vmaf", $"command {commandLine}");
 
         var stopwatch = Stopwatch.StartNew();
         try
@@ -99,7 +153,17 @@ public static partial class VmafRunner
                 VmafStats.FromFrames(frames),
                 backend,
                 commandLine,
-                stopwatch.Elapsed);
+                stopwatch.Elapsed)
+            {
+                SourceBitDepth = sourceBitDepth,
+                ConvertedTo8Bit = backend == VmafExecutionBackend.Cuda && sourceBitDepth > 8,
+                Model = model,
+            };
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            VqLog.Error("vmaf", $"ffmpeg failed backend={backend}", ex);
+            throw;
         }
         finally
         {
@@ -107,6 +171,21 @@ public static partial class VmafRunner
             {
                 TryDelete(logPath);
             }
+        }
+    }
+
+    private static int ProbeSourceBitDepth(string reference, string distorted)
+    {
+        try
+        {
+            int referenceDepth = MediaProbe.Probe(reference).BitDepth;
+            int distortedDepth = MediaProbe.Probe(distorted).BitDepth;
+            return Math.Max(referenceDepth, distortedDepth);
+        }
+        catch (Exception ex)
+        {
+            VqLog.Warn("vmaf", "could not probe source bit depth", ex);
+            return 8;
         }
     }
 
@@ -432,8 +511,7 @@ public static partial class VmafRunner
 
         Task progressPump = Task.Run(async () =>
         {
-            int frame = -1;
-            double fps = 0;
+            var parser = new FfmpegProgressParser();
 
             while (true)
             {
@@ -452,28 +530,9 @@ public static partial class VmafRunner
                     break;
                 }
 
-                int separator = line.IndexOf('=');
-                if (separator <= 0)
+                if (parser.Consume(line) is { } value)
                 {
-                    continue;
-                }
-
-                string key = line[..separator];
-                string value = line[(separator + 1)..];
-
-                switch (key)
-                {
-                    case "frame" when int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedFrame):
-                        frame = parsedFrame;
-                        break;
-
-                    case "fps" when double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsedFps):
-                        fps = parsedFps;
-                        break;
-
-                    case "progress":
-                        progress?.Report(new VmafProgress(frame >= 0 ? frame : null, fps, value == "end"));
-                        break;
+                    progress?.Report(value);
                 }
             }
         }, CancellationToken.None);

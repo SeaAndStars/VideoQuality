@@ -204,12 +204,13 @@
 
             <Border Grid.Column="1" Background="#0b0d10" CornerRadius="6" Padding="8">
                 <DockPanel>
-                    <Grid DockPanel.Dock="Top" ColumnDefinitions="8,*,46,46,64,52,22" ColumnSpacing="4" Margin="2,0,2,6">
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="8,*,62,44,44,62,50,22" ColumnSpacing="4" Margin="2,0,2,6">
                         <TextBlock Grid.Column="1" Text="ENCODE" FontSize="10" Foreground="#7d8691" />
-                        <TextBlock Grid.Column="2" Text="MEAN" FontSize="10" Foreground="#7d8691" HorizontalAlignment="Right" />
-                        <TextBlock Grid.Column="3" Text="P1" FontSize="10" Foreground="#7d8691" HorizontalAlignment="Right" />
-                        <TextBlock Grid.Column="4" Text="BITRATE" FontSize="10" Foreground="#7d8691" HorizontalAlignment="Right" />
-                        <TextBlock Grid.Column="5" Text="SIZE" FontSize="10" Foreground="#7d8691" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="2" Text="BACKEND" FontSize="10" Foreground="#7d8691" />
+                        <TextBlock Grid.Column="3" Text="MEAN" FontSize="10" Foreground="#7d8691" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="4" Text="P1" FontSize="10" Foreground="#7d8691" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="5" Text="BITRATE" FontSize="10" Foreground="#7d8691" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="6" Text="SIZE" FontSize="10" Foreground="#7d8691" HorizontalAlignment="Right" />
                     </Grid>
 
                     <ListBox ItemsSource="{Binding Encodes}"
@@ -224,15 +225,17 @@
                         </ListBox.Styles>
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:EncodeEntry">
-                                <Grid ColumnDefinitions="8,*,46,46,64,52,22" ColumnSpacing="4" Margin="2,3">
+                                <Grid ColumnDefinitions="8,*,62,44,44,62,50,22" ColumnSpacing="4" Margin="2,3">
                                     <Border Grid.Column="0" Width="5" CornerRadius="2" Background="{Binding Swatch}" />
                                     <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="11" TextTrimming="CharacterEllipsis"
                                                ToolTip.Tip="{Binding Path}" />
-                                    <TextBlock Grid.Column="2" Text="{Binding MeanText}" FontSize="11" HorizontalAlignment="Right" FontFamily="monospace" />
-                                    <TextBlock Grid.Column="3" Text="{Binding P1Text}" FontSize="11" HorizontalAlignment="Right" FontFamily="monospace" Foreground="#9aa3ad" />
-                                    <TextBlock Grid.Column="4" Text="{Binding BitrateText}" FontSize="11" HorizontalAlignment="Right" FontFamily="monospace" Foreground="#9aa3ad" ToolTip.Tip="Video stream bitrate from the packet index" />
-                                    <TextBlock Grid.Column="5" Text="{Binding SizeText}" FontSize="11" HorizontalAlignment="Right" FontFamily="monospace" Foreground="#9aa3ad" />
-                                    <Button Grid.Column="6" Content="✕" FontSize="10" Padding="2,0" Click="OnRemoveEncode"
+                                    <TextBlock Grid.Column="2" Text="{Binding BackendText}" FontSize="10" Foreground="#9aa3ad"
+                                               ToolTip.Tip="Backend and precision used for this score (·8b means a 10-bit source was converted on the GPU)" />
+                                    <TextBlock Grid.Column="3" Text="{Binding MeanText}" FontSize="11" HorizontalAlignment="Right" FontFamily="monospace" />
+                                    <TextBlock Grid.Column="4" Text="{Binding P1Text}" FontSize="11" HorizontalAlignment="Right" FontFamily="monospace" Foreground="#9aa3ad" />
+                                    <TextBlock Grid.Column="5" Text="{Binding BitrateText}" FontSize="11" HorizontalAlignment="Right" FontFamily="monospace" Foreground="#9aa3ad" ToolTip.Tip="Video stream bitrate from the packet index" />
+                                    <TextBlock Grid.Column="6" Text="{Binding SizeText}" FontSize="11" HorizontalAlignment="Right" FontFamily="monospace" Foreground="#9aa3ad" />
+                                    <Button Grid.Column="7" Content="✕" FontSize="10" Padding="2,0" Click="OnRemoveEncode"
                                             Background="Transparent" BorderThickness="0" Foreground="#7d8691" />
                                 </Grid>
                             </DataTemplate>
@@ -279,6 +282,7 @@
                             <TextBox Text="{Binding FfmpegPath, UpdateSourceTrigger=LostFocus}"
                                      VerticalContentAlignment="Center" Padding="8,6" />
                             <TextBlock Text="{Binding BackendStatus}" TextWrapping="Wrap" FontSize="11" Foreground="#9aa3ad" />
+                            <TextBlock Text="{Binding LogPath}" TextWrapping="Wrap" FontSize="11" Foreground="#6f7883" />
                             <TextBlock Text="Left as 'ffmpeg', the app resolves a VMAF-enabled build automatically. See the README for the CUDA build recipe."
                                        TextWrapping="Wrap" FontSize="11" Foreground="#6f7883" />
                         </StackPanel>

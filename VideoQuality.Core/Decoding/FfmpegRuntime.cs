@@ -41,6 +41,13 @@ public static class FfmpegRuntime
         }
     }
 
+    /// <summary>Library path and the libavcodec version actually loaded, for session logs.</summary>
+    public static string Describe()
+    {
+        Initialize();
+        return $"{LibraryDirectory ?? "(system search path)"} (avcodec {ffmpeg.avcodec_version()})";
+    }
+
     /// <summary>Human-readable text for a negative FFmpeg return code.</summary>
     public static unsafe string ErrorText(int error)
     {
