@@ -23,8 +23,8 @@ trap '"$docker" rm -f "$container" >/dev/null 2>&1 || true' EXIT
 echo "== build (inside the container)"
 "$docker" exec "$container" env VQ_LINUX_WORK=/work /build.sh
 
-echo "== copy out to $out/ffmpeg"
-rm -rf "$out/ffmpeg"
+echo "== copy out to $out"
+rm -rf "$out/ffmpeg" "$out/licenses"
 mkdir -p "$out"
-"$docker" exec "$container" tar -C /work/stage -cf - ffmpeg | tar -C "$out" -xf -
+"$docker" exec "$container" tar -C /work/stage -cf - ffmpeg licenses | tar -C "$out" -xf -
 cat "$out/ffmpeg/BUILDINFO.txt"

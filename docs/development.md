@@ -151,6 +151,8 @@ scripts/build-ffmpeg-windows.sh   cross-compiles FFmpeg + libvmaf CUDA for Windo
 scripts/build-ffmpeg-linux.sh     the same for Linux: relocatable ($ORIGIN), minimal deps, self-test
 scripts/build-ffmpeg-linux-docker.sh  runs the Linux build in Ubuntu 22.04 (glibc 2.35 baseline)
 scripts/package.sh <rid>          release archive for win-x64 (.zip) or linux-x64 (.tar.gz)
+.github/workflows/release.yml     tag-triggered CI/CD (verify signature → test → FFmpeg → publish)
+.github/release-signing-key.asc   public key that release tags must be signed with
 artifacts/                 release output (ignored)
 scripts/verify.sh          clean build, solution-membership check, tests, probe
 scripts/capture-docs.sh    regenerates the documentation screenshots
@@ -165,26 +167,51 @@ docs/                      user and developer documentation
 
 ## Git workflow
 
-The repository is the source of truth; every change lands as a commit on `main`.
+Two long-lived branches; releases come only from signed tags on `main`.
 
-- `bin/`, `obj/`, IDE folders and logs are ignored (see `.gitignore`). Documentation images **are**
-  tracked — they are referenced by the docs.
+| Branch / ref | Purpose |
+|---|---|
+| `dev` | Day-to-day work. Every commit lands here first. |
+| `main` | Released history. Moves only by fast-forwarding to a tested `dev`. |
+| `v*` tags | A GPG-signed tag on `main` is the **only** trigger for CI/CD. |
+
+```bash
+git switch dev
+# … work, commit (signed automatically) …
+git push origin dev
+
+# release
+git switch main && git merge --ff-only dev
+git tag -s v0.2.0 -m "VideoQuality 0.2.0"
+git push origin main v0.2.0          # → .github/workflows/release.yml
+```
+
+**Signing.** Commits and tags are signed with the release key (fingerprint
+`41A9 0A5D A8C9 222F 2AE9 DA57 62D6 9FC1 BCCB B34A`, public half in
+`.github/release-signing-key.asc`). The key lives on a smartcard read by GnuPG on Windows; in WSL
+the repository is configured with `gpg.program = /usr/local/bin/gpg-win`, a wrapper that calls
+`gpg.exe` and translates temp-file paths so `git verify-commit` / `git log --show-signature` work
+too. Check any commit or tag with `git verify-commit <sha>` / `git verify-tag <tag>`.
+
+**Release pipeline** (`.github/workflows/release.yml`), on a pushed `v*` tag:
+
+1. **verify**: the tag must be annotated, signed by the pinned fingerprint, and point at a commit
+   on `main`; otherwise nothing builds.
+2. **test**: `dotnet build` and the unit tests.
+3. **ffmpeg-windows** / **ffmpeg-linux**: the redistributable FFmpeg + libvmaf CUDA builds,
+   cached by a hash of their build scripts (a release without FFmpeg changes reuses them).
+4. **release**: `scripts/package.sh` for both platforms, `SHA256SUMS.txt`, and the GitHub release.
+
+Third-party actions are pinned to full commit SHAs; the token is read-only except in the publish job.
+
+Other conventions:
+
+- `bin/`, `obj/`, `artifacts/`, IDE folders and logs are ignored. Documentation images **are**
+  tracked.
 - Line endings are normalised to LF for text, with binary attributes for images (`.gitattributes`).
 - Commit messages: a short imperative summary, then a body explaining the why and any behaviour
   change. Group related edits (for example a feature plus its docs) in one commit.
 - Test media is **not** committed. Generate it with the commands above and keep it outside the repo.
-
-Typical loop:
-
-```bash
-git status
-dotnet build VideoQuality.slnx -c Release
-dotnet run --project VideoQuality.Cli -- probe
-git add -A
-git commit -m "Short imperative summary
-
-Why this change, what behaviour it changes, and how it was verified."
-```
 
 ## Roadmap
 

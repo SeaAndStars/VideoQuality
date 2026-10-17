@@ -47,18 +47,9 @@ case $rid in
         ;;
 esac
 
-# License texts come from the pinned source checkouts (identical tags on both platforms).
-src=
-for candidate in "${VQ_SRC:-}" "$HOME/build-linux/src" "$HOME/build-win/src"; do
-    if [[ -n $candidate && -f $candidate/ffmpeg-9.0.2/COPYING.LGPLv2.1 ]]; then
-        src=$candidate
-        break
-    fi
-done
-[[ -n $src ]] || { echo "no FFmpeg/libvmaf source checkout for license texts; set VQ_SRC" >&2; exit 1; }
-
-if [[ ! -f $stage/ffmpeg$exe ]]; then
-    echo "no staged FFmpeg in $stage; run $build_script first" >&2
+staged_licenses=$(dirname "$stage")/licenses
+if [[ ! -f $stage/ffmpeg$exe || ! -f $staged_licenses/FFmpeg-LGPL-2.1.txt ]]; then
+    echo "no staged FFmpeg (and licenses) in $(dirname "$stage"); run $build_script first" >&2
     exit 1
 fi
 
@@ -134,22 +125,15 @@ fi
 
 echo "== notices"
 cp "$root/LICENSE" "$out/licenses/VideoQuality-MIT.txt"
-cp "$src/ffmpeg-9.0.2/COPYING.LGPLv2.1" "$out/licenses/FFmpeg-LGPL-2.1.txt"
-cp "$src/vmaf-3.2.1/LICENSE" "$out/licenses/libvmaf-BSD-2-Clause-Patent.txt"
-cp "$src/dav1d/COPYING" "$out/licenses/dav1d-BSD-2-Clause.txt"
-sed -n '1,/\*\//p' "$src/nv-codec-headers/include/ffnvcodec/dynlink_loader.h" > "$out/licenses/nv-codec-headers-MIT.txt"
+cp "$staged_licenses"/*.txt "$out/licenses/"
 
 if [[ $rid == win-x64 ]]; then
-    cp /usr/share/doc/mingw-w64-common/copyright "$out/licenses/mingw-w64-winpthreads.txt"
-    cp /usr/share/doc/gcc-mingw-w64-base/copyright "$out/licenses/gcc-runtime-library-exception.txt"
     runtime_note='  mingw-w64 winpthreads, libgcc, libstdc++   MIT/BSD-style; GPL-3.0 with the GCC Runtime Library
                        Exception, which permits redistribution of these runtime DLLs.
   GPU scoring loads the NVIDIA driver (nvcuda.dll) installed on the machine; none of it is shipped.'
-    driver_lib=nvcuda.dll
 else
     runtime_note='  The libraries link only against the system C runtime and zlib (glibc and zlib are not shipped).
   GPU scoring loads the NVIDIA driver (libcuda.so.1) installed on the machine; none of it is shipped.'
-    driver_lib=libcuda.so.1
 fi
 
 {

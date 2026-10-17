@@ -93,6 +93,15 @@ done
         | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -V | tail -1)"
 } > "$stage/BUILDINFO.txt"
 
+# License texts travel with the binaries, so packaging needs no source checkout.
+licenses=$work/stage/licenses
+rm -rf "$licenses"
+mkdir -p "$licenses"
+cp "$src/ffmpeg-9.0.2/COPYING.LGPLv2.1" "$licenses/FFmpeg-LGPL-2.1.txt"
+cp "$src/vmaf-3.2.1/LICENSE" "$licenses/libvmaf-BSD-2-Clause-Patent.txt"
+cp "$src/dav1d/COPYING" "$licenses/dav1d-BSD-2-Clause.txt"
+sed -n '1,/\*\//p' "$src/nv-codec-headers/include/ffnvcodec/dynlink_loader.h" > "$licenses/nv-codec-headers-MIT.txt"
+
 # Anything still resolved outside the folder besides the C runtime and zlib is a portability bug.
 echo "== external dependencies"
 for file in "$stage"/ffmpeg "$stage"/*.so.*; do

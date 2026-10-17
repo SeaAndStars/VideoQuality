@@ -127,6 +127,17 @@ $host-strip --strip-unneeded "$stage"/*.dll "$stage"/*.exe
     echo "FFmpeg configure: $(sed -n 's/^#define FFMPEG_CONFIGURATION "\(.*\)"$/\1/p' "$build/ffmpeg/config.h")"
 } > "$stage/BUILDINFO.txt"
 
+# License texts travel with the binaries, so packaging needs no source checkout.
+licenses=$work/stage/licenses
+rm -rf "$licenses"
+mkdir -p "$licenses"
+cp "$src/ffmpeg-9.0.2/COPYING.LGPLv2.1" "$licenses/FFmpeg-LGPL-2.1.txt"
+cp "$src/vmaf-3.2.1/LICENSE" "$licenses/libvmaf-BSD-2-Clause-Patent.txt"
+cp "$src/dav1d/COPYING" "$licenses/dav1d-BSD-2-Clause.txt"
+sed -n '1,/\*\//p' "$src/nv-codec-headers/include/ffnvcodec/dynlink_loader.h" > "$licenses/nv-codec-headers-MIT.txt"
+cp /usr/share/doc/mingw-w64-common/copyright "$licenses/mingw-w64-winpthreads.txt"
+cp /usr/share/doc/gcc-mingw-w64-base/copyright "$licenses/gcc-runtime-library-exception.txt"
+
 if [[ -n $install_dir ]]; then
     echo "== install to $install_dir"
     mkdir -p "$install_dir/bin"
