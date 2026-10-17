@@ -16,6 +16,15 @@ public sealed class FfmpegProgressParser
 
     public double Fps => _fps;
 
+    /// <summary>Position reached in the output (<c>out_time_us</c>).</summary>
+    public TimeSpan OutTime { get; private set; }
+
+    /// <summary>Bytes written so far (<c>total_size</c>).</summary>
+    public long TotalSize { get; private set; }
+
+    /// <summary>Realtime factor (<c>speed=1.5x</c>), 0 until known.</summary>
+    public double Speed { get; private set; }
+
     /// <summary>
     /// Consumes one line. Returns a progress value when the line terminates a block
     /// (<c>progress=continue</c> or <c>progress=end</c>), otherwise null.
@@ -50,6 +59,31 @@ public sealed class FfmpegProgressParser
                 if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double fps))
                 {
                     _fps = fps;
+                }
+
+                return null;
+
+            case "out_time_us" or "out_time_ms":
+                // Both are microseconds (out_time_ms is a long-standing misnomer); "N/A" before the first frame.
+                if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long microseconds) && microseconds >= 0)
+                {
+                    OutTime = TimeSpan.FromMicroseconds(microseconds);
+                }
+
+                return null;
+
+            case "total_size":
+                if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long size))
+                {
+                    TotalSize = size;
+                }
+
+                return null;
+
+            case "speed":
+                if (double.TryParse(value.TrimEnd('x'), NumberStyles.Float, CultureInfo.InvariantCulture, out double speed))
+                {
+                    Speed = speed;
                 }
 
                 return null;
