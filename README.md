@@ -51,6 +51,7 @@
   ([benchmarks](docs/development.md#benchmarks)).
 
 **Workflow**
+
 - **Drag and drop with explicit roles.** Drop on *Reference* or *Compare* (or anywhere for the
   automatic rule). Folders, paste, startup arguments and "Open With" follow the same rules.
 - **Live job queue.** Rows appear immediately and move through probe → index → score, with per-row
@@ -89,8 +90,18 @@ tools\vq.exe          command-line tool
 licenses\             third-party notices
 ```
 
-**Linux:** build from source (below). The app needs an FFmpeg 9 build with libvmaf; the
-[FFmpeg + CUDA guide](docs/ffmpeg-cuda.md) has the exact recipe.
+**Linux (x86-64):** grab `VideoQuality-<version>-linux-x64.tar.gz`, then:
+
+```bash
+tar -xzf VideoQuality-0.1.0-linux-x64.tar.gz
+cd VideoQuality-0.1.0-linux-x64
+./VideoQuality                    # run it
+./install-desktop-entry.sh        # optional: add to the application menu and "Open With"
+```
+
+Same layout as Windows, with ffmpeg and libvmaf (CUDA) bundled. It runs on any distro with glibc 2.35
+or newer (Ubuntu 22.04+, Debian 12+, Fedora 36+, …) and needs no extra packages; verified on a stock
+Ubuntu 22.04. GPU scoring uses the NVIDIA driver you already have.
 
 ## Quick start
 
@@ -128,12 +139,15 @@ The app finds a VMAF-enabled ffmpeg automatically: a bundled `ffmpeg/` folder, `
 `ffmpeg` on PATH if it has libvmaf, `$FFMPEG_ROOT/bin`, `/opt/ffmpeg/bin`, or `C:\ffmpeg\bin`. The
 resolved path is shown in **Settings**.
 
-**Windows release from Linux/WSL.** FFmpeg and libvmaf with CUDA are cross-compiled with mingw-w64
-(LGPL, `cuda-llvm`, so the result is redistributable), then packaged with the app:
+**Release packages.** The bundled FFmpeg is LGPL with `cuda-llvm`, so both releases are
+redistributable. Windows is cross-compiled with mingw-w64. Linux is built in an Ubuntu 22.04
+container for glibc 2.35 compatibility and self-tested:
 
 ```bash
-./scripts/build-ffmpeg-windows.sh     # FFmpeg n9.0.2 + libvmaf v3.2.1 CUDA + dav1d → ~/build-win/stage
-./scripts/package-windows.sh          # → artifacts/VideoQuality-<version>-win-x64.zip
+./scripts/build-ffmpeg-windows.sh          # FFmpeg n9.0.2 + libvmaf v3.2.1 CUDA + dav1d → ~/build-win/stage
+./scripts/build-ffmpeg-linux-docker.sh     # the same for Linux, in Docker            → ~/build-linux/stage
+VQ_VERSION=0.1.0 ./scripts/package.sh win-x64      # → artifacts/VideoQuality-0.1.0-win-x64.zip
+VQ_VERSION=0.1.0 ./scripts/package.sh linux-x64    # → artifacts/VideoQuality-0.1.0-linux-x64.tar.gz
 ```
 
 ## Command line

@@ -148,7 +148,9 @@ VideoQuality.Tests/        xUnit unit tests + skippable integration tests
 VideoQuality.Benchmarks/   BenchmarkDotNet benchmarks for decoding and difference imaging
 packaging/linux/           .desktop entry (Open With) and launcher script
 scripts/build-ffmpeg-windows.sh   cross-compiles FFmpeg + libvmaf CUDA for Windows (LGPL, redistributable)
-scripts/package-windows.sh        self-contained Windows release zip with ffmpeg bundled
+scripts/build-ffmpeg-linux.sh     the same for Linux: relocatable ($ORIGIN), minimal deps, self-test
+scripts/build-ffmpeg-linux-docker.sh  runs the Linux build in Ubuntu 22.04 (glibc 2.35 baseline)
+scripts/package.sh <rid>          release archive for win-x64 (.zip) or linux-x64 (.tar.gz)
 artifacts/                 release output (ignored)
 scripts/verify.sh          clean build, solution-membership check, tests, probe
 scripts/capture-docs.sh    regenerates the documentation screenshots

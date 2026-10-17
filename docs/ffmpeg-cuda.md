@@ -179,6 +179,33 @@ Verified on Windows 10 22H2, driver 617.42, RTX 5060 Ti:
 The first CUDA run takes several seconds longer while the driver JIT-compiles the PTX filters; the
 driver caches the result.
 
+## Linux release build
+
+The Linux release bundles its own FFmpeg, built like the Windows one (LGPL, `--enable-cuda-llvm`,
+libvmaf v3.2.1 with CUDA, dav1d 1.5.1) and **not** like the developer build above, which uses
+`--enable-cuda-nvcc --enable-nonfree` and must not be redistributed.
+
+```bash
+./scripts/build-ffmpeg-linux-docker.sh      # builds in ubuntu:22.04 → ~/build-linux/stage/ffmpeg
+VQ_VERSION=0.1.0 ./scripts/package.sh linux-x64
+```
+
+- **glibc 2.35 baseline.** Building on a new distro links against new symbol versions: glibc 2.43
+  versioned `acosf`, `atan2f`, `log10f` and friends, and C23 mode maps `sscanf`/`strtol` to
+  `__isoc23_*` (glibc 2.38). The Docker wrapper builds in Ubuntu 22.04, and `BUILDINFO.txt` records
+  the resulting minimum (`Requires glibc >= 2.35`). Files go in and out through stdin/stdout, so it
+  works with Docker Desktop driven from WSL.
+- **Relocatable.** Every binary gets `RUNPATH=$ORIGIN`, so the `ffmpeg/` folder works wherever the
+  archive is unpacked. `--disable-autodetect` keeps the libraries free of X11, VA-API, ALSA and
+  similar dependencies; the script fails if anything beyond the C runtime and zlib is still needed.
+- **Self-test.** The staged folder must score two generated clips with the built-in NEG model and
+  list the libdav1d decoder. This caught a real failure: libvmaf embeds its models only when `xxd` is
+  installed and silently builds without them otherwise, so both build scripts now require `xxd`.
+- **No ICU.** The .NET side is published with invariant globalization (and
+  `PredefinedCulturesOnly=false`, so the Semi theme can still create its `en-US` culture), so the
+  release runs on minimal installs without `libicu`. Verified on a stock `ubuntu:22.04` container:
+  probe, CPU score and frame decode.
+
 ## How the app chooses the backend
 
 1. `Auto` (default): CUDA whenever `libvmaf_cuda` exists **and** `nvidia-smi -L` reports a GPU.

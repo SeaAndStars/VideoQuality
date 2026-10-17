@@ -629,15 +629,43 @@ public static partial class VmafRunner
 
     private static async Task<bool> HasNvidiaGpuAsync(CancellationToken cancellationToken)
     {
-        try
+        // PATH first, then where drivers install it: a desktop launcher or a minimal environment may
+        // not have the driver's directory on PATH (WSL keeps it in /usr/lib/wsl/lib).
+        foreach (string executable in NvidiaSmiCandidates())
         {
-            string executable = OperatingSystem.IsWindows() ? "nvidia-smi.exe" : "nvidia-smi";
-            string output = await CaptureAsync(executable, ["-L"], cancellationToken).ConfigureAwait(false);
-            return output.Contains("GPU", StringComparison.OrdinalIgnoreCase);
+            try
+            {
+                string output = await CaptureAsync(executable, ["-L"], cancellationToken).ConfigureAwait(false);
+                if (output.Contains("GPU", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Not there or not runnable; try the next location.
+            }
         }
-        catch
+
+        return false;
+    }
+
+    private static IEnumerable<string> NvidiaSmiCandidates()
+    {
+        if (OperatingSystem.IsWindows())
         {
-            return false;
+            yield return "nvidia-smi.exe";
+            yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "nvidia-smi.exe");
+            yield break;
+        }
+
+        yield return "nvidia-smi";
+        foreach (string path in (string[])["/usr/bin/nvidia-smi", "/usr/lib/wsl/lib/nvidia-smi", "/opt/bin/nvidia-smi"])
+        {
+            if (File.Exists(path))
+            {
+                yield return path;
+            }
         }
     }
 

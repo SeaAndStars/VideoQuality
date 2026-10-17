@@ -37,6 +37,10 @@ export PATH=$cuda/bin:$PATH
 export PKG_CONFIG_LIBDIR=$prefix/lib/pkgconfig
 export PKG_CONFIG_PATH=
 
+# libvmaf embeds its built-in models (vmaf_v0.6.1neg, …) only when xxd exists, and silently builds
+# without them otherwise; every score would then fail with "could not load libvmaf model".
+command -v xxd >/dev/null || { echo "xxd is required (apt-get install xxd)" >&2; exit 1; }
+
 fetch() { # url tag dir
     [[ -d $src/$3 ]] || git -c advice.detachedHead=false clone -q --depth 1 --branch "$2" "$1" "$src/$3"
 }
