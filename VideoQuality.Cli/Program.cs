@@ -25,6 +25,9 @@ switch (command)
     case "diag":
         return await DiagnosticsAsync(GetOption(args, "--ffmpeg"));
 
+    case "subset":
+        return Subset(args);
+
     default:
         PrintHelp();
         return command is "help" or "-h" or "--help" ? 0 : 1;
@@ -290,6 +293,82 @@ static void WritePpm(string path, DecodedFrame frame)
     }
 }
 
+static int Subset(string[] args)
+{
+    var scripts = new List<string>();
+    for (int i = 1; i < args.Length; i++)
+    {
+        if (args[i].StartsWith("--", StringComparison.Ordinal))
+        {
+            i++; // skip the option's value
+            continue;
+        }
+
+        scripts.Add(args[i]);
+    }
+
+    if (scripts.Count == 0)
+    {
+        Console.Error.WriteLine("usage: vq subset <script.ass>... [--fonts DIR] [--output DIR]");
+        return 1;
+    }
+
+    string scriptDir = Path.GetDirectoryName(Path.GetFullPath(scripts[0]))!;
+    var options = new VideoQuality.Core.Fonts.FontSubsetOptions
+    {
+        Scripts = scripts,
+        FontDirectories = [GetOption(args, "--fonts") ?? Path.Combine(scriptDir, "fonts")],
+        OutputDirectory = GetOption(args, "--output") ?? Path.Combine(scriptDir, "output"),
+    };
+
+    var progress = new Progress<string>(message => Console.WriteLine("  " + message));
+    VideoQuality.Core.Fonts.FontSubsetReport report;
+    try
+    {
+        report = VideoQuality.Core.Fonts.FontSubsetter.Run(options, progress);
+    }
+    catch (Exception ex) when (ex is InvalidOperationException or IOException or InvalidDataException)
+    {
+        Console.Error.WriteLine("error: " + ex.Message);
+        return 1;
+    }
+
+    Console.WriteLine();
+    foreach (var font in report.Fonts)
+    {
+        Console.WriteLine($"  {font.NewFamily,-9} ← {string.Join(", ", font.ScriptNames)}");
+        Console.WriteLine($"            {Path.GetFileName(font.SourcePath)}#{font.SourceFace}: {font.Characters} chars, " +
+                          $"{font.SourceBytes / 1024.0:N0} KB → {font.SubsetBytes / 1024.0:N1} KB");
+    }
+
+    foreach (var request in report.MissingFonts)
+    {
+        Console.WriteLine($"  MISSING   {request} (no file in the font folders provides it)");
+    }
+
+    foreach (var (request, match) in report.Synthesized)
+    {
+        Console.WriteLine($"  synthetic {request} → {match.Face} ({(match.FauxBold ? "faux bold " : "")}{(match.FauxItalic ? "faux italic" : "")})");
+    }
+
+    foreach (var (font, codepoints) in report.MissingGlyphs)
+    {
+        Console.WriteLine($"  no glyph  {font}: {string.Join(" ", codepoints.Take(12).Select(c => $"U+{c:X4}"))}{(codepoints.Count > 12 ? " …" : "")}");
+    }
+
+    foreach (string unused in report.UnusedStyleFonts)
+    {
+        Console.WriteLine($"  unused    {unused} (named by a style, never drawn; not shipped)");
+    }
+
+    foreach (string script in report.ScriptsWritten)
+    {
+        Console.WriteLine($"  wrote     {script}");
+    }
+
+    return report.Succeeded ? 0 : 2;
+}
+
 static string? GetOption(string[] args, string name)
 {
     for (int i = 0; i < args.Length - 1; i++)
@@ -323,5 +402,9 @@ static void PrintHelp()
 
           vq diag  [--ffmpeg PATH]
               Print a session header: versions, OS, ffmpeg capabilities, libav path, log location.
+
+          vq subset <script.ass>... [--fonts DIR] [--output DIR]
+              Subset and rename the fonts the scripts use (HarfBuzz). Defaults: fonts/ and output/
+              next to the first script. Exit code 2 when a font is missing.
         """);
 }
