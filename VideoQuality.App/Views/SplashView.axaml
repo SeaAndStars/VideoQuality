@@ -2,6 +2,7 @@
                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                 xmlns:u="https://irihi.tech/ursa"
                 xmlns:ic="using:FluentIcons.Avalonia"
+                xmlns:controls="using:VideoQuality.App.Controls"
                 xmlns:views="using:VideoQuality.App.Views"
                 xmlns:vm="using:VideoQuality.App.ViewModels"
                 x:Class="VideoQuality.App.Views.SplashView"
@@ -42,7 +43,7 @@
 
             <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="40,0,40,24">
                 <Panel Width="16" Height="16" VerticalAlignment="Center">
-                    <u:LoadingIcon IsLoading="{Binding !IsReady}" IsVisible="{Binding !IsReady}" Width="16" Height="16" />
+                    <controls:Spinner IsVisible="{Binding !IsReady}" />
                     <Border Classes="statusdot" Background="{StaticResource VqOkBrush}" IsVisible="{Binding IsReady}">
                         <ic:SymbolIcon Symbol="Checkmark" IconVariant="Filled" />
                     </Border>

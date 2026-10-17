@@ -473,8 +473,7 @@
                                                  font glyph alone sits off-centre because of its font metrics -->
                                             <Panel Width="18" Height="18" VerticalAlignment="Center" HorizontalAlignment="Center">
                                                 <Ellipse Classes="statusring" IsVisible="{Binding IsPending}" />
-                                                <u:LoadingIcon IsLoading="{Binding IsWorking}" IsVisible="{Binding IsWorking}"
-                                                               Width="16" Height="16" />
+                                                <controls:Spinner IsVisible="{Binding IsWorking}" />
                                                 <Border Classes="statusdot" Background="{StaticResource VqOkBrush}" IsVisible="{Binding IsDone}">
                                                     <ic:SymbolIcon Symbol="Checkmark" IconVariant="Filled" />
                                                 </Border>

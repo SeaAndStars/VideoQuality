@@ -1,0 +1,30 @@
+<!-- Circular busy indicator: a faint track with a rounded arc rotating on it. Scales with Width/Height. -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="VideoQuality.App.Controls.Spinner"
+             Width="16" Height="16">
+    <UserControl.Styles>
+        <Style Selector="Arc.spin">
+            <Style.Animations>
+                <Animation Duration="0:0:0.9" IterationCount="Infinite">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="RotateTransform.Angle" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="RotateTransform.Angle" Value="360" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+    </UserControl.Styles>
+    <Panel>
+        <Ellipse Stroke="{DynamicResource SemiColorFill2}" StrokeThickness="2" Margin="1" />
+        <Arc Classes="spin" StartAngle="-90" SweepAngle="100" Margin="1"
+             Stroke="{DynamicResource SemiColorPrimary}" StrokeThickness="2" StrokeLineCap="Round"
+             RenderTransformOrigin="50%,50%">
+            <Arc.RenderTransform>
+                <RotateTransform />
+            </Arc.RenderTransform>
+        </Arc>
+    </Panel>
+</UserControl>
