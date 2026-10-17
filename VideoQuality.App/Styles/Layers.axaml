@@ -41,6 +41,65 @@
         <Setter Property="Margin" Value="12" />
     </Style>
 
+    <!-- Tool pages: header card, section titles, list rows, drop highlight. -->
+    <Style Selector="TextBlock.pagetitle">
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+    </Style>
+    <Style Selector="TextBlock.pagesub">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText2}" />
+    </Style>
+    <Style Selector="Border.pageicon">
+        <Setter Property="Width" Value="40" />
+        <Setter Property="Height" Value="40" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Background" Value="{DynamicResource SemiColorPrimaryLight}" />
+    </Style>
+    <Style Selector="Border.pageicon ic|SymbolIcon">
+        <Setter Property="FontSize" Value="22" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorPrimary}" />
+    </Style>
+    <Style Selector="Border.row">
+        <Setter Property="Padding" Value="10,8" />
+        <Setter Property="CornerRadius" Value="{StaticResource VqRadiusControl}" />
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.row:pointerover">
+        <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
+    </Style>
+    <Style Selector="Border.dropglow">
+        <Setter Property="IsVisible" Value="False" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="CornerRadius" Value="{StaticResource VqRadiusCard}" />
+        <Setter Property="Background" Value="#1A54A9FF" />
+        <Setter Property="Margin" Value="8" />
+    </Style>
+    <Style Selector="UserControl.dragging Border.dropglow">
+        <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <!-- The page's main action: Semi's solid button (primary colour by default). -->
+    <Style Selector="Button.primary">
+        <Setter Property="Theme" Value="{DynamicResource SolidButton}" />
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="Padding" Value="16,4" />
+        <Setter Property="CornerRadius" Value="{StaticResource VqRadiusControl}" />
+    </Style>
+
+    <!-- Navigation rail: the base layer, separated from the pages by a hairline. -->
+    <Style Selector="Border.rail">
+        <Setter Property="Background" Value="{DynamicResource SemiColorBackground0}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+        <Setter Property="BorderThickness" Value="0,0,1,0" />
+    </Style>
+    <Style Selector="u|NavMenu.rail">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Margin" Value="4,4" />
+    </Style>
+
     <Style Selector="Border.canvas">
         <Setter Property="Background" Value="{StaticResource VqCanvasBrush}" />
     </Style>

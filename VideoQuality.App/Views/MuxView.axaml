@@ -1,0 +1,168 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VideoQuality.App.ViewModels"
+             xmlns:conv="using:VideoQuality.App.Converters"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:ic="using:FluentIcons.Avalonia"
+             xmlns:controls="using:VideoQuality.App.Controls"
+             x:Class="VideoQuality.App.Views.MuxView"
+             x:DataType="vm:MuxViewModel">
+    <Panel>
+        <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12" Margin="12">
+            <Border Classes="raised" Padding="16,12">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                    <Border Classes="pageicon"><ic:SymbolIcon Symbol="Merge" /></Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Classes="pagetitle" Text="Mux" />
+                        <TextBlock Classes="pagesub" Text="Combine video, audio, subtitles, fonts and chapters into one MKV (mkvmerge)." />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <u:IconButton Classes="tool" Content="Add files" Click="OnAddFiles">
+                            <u:IconButton.Icon><ic:SymbolIcon Symbol="Add" /></u:IconButton.Icon>
+                        </u:IconButton>
+                        <u:IconButton Classes="tool" Content="Add fonts" Click="OnAddFonts">
+                            <u:IconButton.Icon><ic:SymbolIcon Symbol="TextFont" /></u:IconButton.Icon>
+                        </u:IconButton>
+                        <u:IconButton Classes="tool" Content="Clear" Command="{Binding ClearAllCommand}">
+                            <u:IconButton.Icon><ic:SymbolIcon Symbol="Dismiss" /></u:IconButton.Icon>
+                        </u:IconButton>
+                        <Button Classes="primary" Command="{Binding MuxCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <ic:SymbolIcon Symbol="Merge" FontSize="16" />
+                                <TextBlock Text="Mux" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <u:Banner Grid.Row="1" Type="Warning" IsVisible="{Binding !Settings.HasMkvToolNix}"
+                      Header="mkvtoolnix not found"
+                      Content="Install MKVToolNix (mkvtoolnix.download) or set its folder in Settings." />
+
+            <Grid Grid.Row="2" ColumnDefinitions="3*,2*" ColumnSpacing="12">
+                <!-- inputs and their tracks -->
+                <Border Classes="surface">
+                    <Grid RowDefinitions="Auto,*" Margin="12,0,12,12">
+                        <Grid Classes="cardheader" ColumnDefinitions="*,Auto">
+                            <TextBlock Classes="label" Text="INPUTS AND TRACKS" />
+                            <Grid Grid.Column="1" ColumnDefinitions="96,*,60,60" ColumnSpacing="8" Width="380" IsVisible="{Binding HasInputs}">
+                                <TextBlock Classes="label" Text="LANGUAGE" />
+                                <TextBlock Grid.Column="1" Classes="label" Text="NAME" />
+                                <TextBlock Grid.Column="2" Classes="label" Text="DEFAULT" HorizontalAlignment="Center" />
+                                <TextBlock Grid.Column="3" Classes="label" Text="FORCED" HorizontalAlignment="Center" />
+                            </Grid>
+                        </Grid>
+                        <Panel Grid.Row="1">
+                            <StackPanel IsVisible="{Binding !HasInputs}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+                                <ic:SymbolIcon Symbol="DocumentArrowDown" FontSize="36" Foreground="{DynamicResource SemiColorText2}" />
+                                <TextBlock Classes="muted" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="320"
+                                           Text="Drop the encoded video, audio, .ass scripts, font files or a fonts folder, and a chapters .xml." />
+                            </StackPanel>
+                            <ScrollViewer IsVisible="{Binding HasInputs}">
+                                <ItemsControl ItemsSource="{Binding Inputs}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:MuxInputRow">
+                                            <Border Background="{DynamicResource SemiColorFill0}" CornerRadius="{StaticResource VqRadiusControl}" Padding="10,8" Margin="0,0,0,8">
+                                                <StackPanel Spacing="4">
+                                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10">
+                                                        <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis"
+                                                                   VerticalAlignment="Center" ToolTip.Tip="{Binding Path}" />
+                                                        <CheckBox Grid.Column="1" Content="Attachments" IsChecked="{Binding KeepAttachments}" IsVisible="{Binding HasAttachments}" FontSize="12" />
+                                                        <CheckBox Grid.Column="2" Content="Chapters" IsChecked="{Binding KeepChapters}" IsVisible="{Binding HasChapters}" FontSize="12" />
+                                                        <Button Grid.Column="3" Classes="rowaction" ToolTip.Tip="Remove input"
+                                                                Command="{Binding $parent[UserControl].((vm:MuxViewModel)DataContext).RemoveInputCommand}"
+                                                                CommandParameter="{Binding}">
+                                                            <ic:SymbolIcon Symbol="Dismiss" />
+                                                        </Button>
+                                                    </Grid>
+                                                    <ItemsControl ItemsSource="{Binding Tracks}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="vm:MuxTrackRow">
+                                                                <Grid ColumnDefinitions="Auto,Auto,*,380" ColumnSpacing="10" Margin="0,2">
+                                                                    <CheckBox IsChecked="{Binding Include}" VerticalAlignment="Center" />
+                                                                    <ic:SymbolIcon Grid.Column="1" Symbol="{Binding Icon}" FontSize="16" />
+                                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                                        <TextBlock Text="{Binding Codec}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                                                        <TextBlock Text="{Binding Details}" FontSize="11" Classes="muted" TextTrimming="CharacterEllipsis" />
+                                                                    </StackPanel>
+                                                                    <Grid Grid.Column="3" ColumnDefinitions="96,*,60,60" ColumnSpacing="8">
+                                                                        <TextBox Text="{Binding Language}" Watermark="und" FontSize="12" />
+                                                                        <TextBox Grid.Column="1" Text="{Binding Name}" Watermark="track name" FontSize="12" />
+                                                                        <CheckBox Grid.Column="2" IsChecked="{Binding Default}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                        <CheckBox Grid.Column="3" IsChecked="{Binding Forced}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                    </Grid>
+                                                                </Grid>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Panel>
+                    </Grid>
+                </Border>
+
+                <!-- fonts and output -->
+                <Grid Grid.Column="1" RowDefinitions="*,Auto" RowSpacing="12">
+                    <Border Classes="surface">
+                        <Grid RowDefinitions="Auto,*" Margin="12,0,12,12">
+                            <Grid Classes="cardheader" ColumnDefinitions="Auto,*">
+                                <TextBlock Classes="label" Text="FONTS (ATTACHMENTS)" />
+                                <TextBlock Grid.Column="1" Text="{Binding AttachmentSummary}" Classes="muted" FontSize="12"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+                            <ScrollViewer Grid.Row="1">
+                                <ItemsControl ItemsSource="{Binding Attachments}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="x:String">
+                                            <Border Classes="row">
+                                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                                    <ic:SymbolIcon Symbol="TextFont" FontSize="16" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding Converter={x:Static conv:PathConverters.FileName}}" FontSize="12" TextTrimming="CharacterEllipsis"
+                                                               VerticalAlignment="Center" ToolTip.Tip="{Binding}" />
+                                                    <Button Grid.Column="2" Classes="rowaction" ToolTip.Tip="Remove"
+                                                            Command="{Binding $parent[UserControl].((vm:MuxViewModel)DataContext).RemoveAttachmentCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <ic:SymbolIcon Symbol="Dismiss" />
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                    <Border Grid.Row="1" Classes="surface">
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="6" ColumnSpacing="6" Margin="12,0,12,12">
+                            <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="OUTPUT" /></Grid>
+                            <TextBlock Grid.Row="1" Classes="label" Text="FILE" />
+                            <TextBox Grid.Row="2" Text="{Binding Output}" Watermark="release.mkv" />
+                            <Button Grid.Row="2" Grid.Column="1" Classes="tool" Click="OnPickOutput" ToolTip.Tip="Choose file">
+                                <ic:SymbolIcon Symbol="Save" />
+                            </Button>
+                            <TextBlock Grid.Row="3" Classes="label" Text="TITLE" Margin="0,4,0,0" />
+                            <TextBox Grid.Row="4" Grid.ColumnSpan="2" Text="{Binding Title}" Watermark="Segment title (optional)" />
+                            <TextBlock Grid.Row="5" Classes="label" Text="CHAPTERS" Margin="0,4,0,0" />
+                            <TextBox Grid.Row="6" Text="{Binding Chapters}" Watermark="chapters.xml (optional)" />
+                            <Button Grid.Row="6" Grid.Column="1" Classes="tool" Click="OnPickChapters" ToolTip.Tip="Choose chapters file">
+                                <ic:SymbolIcon Symbol="FolderOpen" />
+                            </Button>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <Grid Grid.Row="3" ColumnDefinitions="Auto,*,200" ColumnSpacing="8" Margin="4,0">
+                <controls:Spinner IsVisible="{Binding IsBusy}" />
+                <TextBlock Grid.Column="1" Text="{Binding Status}" Classes="muted" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <ProgressBar Grid.Column="2" Minimum="0" Maximum="1" Value="{Binding Progress}" IsVisible="{Binding IsBusy}" VerticalAlignment="Center" />
+            </Grid>
+        </Grid>
+        <Border Classes="dropglow" />
+    </Panel>
+</UserControl>

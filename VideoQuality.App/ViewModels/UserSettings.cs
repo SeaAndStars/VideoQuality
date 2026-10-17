@@ -13,6 +13,9 @@ public sealed class UserSettings
     /// portable folder that moves keeps finding its bundled build.</summary>
     public string? FfmpegPath { get; set; }
 
+    /// <summary>Folder holding mkvmerge/mkvextract; empty means find them automatically.</summary>
+    public string? MkvToolNixFolder { get; set; }
+
     public CompareMode CompareMode { get; set; } = CompareMode.SideBySide;
 
     public bool FixedScale { get; set; }

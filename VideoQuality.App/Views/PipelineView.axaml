@@ -1,0 +1,150 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VideoQuality.App.ViewModels"
+             xmlns:conv="using:VideoQuality.App.Converters"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:ic="using:FluentIcons.Avalonia"
+             xmlns:controls="using:VideoQuality.App.Controls"
+             x:Class="VideoQuality.App.Views.PipelineView"
+             x:DataType="vm:PipelineViewModel">
+    <Panel>
+        <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12" Margin="12">
+            <Border Classes="raised" Padding="16,12">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                    <Border Classes="pageicon"><ic:SymbolIcon Symbol="FlowchartCircle" /></Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Classes="pagetitle" Text="Release pipeline" />
+                        <TextBlock Classes="pagesub" Text="One pass from encode to release: subset fonts, mux, verify, then score against the source." />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <u:IconButton Classes="tool" Content="Clear" Command="{Binding ClearCommand}">
+                            <u:IconButton.Icon><ic:SymbolIcon Symbol="Dismiss" /></u:IconButton.Icon>
+                        </u:IconButton>
+                        <u:IconButton Classes="tool" Content="Open in Compare" Command="{Binding OpenInCompareCommand}">
+                            <u:IconButton.Icon><ic:SymbolIcon Symbol="DataLine" /></u:IconButton.Icon>
+                        </u:IconButton>
+                        <Button Classes="primary" Command="{Binding RunCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <ic:SymbolIcon Symbol="Play" FontSize="16" />
+                                <TextBlock Text="Run" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <u:Banner Grid.Row="1" Type="Warning" IsVisible="{Binding !Settings.HasMkvToolNix}"
+                      Header="mkvtoolnix not found"
+                      Content="The mux and verify steps need MKVToolNix (mkvtoolnix.download). Set its folder in Settings." />
+
+            <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="12">
+                <Border Classes="surface">
+                    <ScrollViewer>
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto"
+                              RowSpacing="6" ColumnSpacing="6" Margin="12,0,12,12">
+                            <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="INPUTS" /></Grid>
+
+                            <TextBlock Grid.Row="1" Classes="label" Text="ENCODED VIDEO" />
+                            <TextBox Grid.Row="2" Text="{Binding Video}" Watermark="episode.mkv / .mp4 / .hevc" />
+                            <Button Grid.Row="2" Grid.Column="1" Classes="tool" Click="OnPickVideo" ToolTip.Tip="Choose video">
+                                <ic:SymbolIcon Symbol="FolderOpen" />
+                            </Button>
+
+                            <TextBlock Grid.Row="3" Classes="label" Text="REFERENCE (OPTIONAL, FOR VMAF)" Margin="0,4,0,0" />
+                            <TextBox Grid.Row="4" Text="{Binding Reference}" Watermark="source / remux" />
+                            <Button Grid.Row="4" Grid.Column="1" Classes="tool" Click="OnPickReference" ToolTip.Tip="Choose reference">
+                                <ic:SymbolIcon Symbol="FolderOpen" />
+                            </Button>
+
+                            <Grid Grid.Row="5" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                                <TextBlock Classes="label" Text="SCRIPTS" VerticalAlignment="Center" />
+                                <Button Grid.Column="1" Classes="rowaction" Click="OnAddScripts" ToolTip.Tip="Add scripts">
+                                    <ic:SymbolIcon Symbol="Add" />
+                                </Button>
+                            </Grid>
+                            <Border Grid.Row="6" Grid.ColumnSpan="2" Background="{DynamicResource SemiColorFill0}"
+                                    CornerRadius="{StaticResource VqRadiusControl}" MinHeight="44" Padding="4">
+                                <Panel>
+                                    <TextBlock Classes="muted" FontSize="12" Text="Drop .ass scripts here (JPSC, JPTC…)" Margin="6,0"
+                                               VerticalAlignment="Center" IsVisible="{Binding !Scripts.Count}" />
+                                    <ItemsControl ItemsSource="{Binding Scripts}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="x:String">
+                                                <Border Classes="row">
+                                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                                        <ic:SymbolIcon Symbol="Subtitles" FontSize="16" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding Converter={x:Static conv:PathConverters.FileName}}" FontSize="12" TextTrimming="CharacterEllipsis"
+                                                                   VerticalAlignment="Center" ToolTip.Tip="{Binding}" />
+                                                        <Button Grid.Column="2" Classes="rowaction" ToolTip.Tip="Remove"
+                                                                Command="{Binding $parent[UserControl].((vm:PipelineViewModel)DataContext).RemoveScriptCommand}"
+                                                                CommandParameter="{Binding}">
+                                                            <ic:SymbolIcon Symbol="Dismiss" />
+                                                        </Button>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Panel>
+                            </Border>
+
+                            <TextBlock Grid.Row="7" Classes="label" Text="FONT FOLDER" Margin="0,4,0,0" />
+                            <TextBox Grid.Row="8" Text="{Binding FontDirectory}" Watermark="folder with the fonts the scripts use" />
+                            <Button Grid.Row="8" Grid.Column="1" Classes="tool" Click="OnPickFonts" ToolTip.Tip="Choose folder">
+                                <ic:SymbolIcon Symbol="FolderOpen" />
+                            </Button>
+
+                            <TextBlock Grid.Row="9" Classes="label" Text="OUTPUT MKV" Margin="0,4,0,0" />
+                            <TextBox Grid.Row="10" Text="{Binding Output}" Watermark="episode.release.mkv" />
+                            <Button Grid.Row="10" Grid.Column="1" Classes="tool" Click="OnPickOutput" ToolTip.Tip="Choose file">
+                                <ic:SymbolIcon Symbol="Save" />
+                            </Button>
+
+                            <TextBlock Grid.Row="11" Classes="label" Text="TITLE" Margin="0,4,0,0" />
+                            <TextBox Grid.Row="12" Grid.ColumnSpan="2" Text="{Binding Title}" Watermark="Segment title (optional)" />
+                        </Grid>
+                    </ScrollViewer>
+                </Border>
+
+                <Border Grid.Column="1" Classes="surface">
+                    <Grid RowDefinitions="Auto,*" Margin="12,0,12,12">
+                        <Grid Classes="cardheader"><TextBlock Classes="label" Text="STEPS" /></Grid>
+                        <ScrollViewer Grid.Row="1">
+                            <ItemsControl ItemsSource="{Binding Steps}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:PipelineStep">
+                                        <Border Background="{DynamicResource SemiColorFill0}" CornerRadius="{StaticResource VqRadiusControl}"
+                                                Padding="12,10" Margin="0,0,0,8">
+                                            <Grid ColumnDefinitions="28,*" ColumnSpacing="12">
+                                                <Panel Width="24" Height="24" VerticalAlignment="Top" Margin="0,2,0,0">
+                                                    <ic:SymbolIcon Symbol="Clock" FontSize="20" Foreground="{DynamicResource SemiColorText2}" IsVisible="{Binding IsPending}" />
+                                                    <controls:Spinner IsVisible="{Binding IsRunning}" />
+                                                    <ic:SymbolIcon Symbol="CheckmarkCircle" IconVariant="Filled" FontSize="22" Foreground="{DynamicResource SemiColorSuccess}" IsVisible="{Binding IsDone}" />
+                                                    <ic:SymbolIcon Symbol="ErrorCircle" IconVariant="Filled" FontSize="22" Foreground="{DynamicResource SemiColorDanger}" IsVisible="{Binding IsFailed}" />
+                                                    <ic:SymbolIcon Symbol="ArrowForward" FontSize="20" Foreground="{DynamicResource SemiColorText3}" IsVisible="{Binding IsSkipped}" />
+                                                </Panel>
+                                                <StackPanel Grid.Column="1" Spacing="3">
+                                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13" />
+                                                    <TextBlock Text="{Binding Description}" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding Detail}" FontSize="12" TextWrapping="Wrap"
+                                                               IsVisible="{Binding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                                    <ProgressBar Minimum="0" Maximum="1" Value="{Binding Progress}" IsVisible="{Binding IsRunning}" Margin="0,4,0,0" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Grid Grid.Row="3" ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="4,0">
+                <controls:Spinner IsVisible="{Binding IsBusy}" />
+                <TextBlock Grid.Column="1" Text="{Binding Status}" Classes="muted" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            </Grid>
+        </Grid>
+        <Border Classes="dropglow" />
+    </Panel>
+</UserControl>

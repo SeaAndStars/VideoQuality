@@ -1,0 +1,106 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VideoQuality.App.ViewModels"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:ic="using:FluentIcons.Avalonia"
+             xmlns:controls="using:VideoQuality.App.Controls"
+             x:Class="VideoQuality.App.Views.ExtractView"
+             x:DataType="vm:ExtractViewModel">
+    <Panel>
+        <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12" Margin="12">
+            <Border Classes="raised" Padding="16,12">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                    <Border Classes="pageicon"><ic:SymbolIcon Symbol="ArrowExportUp" /></Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Classes="pagetitle" Text="Extract" />
+                        <TextBlock Classes="pagesub" Text="Pull tracks, embedded fonts and chapters out of a video (mkvextract; MP4 is remuxed first)." />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <u:IconButton Classes="tool" Content="Open file" Click="OnOpen">
+                            <u:IconButton.Icon><ic:SymbolIcon Symbol="FolderOpen" /></u:IconButton.Icon>
+                        </u:IconButton>
+                        <Button Classes="primary" Command="{Binding ExtractCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <ic:SymbolIcon Symbol="ArrowDownload" FontSize="16" />
+                                <TextBlock Text="Extract" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <u:Banner Grid.Row="1" Type="Warning" IsVisible="{Binding !Settings.HasMkvToolNix}"
+                      Header="mkvtoolnix not found"
+                      Content="Install MKVToolNix (mkvtoolnix.download) or set its folder in Settings." />
+
+            <Border Grid.Row="2" Classes="surface">
+                <Grid RowDefinitions="Auto,*,Auto" Margin="12,0,12,12">
+                    <Grid Classes="cardheader" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                        <TextBlock Classes="label" Text="CONTENTS" />
+                        <TextBlock Grid.Column="1" Text="{Binding Summary}" Classes="muted" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" IsVisible="{Binding HasSource}">
+                            <Button Classes="tool" Content="All" Command="{Binding SelectKindCommand}" CommandParameter="all" />
+                            <Button Classes="tool" Content="None" Command="{Binding SelectKindCommand}" CommandParameter="none" />
+                            <Button Classes="tool" Content="Subtitles" Command="{Binding SelectKindCommand}" CommandParameter="subtitles" />
+                            <Button Classes="tool" Content="Fonts" Command="{Binding SelectKindCommand}" CommandParameter="fonts" />
+                        </StackPanel>
+                    </Grid>
+                    <Panel Grid.Row="1">
+                        <StackPanel IsVisible="{Binding !HasSource}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+                            <ic:SymbolIcon Symbol="DocumentArrowDown" FontSize="36" Foreground="{DynamicResource SemiColorText2}" />
+                            <TextBlock Classes="muted" Text="Drop a video to list its tracks, fonts and chapters." />
+                        </StackPanel>
+                        <ScrollViewer IsVisible="{Binding HasSource}">
+                            <StackPanel>
+                                <ItemsControl ItemsSource="{Binding Items}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ExtractItem">
+                                            <Border Classes="row">
+                                                <Grid ColumnDefinitions="Auto,Auto,140,*,Auto" ColumnSpacing="10">
+                                                    <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" />
+                                                    <ic:SymbolIcon Grid.Column="1" Symbol="{Binding Icon}" FontSize="18" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding Kind}" Classes="muted mono" FontSize="12" VerticalAlignment="Center" />
+                                                    <StackPanel Grid.Column="3" VerticalAlignment="Center" Spacing="1">
+                                                        <TextBlock Text="{Binding Title}" FontSize="13" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Details}" FontSize="11" Classes="muted" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="4" Text="{Binding OutputName}" Classes="muted" FontSize="11"
+                                                               VerticalAlignment="Center" MaxWidth="360" TextTrimming="CharacterEllipsis" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Border Classes="row" IsVisible="{Binding HasChapters}">
+                                    <Grid ColumnDefinitions="Auto,Auto,140,*" ColumnSpacing="10">
+                                        <CheckBox IsChecked="{Binding ExtractChapters}" VerticalAlignment="Center" />
+                                        <ic:SymbolIcon Grid.Column="1" Symbol="TextBulletListSquare" FontSize="18" />
+                                        <TextBlock Grid.Column="2" Text="chapters" Classes="muted mono" FontSize="12" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="3" Text="Chapters (Matroska XML)" FontSize="13" VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Panel>
+                    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,10,0,0" IsVisible="{Binding HasSource}">
+                        <TextBlock Classes="label" Text="OUTPUT" />
+                        <TextBox Grid.Column="1" Text="{Binding OutputDirectory}" />
+                        <Button Grid.Column="2" Classes="tool" Click="OnPickOutput" ToolTip.Tip="Choose folder">
+                            <ic:SymbolIcon Symbol="FolderOpen" />
+                        </Button>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="3" ColumnDefinitions="Auto,*,200,Auto" ColumnSpacing="8" Margin="4,0">
+                <controls:Spinner IsVisible="{Binding IsBusy}" />
+                <TextBlock Grid.Column="1" Text="{Binding Status}" Classes="muted" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <ProgressBar Grid.Column="2" Minimum="0" Maximum="1" Value="{Binding Progress}" IsVisible="{Binding IsBusy}" VerticalAlignment="Center" />
+                <u:IconButton Grid.Column="3" Classes="tool" Content="Open folder" Click="OnOpenOutput" IsVisible="{Binding HasSource}">
+                    <u:IconButton.Icon><ic:SymbolIcon Symbol="FolderOpen" /></u:IconButton.Icon>
+                </u:IconButton>
+            </Grid>
+        </Grid>
+        <Border Classes="dropglow" />
+    </Panel>
+</UserControl>

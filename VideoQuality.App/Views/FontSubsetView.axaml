@@ -1,0 +1,162 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VideoQuality.App.ViewModels"
+             xmlns:conv="using:VideoQuality.App.Converters"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:ic="using:FluentIcons.Avalonia"
+             xmlns:controls="using:VideoQuality.App.Controls"
+             x:Class="VideoQuality.App.Views.FontSubsetView"
+             x:DataType="vm:FontSubsetViewModel">
+    <Panel>
+        <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="12">
+            <!-- header -->
+            <Border Classes="raised" Padding="16,12">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                    <Border Classes="pageicon"><ic:SymbolIcon Symbol="TextFont" /></Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Classes="pagetitle" Text="Font Subset" />
+                        <TextBlock Classes="pagesub" Text="Subset and rename the fonts your ASS scripts draw, so a release ships only the glyphs it uses." />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <u:IconButton Classes="tool" Content="Add scripts" Click="OnAddScripts" AutomationProperties.Name="Add scripts">
+                            <u:IconButton.Icon><ic:SymbolIcon Symbol="Add" /></u:IconButton.Icon>
+                        </u:IconButton>
+                        <u:IconButton Classes="tool" Content="Clear" Command="{Binding ClearCommand}">
+                            <u:IconButton.Icon><ic:SymbolIcon Symbol="Dismiss" /></u:IconButton.Icon>
+                        </u:IconButton>
+                        <Button Classes="primary" Command="{Binding RunCommand}" AutomationProperties.Name="Run subset">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <ic:SymbolIcon Symbol="Play" IconVariant="Filled" FontSize="16" />
+                                <TextBlock Text="Subset" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" ColumnDefinitions="2*,3*" ColumnSpacing="12">
+                <!-- inputs -->
+                <Border Classes="surface">
+                    <Grid RowDefinitions="Auto,*,Auto" Margin="12,0,12,12">
+                        <Grid Classes="cardheader">
+                            <TextBlock Classes="label" Text="SCRIPTS" />
+                        </Grid>
+                        <Panel Grid.Row="1">
+                            <StackPanel IsVisible="{Binding !HasScripts}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+                                <ic:SymbolIcon Symbol="DocumentArrowDown" FontSize="36" Foreground="{DynamicResource SemiColorText2}" />
+                                <TextBlock Classes="muted" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="280"
+                                           Text="Drop .ass files, or the folder that holds them and their Fonts folder." />
+                            </StackPanel>
+                            <ScrollViewer IsVisible="{Binding HasScripts}">
+                                <ItemsControl ItemsSource="{Binding Scripts}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="x:String">
+                                            <Border Classes="row">
+                                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                                    <ic:SymbolIcon Symbol="ClosedCaption" FontSize="16" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding Converter={x:Static conv:PathConverters.FileName}}" TextTrimming="CharacterEllipsis"
+                                                               VerticalAlignment="Center" FontSize="12" ToolTip.Tip="{Binding}" />
+                                                    <Button Grid.Column="2" Classes="rowaction" ToolTip.Tip="Remove"
+                                                            Command="{Binding $parent[UserControl].((vm:FontSubsetViewModel)DataContext).RemoveScriptCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <ic:SymbolIcon Symbol="Dismiss" />
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Panel>
+                        <Grid Grid.Row="2" RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="6" ColumnSpacing="6" Margin="0,10,0,0">
+                            <TextBlock Classes="label" Text="FONT FOLDER" />
+                            <TextBox Grid.Row="1" Text="{Binding FontDirectory}" Watermark="Folder with the fonts the scripts use" />
+                            <Button Grid.Row="1" Grid.Column="1" Classes="tool" Click="OnPickFontFolder" ToolTip.Tip="Choose folder">
+                                <ic:SymbolIcon Symbol="FolderOpen" />
+                            </Button>
+                            <TextBlock Grid.Row="2" Classes="label" Text="OUTPUT FOLDER" Margin="0,6,0,0" />
+                            <TextBox Grid.Row="3" Text="{Binding OutputDirectory}" Watermark="Renamed scripts here, fonts in its fonts/ folder" />
+                            <Button Grid.Row="3" Grid.Column="1" Classes="tool" Click="OnPickOutputFolder" ToolTip.Tip="Choose folder">
+                                <ic:SymbolIcon Symbol="FolderOpen" />
+                            </Button>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- result -->
+                <Border Grid.Column="1" Classes="surface">
+                    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="12,0,12,12">
+                        <Grid Classes="cardheader" ColumnDefinitions="*,Auto">
+                            <TextBlock Classes="label" Text="SUBSET FONTS" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasResult}">
+                                <u:IconButton Classes="tool" Content="Open folder" Click="OnOpenOutput">
+                                    <u:IconButton.Icon><ic:SymbolIcon Symbol="FolderOpen" /></u:IconButton.Icon>
+                                </u:IconButton>
+                                <u:IconButton Classes="tool" Content="Send to Mux" Command="{Binding SendToMuxCommand}">
+                                    <u:IconButton.Icon><ic:SymbolIcon Symbol="Merge" /></u:IconButton.Icon>
+                                </u:IconButton>
+                            </StackPanel>
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="96,*,64,150" ColumnSpacing="10" Margin="10,0,10,4" IsVisible="{Binding HasResult}">
+                            <TextBlock Classes="label" Text="NEW NAME" />
+                            <TextBlock Grid.Column="1" Classes="label" Text="ORIGINAL" />
+                            <TextBlock Grid.Column="2" Classes="label" Text="CHARS" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="3" Classes="label" Text="SIZE" HorizontalAlignment="Right" />
+                        </Grid>
+                        <ScrollViewer Grid.Row="2">
+                            <StackPanel Spacing="8">
+                                <ItemsControl ItemsSource="{Binding Fonts}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:SubsetFontRow">
+                                            <Border Classes="row">
+                                                <Grid ColumnDefinitions="96,*,64,150" ColumnSpacing="10">
+                                                    <Border Classes="chip accent" HorizontalAlignment="Left">
+                                                        <TextBlock Text="{Binding NewFamily}" Classes="mono" />
+                                                    </Border>
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                                                        <TextBlock Text="{Binding Originals}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding SourceFile}" FontSize="11" Classes="muted" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Characters}" Classes="mono" FontSize="12"
+                                                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                    <StackPanel Grid.Column="3" VerticalAlignment="Center" Spacing="3">
+                                                        <TextBlock Text="{Binding Sizes}" Classes="mono muted" FontSize="11" HorizontalAlignment="Right" />
+                                                        <ProgressBar Height="3" MinHeight="3" Minimum="0" Maximum="1" Value="{Binding Ratio}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <ItemsControl ItemsSource="{Binding Notes}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:SubsetNote">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="10,3">
+                                                <Panel Width="16">
+                                                    <ic:SymbolIcon Symbol="ErrorCircle" FontSize="15" Foreground="{StaticResource VqErrorBrush}"
+                                                                   IsVisible="{Binding Kind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:ToastKind.Error}}" />
+                                                    <ic:SymbolIcon Symbol="Warning" FontSize="15" Foreground="{StaticResource VqWarnBrush}"
+                                                                   IsVisible="{Binding Kind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:ToastKind.Warning}}" />
+                                                    <ic:SymbolIcon Symbol="Info" FontSize="15" Foreground="{DynamicResource SemiColorText2}"
+                                                                   IsVisible="{Binding Kind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:ToastKind.Info}}" />
+                                                </Panel>
+                                                <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="12" TextWrapping="Wrap" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- status -->
+            <Grid Grid.Row="2" ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="4,0">
+                <controls:Spinner IsVisible="{Binding IsBusy}" />
+                <TextBlock Grid.Column="1" Text="{Binding Status}" Classes="muted" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            </Grid>
+        </Grid>
+        <Border Classes="dropglow" />
+    </Panel>
+</UserControl>

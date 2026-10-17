@@ -119,6 +119,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
     /// <summary>Saves half a second after the last change, so dragging a control writes once.</summary>
+    /// <summary>The persisted settings, shared with the other pages (read-only view).</summary>
+    public UserSettings PersistedSettings => _settings;
+
+    /// <summary>Lets other pages change persisted settings through the same debounced save.</summary>
+    public void UpdateSettings(Action<UserSettings> change) => ScheduleSave(change);
+
     private void ScheduleSave(Action<UserSettings> change)
     {
         if (_settingsQuiet || Avalonia.Controls.Design.IsDesignMode)

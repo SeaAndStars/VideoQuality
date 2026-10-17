@@ -1,0 +1,97 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VideoQuality.App.ViewModels"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:ic="using:FluentIcons.Avalonia"
+             xmlns:conv="using:VideoQuality.App.Converters"
+             x:Class="VideoQuality.App.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+    <UserControl.Resources>
+        <conv:LabelConverter x:Key="Label" />
+    </UserControl.Resources>
+    <ScrollViewer Margin="12">
+        <StackPanel Spacing="12" MaxWidth="820" HorizontalAlignment="Stretch">
+            <Border Classes="raised" Padding="16,12">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                    <Border Classes="pageicon"><ic:SymbolIcon Symbol="Settings" /></Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Classes="pagetitle" Text="Settings" />
+                        <TextBlock Classes="pagesub" Text="Tools, scoring defaults and where things are kept. Changes are saved automatically." />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- scoring -->
+            <Border Classes="surface">
+                <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="160,*" RowSpacing="8" ColumnSpacing="12" Margin="16,0,16,14">
+                    <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="SCORING" /></Grid>
+                    <TextBlock Grid.Row="1" Text="VMAF model" VerticalAlignment="Center" />
+                    <ComboBox Grid.Row="1" Grid.Column="1" MinWidth="260" ItemsSource="{Binding Compare.ModelOptions}" SelectedItem="{Binding Compare.SelectedModel}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Grid.Row="2" Text="Backend" VerticalAlignment="Center" />
+                    <ComboBox Grid.Row="2" Grid.Column="1" MinWidth="260" ItemsSource="{Binding Compare.BackendOptions}" SelectedItem="{Binding Compare.SelectedBackend}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </Grid>
+            </Border>
+
+            <!-- tools -->
+            <Border Classes="surface">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="160,*,Auto,Auto" RowSpacing="8" ColumnSpacing="12" Margin="16,0,16,14">
+                    <Grid Classes="cardheader" Grid.ColumnSpan="4"><TextBlock Classes="label" Text="TOOLS" /></Grid>
+                    <TextBlock Grid.Row="1" Text="ffmpeg" VerticalAlignment="Center" />
+                    <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding Compare.FfmpegPath}" IsReadOnly="True" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding Compare.BackendStatus}" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="3" Text="MKVToolNix folder" VerticalAlignment="Center" />
+                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding MkvToolNixFolder}" Watermark="auto: app tools folder, PATH, Program Files" />
+                    <Button Grid.Row="3" Grid.Column="2" Classes="tool" Click="OnPickMkvToolNix" ToolTip.Tip="Choose folder">
+                        <ic:SymbolIcon Symbol="FolderOpen" />
+                    </Button>
+                    <u:IconButton Grid.Row="3" Grid.Column="3" Classes="tool" Content="Locate" Command="{Binding LocateToolsCommand}">
+                        <u:IconButton.Icon><ic:SymbolIcon Symbol="Search" /></u:IconButton.Icon>
+                    </u:IconButton>
+                    <StackPanel Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="6">
+                        <ic:SymbolIcon Symbol="CheckmarkCircle" IconVariant="Filled" FontSize="16" Foreground="{DynamicResource SemiColorSuccess}" IsVisible="{Binding HasMkvToolNix}" />
+                        <ic:SymbolIcon Symbol="Warning" IconVariant="Filled" FontSize="16" Foreground="{DynamicResource SemiColorWarning}" IsVisible="{Binding !HasMkvToolNix}" />
+                        <TextBlock Text="{Binding MkvToolNixStatus}" Classes="muted" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- files -->
+            <Border Classes="surface">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="160,*,Auto" RowSpacing="8" ColumnSpacing="12" Margin="16,0,16,14">
+                    <Grid Classes="cardheader" Grid.ColumnSpan="3"><TextBlock Classes="label" Text="FILES" /></Grid>
+                    <TextBlock Grid.Row="1" Text="Settings" VerticalAlignment="Center" />
+                    <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SettingsPath}" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="2" Text="App folder" VerticalAlignment="Center" />
+                    <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AppFolder}" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    <Button Grid.Row="2" Grid.Column="2" Classes="rowaction" Click="OnOpenAppFolder" ToolTip.Tip="Open folder">
+                        <ic:SymbolIcon Symbol="Open" />
+                    </Button>
+                    <TextBlock Grid.Row="3" Text="Last log" VerticalAlignment="Center" />
+                    <SelectableTextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Compare.LogPath}" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
+                </Grid>
+            </Border>
+
+            <!-- about -->
+            <Border Classes="surface">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="160,*" RowSpacing="8" ColumnSpacing="12" Margin="16,0,16,14">
+                    <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="ABOUT" /></Grid>
+                    <TextBlock Grid.Row="1" Text="VideoQuality" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Version}" FontSize="12" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="2" Text="HarfBuzz" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding HarfBuzzVersion}" FontSize="12" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Classes="muted" FontSize="12" TextWrapping="Wrap"
+                               Text="MIT licensed. Bundles FFmpeg (LGPL) with libvmaf (BSD-2-Clause+patent); font subsetting uses HarfBuzz (MIT). MKVToolNix is used if installed, not bundled." />
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

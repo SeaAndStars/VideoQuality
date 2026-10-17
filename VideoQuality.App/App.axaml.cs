@@ -22,7 +22,7 @@ public partial class App : Application
             var viewModel = new MainViewModel();
             string[] args = desktop.Args ?? [];
 
-            // VideoQuality.App [<reference>] [<encode> …] [--mode=sidebyside|wipe|flicker|difference]
+            // VideoQuality.App [<reference>] [<encode> …] [--mode=sidebyside|wipe|flicker|difference] [--page=<key>]
             string? modeArgument = args.FirstOrDefault(a => a.StartsWith("--mode=", StringComparison.OrdinalIgnoreCase));
             if (modeArgument is not null &&
                 Enum.TryParse(modeArgument["--mode=".Length..], ignoreCase: true, out CompareMode mode))
@@ -35,15 +35,36 @@ public partial class App : Application
 
             desktop.MainWindow = new SplashView(splashViewModel, () =>
             {
-                var window = new MainWindow { DataContext = viewModel };
+                var shell = new ShellViewModel(viewModel);
+                var window = new MainWindow { DataContext = shell };
                 desktop.MainWindow = window;
 
-                // Startup arguments and "Open With" go through the same router as a drop: the first
-                // file becomes the reference when none is set, the rest are encodes.
+                // --page=compare|subset|extract|mux|pipeline|settings opens that page, and files given
+                // with it go to that page as if dropped there. Scripts alone open Font Subset;
+                // anything else goes through Compare's drop router (the first file becomes the
+                // reference when none is set).
+                string? page = args.FirstOrDefault(a => a.StartsWith("--page=", StringComparison.OrdinalIgnoreCase))?["--page=".Length..].ToLowerInvariant();
                 string?[] media = args.Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
+                if (page is null && media.Length > 0 && media.All(m => Path.GetExtension(m) is { } ext &&
+                        (ext.Equals(".ass", StringComparison.OrdinalIgnoreCase) || ext.Equals(".ssa", StringComparison.OrdinalIgnoreCase))))
+                {
+                    page = "subset";
+                }
+
+                if (page is not null)
+                {
+                    shell.Navigate(page);
+                }
+
                 if (media.Length > 0)
                 {
-                    window.Opened += (_, _) => _ = viewModel.HandleDropAsync(media, Core.Ingest.DropZone.Auto);
+                    window.Opened += async (_, _) =>
+                    {
+                        if (page is null || !await shell.OpenFilesAsync(page, media))
+                        {
+                            await viewModel.HandleDropAsync(media, Core.Ingest.DropZone.Auto);
+                        }
+                    };
                 }
 
                 return window;

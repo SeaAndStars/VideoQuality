@@ -50,6 +50,20 @@
   frames nobody sees and a byte-budgeted frame cache
   ([benchmarks](docs/development.md#benchmarks)).
 
+**Release toolkit** (left navigation: Compare · Font Subset · Extract · Mux · Pipeline)
+- **Font Subset.** Our own ASS font subsetter on HarfBuzz: collects every character each font draws
+  (`\fn`, `\b`, `\i`, `\r`, vertical `@` fonts), matches faces the way renderers do, subsets and renames
+  them to stable 8-character families, rewrites the scripts and verifies every glyph survived.
+- **Extract (抽流).** Pick tracks, embedded fonts and chapters and pull them out with `mkvextract`;
+  MP4 and other containers are remuxed first.
+- **Mux (混流).** Video, audio, scripts, a fonts folder and chapters into one MKV with per-track
+  language, name, default and forced flags. Script names such as `JPSC`/`JPTC` become `zh-Hans`
+  简体中文 / `zh-Hant` 繁體中文 automatically.
+- **Release pipeline.** One click: subset → mux → verify the MKV → VMAF of the release against the
+  source.
+- Extract and Mux use [MKVToolNix](https://mkvtoolnix.download) if installed (found on PATH, in
+  Program Files, or a folder set in Settings); it is not bundled.
+
 **Workflow**
 
 - **Drag and drop with explicit roles.** Drop on *Reference* or *Compare* (or anywhere for the
@@ -157,6 +171,7 @@ vq probe                                          # ffmpeg, libvmaf, CUDA and li
 vq score ref.mkv dist.mp4 --json out.json --csv out.csv [--gpu|--cpu] [--model vmaf_v0.6.1]
 vq frame dist.mp4 42 --ppm frame.ppm              # decode one frame exactly as the viewer does
 vq diag                                           # environment report for bug reports
+vq subset JPSC.ass JPTC.ass --fonts Fonts --output out   # subset + rename fonts, rewrite scripts
 ```
 
 From source, replace `vq` with `dotnet run --project VideoQuality.Cli --`.
@@ -192,6 +207,7 @@ and [Ursa](https://github.com/irihitech/Ursa.Avalonia) ·
 [ScottPlot](https://scottplot.net) ·
 [FFmpeg.AutoGen](https://github.com/Ruslan-B/FFmpeg.AutoGen) ·
 [FFmpeg](https://ffmpeg.org) · [libvmaf](https://github.com/Netflix/vmaf) ·
+[HarfBuzz](https://harfbuzz.github.io) · [MKVToolNix](https://mkvtoolnix.download) (optional) ·
 [dav1d](https://code.videolan.org/videolan/dav1d)
 
 ## Status
