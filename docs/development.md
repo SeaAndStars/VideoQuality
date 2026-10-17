@@ -4,8 +4,9 @@
 
 - .NET 10 SDK (`dotnet --list-sdks`).
 - FFmpeg 8.x with libvmaf; CUDA-enabled build for GPU scoring — see [ffmpeg-cuda.md](ffmpeg-cuda.md).
-- `FFmpeg.AutoGen` 8.0.0.1 is pinned in `VideoQuality.Core.csproj` and matches `libavcodec.so.62`.
-  If you upgrade ffmpeg across a major version, upgrade the bindings in lockstep.
+- `FFmpeg.AutoGen` 9.0.1.1 is pinned in `VideoQuality.Core.csproj` and matches `libavcodec.so.63`.
+  If you upgrade ffmpeg across a major version, upgrade the bindings and
+  `FfmpegRuntime.ExpectedAvcodecMajor` in lockstep; the runtime refuses a mismatch.
 
 ## Build and run
 

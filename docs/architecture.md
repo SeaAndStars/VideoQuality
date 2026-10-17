@@ -56,6 +56,10 @@ VideoQuality.Cli       probe / score / frame commands, no UI
 
 ## Decoding
 
+`FfmpegRuntime` resolves a directory containing the soname the bindings expect
+(`libavcodec.so.63` for FFmpeg 9), checks the loaded major against `ExpectedAvcodecMajor`, and refuses
+to continue on a mismatch.
+
 `FrameDecoder` opens the file, picks the best video stream, and converts frames to BGRA through
 swscale into a reused context.
 

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using VideoQuality.Core.Decoding;
+using VideoQuality.Core.Decoding;
 using VideoQuality.Core.Models;
 using VideoQuality.Core.Scoring;
 
@@ -19,6 +20,21 @@ public class IntegrationTests
         string ffmpeg = await VmafRunner.ResolveFfmpegAsync(Environment.GetEnvironmentVariable("VQ_FFMPEG"));
         VmafCapabilities capabilities = await VmafRunner.ProbeAsync(ffmpeg);
         return (ffmpeg, capabilities);
+    }
+
+    [SkippableFact]
+    public void Loaded_libavcodec_matches_the_bindings()
+    {
+        try
+        {
+            FfmpegRuntime.Initialize();
+        }
+        catch (Exception ex)
+        {
+            Skip.If(true, "libav could not be loaded: " + ex.Message);
+        }
+
+        Assert.Equal(FfmpegRuntime.ExpectedAvcodecMajor, FfmpegRuntime.LoadedAvcodecMajor);
     }
 
     [SkippableFact]

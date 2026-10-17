@@ -8,67 +8,90 @@ no `--enable-libvmaf`, so `ffmpeg -filters` lists only the internal `vmafmotion`
 there is no separate `--enable-libvmaf-cuda` switch; the filter is enabled automatically when
 libvmaf exposes `libvmaf_cuda.h` and `ffnvcodec` is available.
 
-The reference build for this project:
+The verified stack:
 
 | Component | Version |
 |---|---|
 | OS | Ubuntu 26.04 |
-| FFmpeg | 8.0.1, built from source |
-| libvmaf | master (3.2.0-dev), CUDA enabled |
+| FFmpeg | **n9.0.2**, built from source, shared libraries |
+| libvmaf | **v3.2.1** with CUDA |
+| .NET bindings | `FFmpeg.AutoGen` **9.0.1.1** |
 | CUDA toolkit | 13.1 (`cuda-nvcc-13-1`, `cuda-cudart-dev-13-1`) |
-| nv-codec-headers | tag `n13.0.19.1` |
+| nv-codec-headers | tag `n13.0.19.1` (also builds FFmpeg 9) |
 | GPU | RTX 5060 Ti (Blackwell, `sm_120`) |
 
-Installed to `/opt/vmaf` (libvmaf) and `/opt/ffmpeg` (ffmpeg), deliberately outside `/usr` so the
-system packages stay untouched. The custom ffmpeg has no libx264, which is why it is **not** placed
-on `PATH` — the app resolves it by path instead.
+FFmpeg 9 is an ABI break: every library major moved. The bindings must match the sonames that get
+loaded:
 
-## Building
+| Library | FFmpeg 9 soname |
+|---|---|
+| libavcodec | `.so.63` |
+| libavutil | `.so.61` |
+| libavformat | `.so.63` |
+| libavdevice | `.so.63` |
+| libavfilter | `.so.12` |
+| libswscale | `.so.10` |
+| libswresample | `.so.7` |
+
+`FfmpegRuntime` refuses to start on a mismatch: it looks for `libavcodec.so.63`, then checks
+`avcodec_version() >> 16` and throws (and logs) if the loaded major differs from
+`ExpectedAvcodecMajor`. That is why the app can see both the distro `.so.62` and this `.so.63` without
+silently loading the wrong one.
+
+## Building side by side
+
+Everything installs under versioned prefixes and is exposed by a symlink, so rollback is one command.
 
 ```bash
-# 0. CUDA compiler, headers, AV1 decoder (Ubuntu package names)
-apt-get install -y --no-install-recommends cuda-nvcc-13-1 cuda-cudart-dev-13-1 nasm meson libdav1d-dev
+# 0. toolchain
+apt-get install -y --no-install-recommends \
+    cuda-nvcc-13-1 cuda-cudart-dev-13-1 nasm meson libdav1d-dev
 
-# 1. nv-codec-headers
-git clone https://code.ffmpeg.org/FFmpeg/nv-codec-headers.git
-cd nv-codec-headers
-git checkout n13.0.19.1   # master renamed an NVENC struct field and breaks ffmpeg 8.0.x
-make install
+# 1. nv-codec-headers (pinned; master renamed an NVENC field and breaks 8.x/9.x)
+git clone --depth 1 --branch n13.0.19.1 https://code.ffmpeg.org/FFmpeg/nv-codec-headers.git
+cd nv-codec-headers && make install
 
-# 2. libvmaf with CUDA (v3.0.0 does not compile against CUDA 13; master does)
-git clone https://github.com/Netflix/vmaf.git
-cd vmaf
-git checkout 94f3ff0dd8d0062e39b27d0eadfc57457022b663   # verified with CUDA 13.1 + ffmpeg 8.0.1
-cd libvmaf
+# 2. libvmaf v3.2.1 with CUDA
+git clone --depth 1 --branch v3.2.1 https://github.com/Netflix/vmaf.git vmaf-3.2.1
+cd vmaf-3.2.1/libvmaf
 export PATH=/usr/local/cuda/bin:$PATH
 export NVCC_PREPEND_FLAGS="-arch=sm_120"
-meson setup build --prefix=/opt/vmaf --buildtype=release --default-library=shared \
+meson setup build --prefix=/opt/vmaf-3.2.1 --buildtype=release --default-library=shared \
       -Denable_cuda=true -Denable_tests=false -Denable_docs=false -Denable_float=true
 ninja -C build && ninja -C build install
 
-# 3. ffmpeg
-git clone --depth 1 --branch n8.0.1 https://git.ffmpeg.org/ffmpeg.git ffmpeg-8.0.1
-cd ffmpeg-8.0.1
-export PKG_CONFIG_PATH=/opt/vmaf/lib/x86_64-linux-gnu/pkgconfig
-./configure --prefix=/opt/ffmpeg --disable-doc --enable-gpl --enable-nonfree \
-    --enable-libvmaf --enable-libdav1d --enable-cuda-nvcc --enable-ffnvcodec \
+# 3. FFmpeg n9.0.2, shared
+git clone --depth 1 --branch n9.0.2 https://git.ffmpeg.org/ffmpeg.git ffmpeg-9.0.2
+cd ffmpeg-9.0.2
+export PKG_CONFIG_PATH=/opt/vmaf-3.2.1/lib/x86_64-linux-gnu/pkgconfig
+./configure --prefix=/opt/ffmpeg-9.0.2 --disable-doc --disable-debug \
+    --enable-gpl --enable-nonfree --enable-libvmaf --enable-libdav1d \
+    --enable-cuda-nvcc --enable-ffnvcodec --enable-shared \
     --nvccflags="-gencode arch=compute_120,code=sm_120" \
     --extra-cflags=-I/usr/local/cuda/include \
-    --extra-ldflags="-L/opt/vmaf/lib/x86_64-linux-gnu -Wl,-rpath,/opt/vmaf/lib/x86_64-linux-gnu -Wl,-rpath,/usr/local/cuda/lib64"
+    --extra-ldflags="-L/opt/vmaf-3.2.1/lib/x86_64-linux-gnu \
+        -Wl,-rpath,/opt/vmaf-3.2.1/lib/x86_64-linux-gnu \
+        -Wl,-rpath,/opt/ffmpeg-9.0.2/lib -Wl,-rpath,/usr/local/cuda/lib64"
 make -j"$(nproc)" && make install
+
+# 4. expose it
+ln -sfn /opt/ffmpeg-9.0.2 /opt/ffmpeg
 ```
 
 Why each unusual flag is needed:
 
+- `--enable-shared` — `FFmpeg.AutoGen` loads `libav*.so`; a static-only build leaves the viewer with
+  the distro's older `.so.62`.
 - `--nvccflags=...compute_120...` — FFmpeg's default nvcc target is `compute_60`, which CUDA 13
-  dropped. Configure fails at `check_nvcc` without this.
+  dropped; configure fails at `check_nvcc` without this.
 - `--default-library=shared` for libvmaf — a static libvmaf pulls in libstdc++ and fails ffmpeg's
-  `pkg-config` link check.
-- `NVCC_PREPEND_FLAGS` for libvmaf — its meson build compiles PTX without an arch flag; PTX for
-  `sm_120` is what the driver JITs on Blackwell.
-- `-Wl,-rpath` — lets `/opt/ffmpeg/bin/ffmpeg` find `libvmaf.so.3` without `LD_LIBRARY_PATH`.
-- `--enable-libdav1d` — the native AV1 decoder in this build failed on SVT-AV1 output
-  (`Get current frame error`); dav1d decodes it, and it is what the distro build uses too.
+  pkg-config link check.
+- `NVCC_PREPEND_FLAGS` for libvmaf — its meson build compiles PTX without an arch flag.
+- `-Wl,-rpath` — lets the ffmpeg binary find `libvmaf.so.3` without `LD_LIBRARY_PATH`.
+
+Rollback: `ln -sfn /opt/ffmpeg-8.0.1 /opt/ffmpeg` (the previous build is kept). Rolling back across a
+major version also means downgrading `FFmpeg.AutoGen` and `ExpectedAvcodecMajor`, because the bindings
+are ABI-specific.
 
 ## Verifying
 
@@ -79,11 +102,15 @@ Why each unusual flag is needed:
 
 dotnet run --project VideoQuality.Cli -- probe
 # ffmpeg: /opt/ffmpeg/bin/ffmpeg
+#   version     : ffmpeg version n9.0.2
 #   libvmaf     : yes
 #   libvmaf_cuda: yes
 #   nvidia gpu  : yes
 #   cuda usable : yes
+#   libav       : /opt/ffmpeg/lib (avcodec 4129126)   # 63.1.102
 ```
+
+`vq frame` additionally proves the bindings load the same soname and that decoding works.
 
 ## How the app chooses the backend
 
@@ -95,12 +122,19 @@ dotnet run --project VideoQuality.Cli -- probe
 Capability probing runs `ffmpeg -filters`, `ffmpeg -version` and `nvidia-smi -L`, cached per ffmpeg
 path. The resolved backend is recorded on every report and shown next to the stats.
 
+## Default model
+
+Scores use **VMAF NEG** by default (`model=version=vmaf_v0.6.1neg`, always passed explicitly). NEG is
+verified on both backends: a sharpened encode scores 100.000 with plain VMAF and 86.223 with NEG,
+identically on CPU and CUDA. See [metrics.md](metrics.md).
+
 ## AV1
 
-AV1 is exercised end to end: an 8-bit SVT-AV1 encode scores **92.508 on CPU (dav1d)** and
-**92.49–92.51 on CUDA (`av1_cuvid`)** across repeated runs; the viewer decodes it through
-FFmpeg.AutoGen with an exact frame match against ffmpeg's own extraction. Without dav1d, CPU AV1 scoring of SVT-AV1 output fails; the GPU
-path was unaffected because NVDEC does the decoding.
+AV1 works end to end. With NEG, an 8-bit SVT-AV1 encode scores **91.207 on CPU (dav1d)** and
+**91.203 on CUDA (`av1_cuvid`)**, and the viewer decodes it through FFmpeg.AutoGen with an exact frame
+match against ffmpeg's own extraction. Without dav1d the native AV1 decoder failed on SVT-AV1 output
+(`Get current frame error`); `--enable-libdav1d` fixes the CPU path, while the GPU path decodes through
+NVDEC and was unaffected.
 
 ## Decoding and NVDEC failures
 
@@ -113,15 +147,17 @@ of silently changing backend.
 ## 10-bit inputs
 
 `libvmaf_cuda` accepts `yuv420p` only. Asking it for `p010le` or `yuv420p10le` fails with
-`Invalid argument`, verified against ffmpeg 8.0.1 + libvmaf master. The CUDA path therefore does:
+`Invalid argument` — re-verified against FFmpeg 9.0.2 + libvmaf 3.2.1, so the limitation survived
+the upgrade. The CUDA path therefore does:
 
 ```
 [0:v]scale_cuda=format=yuv420p[dis];[1:v]scale_cuda=format=yuv420p[ref];[dis][ref]libvmaf_cuda=...
 ```
 
-Decode, conversion and scoring all happen on the GPU, but precision is 8-bit. On the 10-bit HEVC test
-encode this measured **93.848 (CUDA) vs 93.888 (CPU)** — a 0.04 difference, and the status line says
-that the conversion happened. Choose **CPU** when 10-bit precision matters more than throughput.
+Decode, conversion and scoring all happen on the GPU, but precision is 8-bit. With NEG on the 10-bit
+test encode: **92.755 (CUDA, converted) vs 92.883 (CPU, true 10-bit)**. The status line says that the
+conversion happened and the table shows `CUDA·8b`. Choose **CPU** when 10-bit precision matters more
+than throughput.
 
 ## Resolving the executable
 
@@ -141,12 +177,13 @@ by `score`, shown in the app's **Settings** flyout, and stored in each report.
 
 | Symptom | Cause / fix |
 |---|---|
+| `FFmpeg binding mismatch: ... expects libavcodec 63, but 62 was loaded` | Bindings and native libs disagree. Point `FFMPEG_LIB_PATH` at `/opt/ffmpeg/lib` or rebuild the matching ffmpeg; do not mix majors. |
 | `probe` shows no libvmaf | The ffmpeg on PATH is a distro build. Point `--ffmpeg`/`VQ_FFMPEG` at the custom build. |
-| `libvmaf_cuda: no` | ffmpeg was built without `--enable-cuda-nvcc`/`--enable-ffnvcodec`, or libvmaf was built without CUDA. |
+| `libvmaf_cuda: no` | ffmpeg was built without `--enable-cuda-nvcc`/`--enable-ffnvcodec`, or libvmaf without CUDA. |
 | `nvidia gpu: no` | `nvidia-smi` missing or failing (WSL without GPU passthrough, driver broken). |
 | `configure: failed checking for nvcc` | Add `--nvccflags` with `sm_120` (or your GPU's arch). |
-| `nvenc.c: ... has no member named 'countingType'` | nv-codec-headers is newer than ffmpeg; use tag `n13.0.19.1`. |
+| `nvenc.c: ... has no member named 'countingType'` | nv-codec-headers is newer than ffmpeg; use the pinned tag. |
 | `undefined reference to __cxa_throw` at link | libvmaf is static; rebuild shared. |
-| CUDA scores differ from CPU | Expected: different implementation and, for 10-bit, an 8-bit intermediate. CUDA means also vary run-to-run (~0.01, occasionally more). Do not mix backends within a comparison. |
-| CUDA filter errors on 10-bit formats | Use `scale_cuda=format=yuv420p`; the filter does not accept `p010le`. |
-| AV1 CPU score fails with `Get current frame error` | Build ffmpeg with `--enable-libdav1d`; the native decoder failed on SVT-AV1 output. |
+| CUDA filter errors on 10-bit formats | Use `scale_cuda=format=yuv420p`; libvmaf_cuda does not accept `p010le`. |
+| AV1 CPU score fails with `Get current frame error` | Build ffmpeg with `--enable-libdav1d`. |
+| CUDA scores differ from CPU | Expected: different implementation and, for 10-bit, an 8-bit intermediate. CUDA means also vary run-to-run (~0.01). Do not mix backends within one comparison. |

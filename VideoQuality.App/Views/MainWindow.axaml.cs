@@ -86,6 +86,7 @@ public partial class MainWindow : Window
             case nameof(MainViewModel.FixedScale):
             case nameof(MainViewModel.ShowSmoothed):
             case nameof(MainViewModel.ShowDelta):
+            case nameof(MainViewModel.HasMixedModels):
                 RedrawPlot();
                 break;
 
@@ -216,9 +217,15 @@ public partial class MainWindow : Window
         }
 
         string backend = _viewModel?.SelectedEncode?.Report?.Backend.ToDisplayName() ?? string.Empty;
+        string label = _viewModel?.SelectedEncode?.Report is { } selectedReport
+            ? VmafModels.DisplayName(selectedReport.Model)
+            : "VMAF";
+        string mixed = _viewModel?.HasMixedModels == true ? " · MIXED MODELS" : string.Empty;
+
         string title = delta
-            ? $"Δ VMAF vs {baseline.Name} — {entries.Count} encode(s)"
-            : $"VMAF per frame — {entries.Count} encode(s)" + (backend.Length > 0 ? $" — {backend}" : string.Empty);
+            ? $"Δ {label} vs {baseline.Name} — {entries.Count} encode(s){mixed}"
+            : $"{label} per frame — {entries.Count} encode(s)" +
+              (backend.Length > 0 ? $" — {backend}" : string.Empty) + mixed;
 
         plot.Title(title);
         plot.XLabel("frame");

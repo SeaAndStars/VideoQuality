@@ -59,7 +59,7 @@ static async Task<int> ScoreAsync(string[] args)
     string? reference = null;
     string? distorted = null;
     string ffmpeg = await VmafRunner.ResolveFfmpegAsync(GetOption(args, "--ffmpeg"));
-    string model = GetOption(args, "--model") ?? "vmaf_v0.6.1";
+    string model = GetOption(args, "--model") ?? VmafModels.Default;
     VmafBackend backend = args.Contains("--gpu") ? VmafBackend.Cuda
         : args.Contains("--cpu") ? VmafBackend.Cpu
         : VmafBackend.Auto;
@@ -103,7 +103,7 @@ static async Task<int> ScoreAsync(string[] args)
         VmafReport report = await VmafRunner.RunAsync(reference, distorted, options, progress);
         Console.WriteLine();
         Console.WriteLine($"backend : {report.PrecisionLabel}");
-        Console.WriteLine($"model   : {report.Model}");
+        Console.WriteLine($"model   : {VmafModels.DisplayName(report.Model)} ({report.Model})");
         Console.WriteLine($"frames  : {report.FrameCount}");
         Console.WriteLine($"mean    : {report.Stats.Mean:F3}");
         Console.WriteLine($"hmean   : {report.Stats.HarmonicMean:F3}");

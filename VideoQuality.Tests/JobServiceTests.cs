@@ -189,7 +189,7 @@ public class JobServiceTests
             await gate.Task;
         }));
 
-        await WaitUntilAsync(() => job.Progress is 0.5);
+        await WaitUntilAsync(() => job.Progress is 0.5 && job.Detail is "half way");
         Assert.Equal("half way", job.Detail);
 
         gate.SetResult();

@@ -66,8 +66,9 @@ public sealed class JobService
 
             var progress = new Progress<JobProgress>(value =>
             {
-                job.Progress = value.Fraction;
+                // Detail first: observers that key off Progress then get a consistent snapshot.
                 job.Detail = value.Detail;
+                job.Progress = value.Fraction;
             });
 
             await job.Work(job, progress, job.Cancellation.Token).ConfigureAwait(false);

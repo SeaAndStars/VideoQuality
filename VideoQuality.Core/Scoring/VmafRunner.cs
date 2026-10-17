@@ -21,7 +21,7 @@ public sealed class VmafOptions
 
     /// <summary>Built-in model name (e.g. <c>vmaf_v0.6.1</c>, <c>vmaf_v0.6.1neg</c>,
     /// <c>vmaf_4k_v0.6.1</c>) or a path to a <c>.json</c> model.</summary>
-    public string Model { get; set; } = "vmaf_v0.6.1";
+    public string Model { get; set; } = VmafModels.Default;
 
     /// <summary>Threads for the CPU libvmaf filter. Ignored by libvmaf_cuda.</summary>
     public int Threads { get; set; } = Math.Clamp(Environment.ProcessorCount, 1, 16);
@@ -76,7 +76,7 @@ public static partial class VmafRunner
 
         var capabilities = await ProbeAsync(options.FfmpegPath, cancellationToken).ConfigureAwait(false);
         var backend = ResolveBackend(options.Backend, capabilities);
-        string model = string.IsNullOrWhiteSpace(options.Model) ? "vmaf_v0.6.1" : options.Model.Trim();
+        string model = string.IsNullOrWhiteSpace(options.Model) ? VmafModels.Default : options.Model.Trim();
 
         // Needed for the report on both backends (exports must say what was scored) and for deciding
         // whether CUDA is scoring a converted 8-bit picture. Probing reads headers, not frames.
@@ -350,7 +350,7 @@ public static partial class VmafRunner
             sb.Append(":n_subsample=").Append(options.Subsample.Value);
         }
 
-        string model = string.IsNullOrWhiteSpace(options.Model) ? "vmaf_v0.6.1" : options.Model.Trim();
+        string model = string.IsNullOrWhiteSpace(options.Model) ? VmafModels.Default : options.Model.Trim();
         if (model.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ||
             model.Contains(Path.DirectorySeparatorChar) ||
             model.Contains('/'))

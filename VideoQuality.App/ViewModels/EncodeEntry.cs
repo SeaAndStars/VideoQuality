@@ -40,6 +40,7 @@ public partial class EncodeEntry : ObservableObject
     [NotifyPropertyChangedFor(nameof(P1Text))]
     [NotifyPropertyChangedFor(nameof(MaxText))]
     [NotifyPropertyChangedFor(nameof(BackendText))]
+    [NotifyPropertyChangedFor(nameof(ModelText))]
     [NotifyPropertyChangedFor(nameof(FramesText))]
     public partial VmafReport? Report { get; set; }
 
@@ -86,6 +87,8 @@ public partial class EncodeEntry : ObservableObject
     public string SizeText => $"{FileSize / 1024.0 / 1024.0:F1} MB";
 
     public string BackendText => Report?.PrecisionShort ?? "—";
+
+    public string ModelText => Report is null ? "—" : VmafModels.ShortName(Report.Model);
 
     public string FramesText => Report is null
         ? "—"

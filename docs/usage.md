@@ -73,6 +73,18 @@ At 1:1 the image is clipped to its pane rather than painted over the headers.
 Playback is clock-driven: each tick computes the target frame from elapsed wall time, so a slow
 decode drops frames instead of playing in slow motion.
 
+## Models
+
+The model dropdown defaults to **VMAF NEG** (`vmaf_v0.6.1neg`). NEG removes the enhancement gain
+from the score, so a sharpened encode cannot buy points by looking crisper; it is the better default
+for encoder comparisons. `vmaf_v0.6.1` (standard) and `vmaf_4k_v0.6.1` are selectable, and the
+selected model is stored on every report, shown in the table's `MODEL` column and in the graph title
+(`VMAF NEG per frame — CUDA`).
+
+Scores from different models are not comparable. If a comparison mixes them, the status line warns and
+the graph title is marked `MIXED MODELS`; re-score with one model. The same rule applies to mixing
+backends.
+
 ## Scoring behaviour
 
 - Backend **Auto** picks CUDA whenever `libvmaf_cuda` is present and an NVIDIA GPU is visible;

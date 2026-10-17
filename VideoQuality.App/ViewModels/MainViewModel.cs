@@ -69,7 +69,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public VmafBackend[] BackendOptions { get; } = [VmafBackend.Auto, VmafBackend.Cpu, VmafBackend.Cuda];
 
-    public string[] ModelOptions { get; } = ["vmaf_v0.6.1", "vmaf_v0.6.1neg", "vmaf_4k_v0.6.1"];
+    public string[] ModelOptions { get; } = [VmafModels.Neg, VmafModels.Standard, VmafModels.Uhd];
 
     [ObservableProperty]
     public partial string? ReferencePath { get; set; }
@@ -134,7 +134,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public partial VmafBackend SelectedBackend { get; set; } = VmafBackend.Auto;
 
     [ObservableProperty]
-    public partial string SelectedModel { get; set; } = "vmaf_v0.6.1";
+    public partial string SelectedModel { get; set; } = VmafModels.Default;
 
     [ObservableProperty]
     public partial string Status { get; set; } = "Pick a reference, then add one or more encodes to compare.";
@@ -257,14 +257,24 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
-    public string FrameText => Frames.Count == 0
-        ? "frame    —  /    —     VMAF      —"
-        : string.Format(
-            CultureInfo.InvariantCulture,
-            "frame {0,4} / {1,-4}   VMAF {2,6:F2}",
-            CurrentFrame + 1,
-            Frames.Count,
-            CurrentScore);
+    public string FrameText
+    {
+        get
+        {
+            string label = VmafModels.DisplayName(Report?.Model ?? SelectedModel);
+            return Frames.Count == 0
+                ? $"frame    —  /    —     {label}      —"
+                : string.Format(
+                    CultureInfo.InvariantCulture,
+                    "frame {0,4} / {1,-4}   {2} {3,6:F2}",
+                    CurrentFrame + 1,
+                    Frames.Count,
+                    label,
+                    CurrentScore);
+        }
+    }
+
+    public bool HasMixedModels { get; private set; }
 
     public string StatsText
     {
@@ -278,14 +288,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             VmafStats stats = report.Stats;
             return string.Format(
                 CultureInfo.InvariantCulture,
-                "mean {0,6:F2}   hmean {1,6:F2}   p1 {2,6:F2}   min {3,6:F2}   max {4,6:F2}   σ {5,5:F2}   {6}",
+                "mean {0,6:F2}   hmean {1,6:F2}   p1 {2,6:F2}   min {3,6:F2}   max {4,6:F2}   σ {5,5:F2}   {6} · {7}",
                 stats.Mean,
                 stats.HarmonicMean,
                 stats.P1,
                 stats.Min,
                 stats.Max,
                 stats.StdDev,
-                report.Backend.ToDisplayName());
+                report.Backend.ToDisplayName(),
+                VmafModels.ShortName(report.Model));
         }
     }
 
@@ -528,6 +539,32 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private void UpdateModelConsistency()
+    {
+        List<string> models = Encodes
+            .Where(e => e.Report is not null)
+            .Select(e => e.Report!.Model)
+            .Where(m => !string.IsNullOrWhiteSpace(m))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        bool mixed = models.Count > 1;
+        if (mixed == HasMixedModels)
+        {
+            return;
+        }
+
+        HasMixedModels = mixed;
+        OnPropertyChanged(nameof(HasMixedModels));
+
+        if (mixed)
+        {
+            Status = "Warning: encodes were scored with different models (" +
+                     string.Join(", ", models.Select(VmafModels.ShortName)) +
+                     "). Curves are not comparable; re-score them with one model.";
+        }
+    }
+
     public void RemoveEncode(EncodeEntry entry)
     {
         int index = Encodes.IndexOf(entry);
@@ -537,6 +574,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
 
         Encodes.Remove(entry);
+        UpdateModelConsistency();
 
         if (ReferenceEquals(entry, SelectedEncode))
         {
@@ -811,6 +849,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             NotifyReportChanged();
         }
 
+        UpdateModelConsistency();
         OnPropertyChanged(nameof(Encodes));
     }
 

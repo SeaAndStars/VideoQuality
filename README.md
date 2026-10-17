@@ -9,7 +9,10 @@ ffmpeg build and machine support it, including 10-bit sources.
 ## What it does
 
 - **Scores with libvmaf** via ffmpeg, preferring the CUDA filter, and parses the JSON log into
-  per-frame scores plus pooled stats (mean, harmonic mean, p1, min, max, σ).
+  per-frame scores plus pooled stats (mean, harmonic mean, p1, min, max, σ). **VMAF NEG is the
+  default** — it does not reward sharpening or contrast changes the way plain VMAF does. Standard
+  VMAF and the 4K model remain one click (or `--model`) away, and mixing models in one comparison is
+  flagged.
 - **Compares N encodes against one reference**: overlaid curves, a summary table with mean, p1,
   true video bitrate and file size, and a selectable row that drives the viewer.
 - **Shows both videos frame by frame**: side by side, wipe with a draggable divider, A/B flicker, or
@@ -19,9 +22,9 @@ ffmpeg build and machine support it, including 10-bit sources.
 - **Reports what it is actually doing**: backend and precision (`CUDA·8b` for converted 10-bit),
   ffmpeg path, bit depth, colour metadata, true bitrate, a progress bar with Cancel, and a session
   log in a `logs/` directory beside the binary.
-- **Tested**: 28 xUnit unit tests for the progress parser, stats, packet index, exports, difference
-  imaging and the job state machine, plus 3 integration tests that run when `VQ_TEST_VIDEO` is set
-  (31 total) and skip otherwise.
+- **Tested**: 32 unit/ABI tests (progress parser, stats, packet index, exports, difference imaging,
+  job state machine, model defaults, libavcodec ABI) plus 3 integration tests that run when
+  `VQ_TEST_VIDEO` is set (35 total) and skip otherwise.
 
 ## Quick start
 
@@ -61,9 +64,9 @@ The app finds a VMAF-enabled ffmpeg automatically (`$VQ_FFMPEG`, `$FFMPEG_ROOT/b
 ## Requirements
 
 - .NET 10 SDK.
-- FFmpeg 8.x built with `--enable-libvmaf`; add `--enable-cuda-nvcc --enable-ffnvcodec` for GPU
-  scoring and `--enable-libdav1d` for AV1 on the CPU path. (There is no `--enable-libvmaf-cuda`
-  switch — see [ffmpeg-cuda.md](docs/ffmpeg-cuda.md).)
+- FFmpeg **9.x** (`libavcodec.so.63`) built with `--enable-libvmaf`; add
+  `--enable-cuda-nvcc --enable-ffnvcodec` for GPU scoring and `--enable-libdav1d` for AV1 on the CPU
+  path. (There is no `--enable-libvmaf-cuda` switch — see [ffmpeg-cuda.md](docs/ffmpeg-cuda.md).)
 - `FFmpeg.AutoGen` 8.0.0.1, which matches the installed `libavcodec.so.62`. The bindings and the
   native `libav*` major version must agree.
 - For GPU scoring: an NVIDIA GPU, a driver new enough for CUDA 12.8+ on Blackwell (`sm_120`), and an
@@ -73,7 +76,7 @@ The app finds a VMAF-enabled ffmpeg automatically (`$VQ_FFMPEG`, `$FFMPEG_ROOT/b
 
 Working and verified on Ubuntu 26.04, CUDA 13.1, RTX 5060 Ti: 8-bit and 10-bit scoring, H.264/HEVC/AV1,
 1080p playback (900 frames at 30 fps), wipe/flicker/difference, multi-encode overlays, the encode
-table, and 31 tests (28 unit + 3 integration; integration skips without `VQ_TEST_VIDEO`).
+table, and 35 tests (32 unit/ABI + 3 integration; integration skips without `VQ_TEST_VIDEO`).
 
 Not implemented yet: rate-distortion plots/BD-rate, worst-frames navigation, hover tooltips, score
 caching and PNG export, resolution-mismatch scaling, frame-offset control, colour-matrix-aware RGB

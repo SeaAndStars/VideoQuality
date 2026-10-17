@@ -10,12 +10,21 @@ namespace VideoQuality.Core.Decoding;
 /// </summary>
 public static class FfmpegRuntime
 {
+    /// <summary>
+    /// libavcodec major the installed FFmpeg.AutoGen bindings were generated for. Bump together with
+    /// the package: 62 for AutoGen 8.x (FFmpeg 8), 63 for AutoGen 9.x (FFmpeg 9).
+    /// </summary>
+    public const int ExpectedAvcodecMajor = 63;
+
     private static readonly object Gate = new();
     private static bool _initialized;
     private static av_log_set_callback_callback? _avLogCallback;
 
     /// <summary>The directory the bindings were pointed at, if one was found.</summary>
     public static string? LibraryDirectory { get; private set; }
+
+    /// <summary>libavcodec major actually loaded; equals <see cref="ExpectedAvcodecMajor"/> or Initialize throws.</summary>
+    public static int LoadedAvcodecMajor { get; private set; }
 
     public static void Initialize()
     {
@@ -37,6 +46,23 @@ public static class FfmpegRuntime
                 ffmpeg.RootPath = directory;
                 LibraryDirectory = directory;
             }
+
+            // Fail loudly on an ABI mismatch: bindings for one major loading another can corrupt
+            // memory silently.
+            int loadedMajor = (int)(ffmpeg.avcodec_version() >> 16);
+            if (loadedMajor != ExpectedAvcodecMajor)
+            {
+                string message =
+                    $"FFmpeg binding mismatch: FFmpeg.AutoGen expects libavcodec {ExpectedAvcodecMajor}, " +
+                    $"but {loadedMajor} was loaded from {LibraryDirectory ?? "(system search path)"}. " +
+                    "Point FFMPEG_LIB_PATH at a build with the matching soname, or update the bindings.";
+
+                VqLog.Error("libav", message);
+                throw new InvalidOperationException(message);
+            }
+
+            LoadedAvcodecMajor = loadedMajor;
+            VqLog.Info("libav", $"loaded libavcodec {loadedMajor} from {LibraryDirectory ?? "(system search path)"}");
 
             // Route libav's own warnings/errors into the application log; the viewer decodes
             // in-process, where stderr would otherwise be invisible.
@@ -117,6 +143,7 @@ public static class FfmpegRuntime
         yield return Environment.GetEnvironmentVariable("FFMPEG_LIB_PATH") ?? string.Empty;
         yield return Environment.GetEnvironmentVariable("FFMPEG_ROOT") ?? string.Empty;
         yield return AppContext.BaseDirectory;
+        yield return "/opt/ffmpeg/lib";
         yield return "/usr/lib/x86_64-linux-gnu";
         yield return "/usr/lib/aarch64-linux-gnu";
         yield return "/usr/lib";
@@ -129,19 +156,35 @@ public static class FfmpegRuntime
 
     private static string? FindLibraryDirectory()
     {
-        foreach (string candidate in Candidates())
-        {
-            if (string.IsNullOrWhiteSpace(candidate) || !Directory.Exists(candidate))
-            {
-                continue;
-            }
+        var directories = Candidates()
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate) && Directory.Exists(candidate))
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
 
+        // Prefer a directory that actually has the soname these bindings expect; loading a
+        // different major from an earlier PATH entry is the failure this guards against.
+        string exactSoname = $"libavcodec.so.{ExpectedAvcodecMajor}";
+        string exactDll = $"avcodec-{ExpectedAvcodecMajor}.dll";
+
+        foreach (string directory in directories)
+        {
+            if (File.Exists(Path.Combine(directory, exactSoname)) ||
+                File.Exists(Path.Combine(directory, exactDll)))
+            {
+                return directory;
+            }
+        }
+
+        // Fall back to any libav build so the guard can report a useful mismatch message.
+        foreach (string directory in directories)
+        {
             try
             {
-                if (Directory.EnumerateFiles(candidate, "libavcodec.so*").Any() ||
-                    Directory.EnumerateFiles(candidate, "avcodec-*.dll").Any())
+                if (Directory.EnumerateFiles(directory, "libavcodec.so*").Any() ||
+                    Directory.EnumerateFiles(directory, "avcodec-*.dll").Any())
                 {
-                    return Path.GetFullPath(candidate);
+                    return directory;
                 }
             }
             catch (IOException)
