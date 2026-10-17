@@ -69,8 +69,39 @@ VQ_TEST_VIDEO=/path/to/ref.mkv dotnet test VideoQuality.Tests/VideoQuality.Tests
 ```
 
 With `VQ_TEST_VIDEO` set they verify that the same file scores ≈100, that CPU and CUDA agree on 8-bit
-input, and that a decoded frame matches ffmpeg's own BGRA extraction. Set `VQ_FFMPEG` if the ffmpeg
-to use is not the auto-resolved one.
+input, that a decoded frame matches ffmpeg's own BGRA extraction, and that frames reached by stepping
+backwards are identical to a fresh decode. Set `VQ_FFMPEG` if the ffmpeg to use is not the
+auto-resolved one.
+
+## Benchmarks
+
+`VideoQuality.Benchmarks` is a BenchmarkDotNet project for the hot paths in `VideoQuality.Core`:
+
+```bash
+dotnet run -c Release --project VideoQuality.Benchmarks -- --filter '*'
+dotnet run -c Release --project VideoQuality.Benchmarks -- --filter '*Decoder*'
+```
+
+- `PixelDiffBenchmarks`: difference image and auto-gain percentile on a synthetic 1080p pair.
+- `DecoderBenchmarks`: the viewer's access patterns on real media — sequential playback, the
+  reference/encode pair serial versus concurrent, ten left-arrow steps, ten random slider jumps.
+  Decoders are reopened per iteration, so each measurement starts cold. Media comes from
+  `VQ_BENCH_REF` / `VQ_BENCH_DIST` (default `/tmp/vqtest/ref1080.mkv` and `dist1080.mp4`, 1080p
+  H.264, 250-frame GOP).
+
+Results go to `BenchmarkDotNet.Artifacts/` (ignored). Reference numbers, Ryzen 7 9700X, .NET 10:
+
+| Benchmark | Before | After | |
+|---|---:|---:|---|
+| Difference image, 1080p | 45.1 ms | 5.0 ms | 9× — fixed point, colour LUT, parallel rows |
+| Auto-gain percentile, 1080p | 31.2 ms | 4.6 ms | 6.8× |
+| 10 backward steps | 931 ms | 80 ms | 11.6× — backward window + non-ref skip |
+| 10 random jumps | 352 ms | 270 ms | 1.3× — non-ref skip |
+| 60 frames, reference + encode | 202 ms | 90 ms | 2.2× — concurrent decoders, no zeroing |
+
+Scoring is ffmpeg's time and is NVDEC-bound on CUDA (900 1080p frames: 2.6 s scoring versus a 2.0 s
+decode-only floor). Two CUDA scores running at once finish in 3.5 s versus 5.4 s back to back, which
+is why the job model allows two concurrent CUDA scores.
 
 ## Logging and diagnostics
 
@@ -114,6 +145,7 @@ VideoQuality.Core/         scoring, decoding, models, jobs (no UI)
 VideoQuality.App/          Avalonia UI
 VideoQuality.Cli/          headless commands
 VideoQuality.Tests/        xUnit unit tests + skippable integration tests
+VideoQuality.Benchmarks/   BenchmarkDotNet benchmarks for decoding and difference imaging
 scripts/verify.sh          clean build, solution-membership check, tests, probe
 scripts/capture-docs.sh    regenerates the documentation screenshots
 docs/                      user and developer documentation

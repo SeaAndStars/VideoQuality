@@ -40,6 +40,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly Stopwatch _playClock = new();
     private int _playStartFrame;
     private DispatcherTimer? _flickerTimer;
+    private readonly BitmapSwapChain _referenceBitmaps = new();
+    private readonly BitmapSwapChain _distortedBitmaps = new();
+    private readonly BitmapSwapChain _differenceBitmaps = new();
     private DecodedFrame? _lastReferenceFrame;
     private DecodedFrame? _lastDistortedFrame;
     private bool _suppressEncodeOpen;
@@ -900,6 +903,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             _decodeLock.Release();
         }
 
+        // Show the first frame before the packet walk, which reads the whole file.
+        await LoadFrameAsync().ConfigureAwait(true);
+
         if (opened && entry is not null)
         {
             // True video bitrate: sum of video packet sizes, not file size (which includes audio
@@ -919,8 +925,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 // Keep the size/duration estimate as a fallback.
             }
         }
-
-        await LoadFrameAsync().ConfigureAwait(true);
     }
 
     private void CheckColorMetadata(VideoInfo reference, VideoInfo encode)
@@ -950,6 +954,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         int version = Interlocked.Increment(ref _loadVersion);
         int index = Math.Max(0, CurrentFrame);
+        bool differenceReady = false;
 
         await _decodeLock.WaitAsync().ConfigureAwait(true);
         try
@@ -959,11 +964,21 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 return;
             }
 
-            (DecodedFrame Reference, DecodedFrame Distorted) frames = await Task.Run(() =>
+            // The two decoders are independent, so decode them concurrently; the difference image
+            // is built on the same background task instead of the UI thread.
+            bool difference = IsDifference;
+            double gain = DifferenceGain;
+            DifferenceChannels channels = DifferenceChannels;
+
+            (DecodedFrame Reference, DecodedFrame Distorted, DecodedFrame? Difference) frames = await Task.Run(async () =>
             {
-                DecodedFrame r = reference.DecodeFrame(index);
+                Task<DecodedFrame> pending = Task.Run(() => reference.DecodeFrame(index));
                 DecodedFrame d = distorted.DecodeFrame(index);
-                return (r, d);
+                DecodedFrame r = await pending.ConfigureAwait(false);
+                DecodedFrame? diff = difference && r.Width == d.Width && r.Height == d.Height
+                    ? PixelDiff.Difference(r, d, gain, channels)
+                    : null;
+                return (r, d, diff);
             }).ConfigureAwait(true);
 
             if (version != _loadVersion)
@@ -974,8 +989,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             _lastReferenceFrame = frames.Reference;
             _lastDistortedFrame = frames.Distorted;
 
-            ReferenceBitmap = ToBitmap(frames.Reference);
-            DistortedBitmap = ToBitmap(frames.Distorted);
+            ReferenceBitmap = _referenceBitmaps.Present(frames.Reference);
+            DistortedBitmap = _distortedBitmaps.Present(frames.Distorted);
+
+            // Settings changed while decoding: fall through to a fresh rebuild below.
+            if (frames.Difference is { } built && IsDifference && gain == DifferenceGain && channels == DifferenceChannels)
+            {
+                DifferenceBitmap = _differenceBitmaps.Present(built);
+                differenceReady = true;
+            }
         }
         catch (Exception ex)
         {
@@ -986,7 +1008,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             _decodeLock.Release();
         }
 
-        RebuildDifferenceImage();
+        if (!differenceReady)
+        {
+            RebuildDifferenceImage();
+        }
+
         OnPropertyChanged(nameof(SingleBitmap));
     }
 
@@ -1006,7 +1032,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         try
         {
             DecodedFrame difference = PixelDiff.Difference(reference, distorted, DifferenceGain, DifferenceChannels);
-            DifferenceBitmap = ToBitmap(difference);
+            DifferenceBitmap = _differenceBitmaps.Present(difference);
         }
         catch (ArgumentException)
         {
@@ -1081,36 +1107,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             info.FrameRate,
             info.Duration);
 
-    private static WriteableBitmap ToBitmap(DecodedFrame frame)
-    {
-        var bitmap = new WriteableBitmap(
-            new PixelSize(frame.Width, frame.Height),
-            new Vector(96, 96),
-            PixelFormat.Bgra8888,
-            AlphaFormat.Opaque);
-
-        using (ILockedFramebuffer buffer = bitmap.Lock())
-        {
-            if (buffer.RowBytes == frame.Stride)
-            {
-                Marshal.Copy(frame.Bgra, 0, buffer.Address, frame.Bgra.Length);
-            }
-            else
-            {
-                for (int y = 0; y < frame.Height; y++)
-                {
-                    Marshal.Copy(
-                        frame.Bgra,
-                        y * frame.Stride,
-                        IntPtr.Add(buffer.Address, y * buffer.RowBytes),
-                        Math.Min(frame.Stride, buffer.RowBytes));
-                }
-            }
-        }
-
-        return bitmap;
-    }
-
     public void Dispose()
     {
         _analysisCancellation?.Cancel();
@@ -1120,5 +1116,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         _referenceDecoder?.Dispose();
         _distortedDecoder?.Dispose();
         _decodeLock.Dispose();
+        _referenceBitmaps.Dispose();
+        _distortedBitmaps.Dispose();
+        _differenceBitmaps.Dispose();
     }
 }

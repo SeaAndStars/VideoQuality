@@ -45,8 +45,11 @@ VideoQuality.Cli       probe / score / frame commands, no UI
 ## Threading
 
 - The UI thread owns all Avalonia objects, including `WriteableBitmap`s.
-- Decoding happens on the thread pool. One `SemaphoreSlim` serialises decode work because
-  `FrameDecoder` is not thread safe.
+- Decoding happens on the thread pool. One `SemaphoreSlim` serialises frame requests because a
+  `FrameDecoder` is not thread safe; within a request the reference and encode decoders run
+  concurrently, and the difference image is built on the same background task.
+- Each pane presents through a `BitmapSwapChain`: two `WriteableBitmap`s reused alternately, so
+  playback copies into existing bitmaps instead of allocating new native ones every frame.
 - Each frame request increments `_loadVersion`; results from a stale request are discarded, so rapid
   slider movement cannot show an out-of-order frame.
 - Scoring is async: the ffmpeg process writes progress to stdout, which is parsed on a background
@@ -69,9 +72,19 @@ Seeking is exact for constant-frame-rate files:
 2. Decode forward, deriving the frame index from `best_effort_timestamp × time_base × fps`.
 3. Return the first frame at or after the target index.
 
-An LRU cache of eight decoded frames makes ±a-few-frames stepping cheap; a forward jump of more than
-240 frames re-seeks. Frames are cached under their **actual** decoded index so a timestamp that
-overshoots cannot poison the cache.
+An LRU cache sized by a 192 MB budget (24 frames at 1080p, clamped to 4–64) makes stepping cheap; a
+forward jump of more than 240 frames re-seeks. Frames are cached under their **actual** decoded index
+so a timestamp that overshoots cannot poison the cache.
+
+Two things keep the keyframe walk short:
+
+- **Backward steps keep a window.** A short backward step that has to re-seek also converts and
+  caches the frames just before the target (half the cache), so the next left-arrow presses are hits.
+  Long backward jumps (scrubbing) skip this.
+- **Unseen non-reference frames are skipped.** While walking to the target, packets whose frame is
+  before the requested range are sent with `skip_frame = AVDISCARD_NONREF`. Reference frames are
+  still decoded, so the target is bit-identical (an integration test compares against a fresh
+  decode).
 
 `VideoInfo` also carries pixel format, bit depth, colour matrix/range, and whether the codec is lossy
 (H.264/HEVC/AV1 versus FFV1/rawvideo/…).

@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using VideoQuality.Core.Decoding;
-using VideoQuality.Core.Decoding;
 using VideoQuality.Core.Models;
 using VideoQuality.Core.Scoring;
 
@@ -102,6 +101,26 @@ public class IntegrationTests
         }
 
         Assert.True(maxDifference <= 2, $"max channel difference was {maxDifference}");
+    }
+
+    [SkippableFact]
+    public void Stepping_backwards_returns_the_same_pixels_as_a_fresh_decode()
+    {
+        string? video = Video;
+        Skip.If(string.IsNullOrWhiteSpace(video) || !File.Exists(video), "set VQ_TEST_VIDEO to a local clip");
+
+        using FrameDecoder stepper = FrameDecoder.Open(video!);
+        int start = Math.Min(stepper.Info.FrameCount - 1, 40);
+        stepper.DecodeFrame(start);
+
+        // The first step back re-seeks and caches the frames before it; the rest are cache hits.
+        for (int index = start - 1; index >= start - 6; index--)
+        {
+            DecodedFrame stepped = stepper.DecodeFrame(index);
+
+            using FrameDecoder fresh = FrameDecoder.Open(video!);
+            Assert.Equal(fresh.DecodeFrame(index).Bgra, stepped.Bgra);
+        }
     }
 
     private static async Task<byte[]> ExtractBgraAsync(string ffmpeg, string video, int index)

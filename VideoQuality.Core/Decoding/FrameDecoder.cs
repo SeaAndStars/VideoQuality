@@ -10,8 +10,9 @@ namespace VideoQuality.Core.Decoding;
 /// <remarks>
 /// <para>
 /// Seeking is exact: the decoder jumps to the keyframe at or before the requested frame, then
-/// decodes forward until the frame's timestamp matches. A small LRU cache makes stepping backwards
-/// and forwards cheap for the usual ±a-few-frames case.
+/// decodes forward until the frame's timestamp matches. An LRU cache sized by a byte budget makes
+/// stepping cheap: a backward step that has to re-seek also keeps the frames just before the
+/// target, so the next left-arrow presses are cache hits instead of another keyframe walk.
 /// </para>
 /// <para>
 /// One instance is not thread safe. The UI serialises calls through a semaphore.
@@ -19,14 +20,17 @@ namespace VideoQuality.Core.Decoding;
 /// </remarks>
 public sealed unsafe class FrameDecoder : IDisposable
 {
-    private const int CacheCapacity = 8;
+    private const long CacheBudgetBytes = 192L * 1024 * 1024;
+    private const int MinCacheFrames = 4;
+    private const int MaxCacheFrames = 64;
     private const int MaxForwardDecode = 240;
     private const int AVSEEK_FLAG_BACKWARD = 1;
     private const int AVERROR_EOF = -541478725;
 
     private readonly object _gate = new();
-    private readonly Dictionary<int, DecodedFrame> _cache = new();
-    private readonly LinkedList<int> _lru = new();
+    private readonly Dictionary<int, LinkedListNode<(int Index, DecodedFrame Frame)>> _cache = new();
+    private readonly LinkedList<(int Index, DecodedFrame Frame)> _lru = new();
+    private readonly int _cacheCapacity;
 
     private AVFormatContext* _format;
     private AVCodecContext* _codec;
@@ -37,6 +41,7 @@ public sealed unsafe class FrameDecoder : IDisposable
     private int _swsHeight;
     private int _swsFormat = -1;
     private int _lastIndex = -1;
+    private int _keepFrom;
     private int _streamIndex;
     private AVRational _timeBase;
     private double _fps;
@@ -140,6 +145,8 @@ public sealed unsafe class FrameDecoder : IDisposable
                 ColorRange = ResolveColorRange(codecParameters->color_range),
                 IsLossy = IsLossyCodec(codecParameters->codec_id),
             };
+
+            _cacheCapacity = CacheCapacityFor(codecParameters->width, codecParameters->height);
         }
         catch
         {
@@ -152,6 +159,9 @@ public sealed unsafe class FrameDecoder : IDisposable
     public string Path { get; }
 
     public VideoInfo Info { get; }
+
+    /// <summary>How many decoded frames the cache holds for this resolution.</summary>
+    public int CacheCapacity => _cacheCapacity;
 
     public static FrameDecoder Open(string path)
     {
@@ -183,10 +193,20 @@ public sealed unsafe class FrameDecoder : IDisposable
                 frameIndex = Info.FrameCount - 1;
             }
 
-            if (_cache.TryGetValue(frameIndex, out DecodedFrame? cached))
+            if (_cache.TryGetValue(frameIndex, out var cached))
             {
-                Touch(frameIndex);
-                return cached;
+                _lru.Remove(cached);
+                _lru.AddLast(cached);
+                return cached.Value.Frame;
+            }
+
+            int keepFrom = frameIndex;
+            if (_lastIndex >= 0 && frameIndex < _lastIndex && _lastIndex - frameIndex <= _cacheCapacity / 2)
+            {
+                // Stepping backwards: the keyframe walk decodes these frames anyway, so convert
+                // the ones just before the target too. Half the cache keeps the frames the user
+                // came from. A long backward jump (slider scrub) skips this; it rarely steps next.
+                keepFrom = Math.Max(0, frameIndex - _cacheCapacity / 2);
             }
 
             if (_lastIndex < 0 || frameIndex < _lastIndex || frameIndex > _lastIndex + MaxForwardDecode)
@@ -194,10 +214,16 @@ public sealed unsafe class FrameDecoder : IDisposable
                 Seek(frameIndex);
             }
 
-            (int actualIndex, DecodedFrame frame) = DecodeForward(frameIndex);
+            (int actualIndex, DecodedFrame frame) = DecodeForward(frameIndex, keepFrom);
             Store(actualIndex, frame);
             return frame;
         }
+    }
+
+    internal static int CacheCapacityFor(int width, int height)
+    {
+        long frameBytes = Math.Max(1L, (long)width * height * 4);
+        return (int)Math.Clamp(CacheBudgetBytes / frameBytes, MinCacheFrames, MaxCacheFrames);
     }
 
     internal static int ResolveBitDepth(AVCodecParameters* parameters, string pixelFormat)
@@ -300,8 +326,14 @@ public sealed unsafe class FrameDecoder : IDisposable
         _draining = false;
     }
 
-    private (int Index, DecodedFrame Frame) DecodeForward(int targetIndex)
+    /// <summary>
+    /// Decodes until the frame at or after <paramref name="targetIndex"/>. Frames from
+    /// <paramref name="keepFrom"/> up to the target are converted and cached on the way.
+    /// </summary>
+    private (int Index, DecodedFrame Frame) DecodeForward(int targetIndex, int keepFrom)
     {
+        _keepFrom = keepFrom;
+
         while (true)
         {
             int result = ffmpeg.avcodec_receive_frame(_codec, _frame);
@@ -321,6 +353,11 @@ public sealed unsafe class FrameDecoder : IDisposable
                     DecodedFrame decoded = ConvertFrame(_frame);
                     ffmpeg.av_frame_unref(_frame);
                     return (index, decoded);
+                }
+
+                if (index >= keepFrom && !_cache.ContainsKey(index))
+                {
+                    Store(index, ConvertFrame(_frame));
                 }
 
                 ffmpeg.av_frame_unref(_frame);
@@ -368,6 +405,13 @@ public sealed unsafe class FrameDecoder : IDisposable
                 ffmpeg.av_packet_unref(_packet);
                 continue;
             }
+
+            // Walking from a keyframe to the target: a frame nothing references and nobody will
+            // see does not need decoding. The decoder applies skip_frame per packet, so frames
+            // from keepFrom on are decoded normally.
+            _codec->skip_frame = _packet->pts != ffmpeg.AV_NOPTS_VALUE && IndexFromPts(_packet->pts) < _keepFrom
+                ? AVDiscard.AVDISCARD_NONREF
+                : AVDiscard.AVDISCARD_DEFAULT;
 
             result = ffmpeg.avcodec_send_packet(_codec, _packet);
             ffmpeg.av_packet_unref(_packet);
@@ -432,7 +476,9 @@ public sealed unsafe class FrameDecoder : IDisposable
         }
 
         int stride = width * 4;
-        var pixels = new byte[stride * height];
+
+        // sws_scale writes every byte, so skip zeroing ~8 MB per 1080p frame.
+        byte[] pixels = GC.AllocateUninitializedArray<byte>(stride * height);
 
         var sourceData = new byte*[4];
         var sourceStride = new int[4];
@@ -464,27 +510,13 @@ public sealed unsafe class FrameDecoder : IDisposable
             return;
         }
 
-        _cache[index] = frame;
-        _lru.AddLast(index);
+        _cache[index] = _lru.AddLast((index, frame));
 
-        while (_lru.Count > CacheCapacity)
+        while (_lru.Count > _cacheCapacity)
         {
-            int evicted = _lru.First!.Value;
+            _cache.Remove(_lru.First!.Value.Index);
             _lru.RemoveFirst();
-            _cache.Remove(evicted);
         }
-    }
-
-    private void Touch(int index)
-    {
-        LinkedListNode<int>? node = _lru.Find(index);
-        if (node is null)
-        {
-            return;
-        }
-
-        _lru.Remove(node);
-        _lru.AddLast(node);
     }
 
     public void Dispose()
