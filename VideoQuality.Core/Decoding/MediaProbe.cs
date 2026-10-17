@@ -3,7 +3,11 @@ using FFmpeg.AutoGen;
 namespace VideoQuality.Core.Decoding;
 
 /// <summary>Stream properties that can be read without opening a decoder.</summary>
-public sealed record MediaProbeResult(int Width, int Height, string PixelFormat, int BitDepth);
+public sealed record MediaProbeResult(int Width, int Height, string PixelFormat, int BitDepth)
+{
+    /// <summary>Average frame rate, or 0 when the container does not declare one.</summary>
+    public double FrameRate { get; init; }
+}
 
 /// <summary>
 /// Reads codec parameters only: enough to know resolution, pixel format and bit depth for reporting
@@ -36,14 +40,21 @@ public static unsafe class MediaProbe
                 throw new InvalidOperationException($"'{path}' has no video stream.");
             }
 
-            AVCodecParameters* parameters = format->streams[streamIndex]->codecpar;
+            AVStream* stream = format->streams[streamIndex];
+            AVCodecParameters* parameters = stream->codecpar;
+            AVRational rate = stream->avg_frame_rate.num != 0 && stream->avg_frame_rate.den != 0
+                ? stream->avg_frame_rate
+                : stream->r_frame_rate;
             string pixelFormat = ffmpeg.av_get_pix_fmt_name((AVPixelFormat)parameters->format) ?? string.Empty;
 
             return new MediaProbeResult(
                 parameters->width,
                 parameters->height,
                 pixelFormat,
-                FrameDecoder.ResolveBitDepth(parameters, pixelFormat));
+                FrameDecoder.ResolveBitDepth(parameters, pixelFormat))
+            {
+                FrameRate = rate.den != 0 ? ffmpeg.av_q2d(rate) : 0,
+            };
         }
         finally
         {

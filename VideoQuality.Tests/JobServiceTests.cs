@@ -134,6 +134,40 @@ public class JobServiceTests
     }
 
     [Fact]
+    public async Task Score_lane_width_caps_concurrent_scores()
+    {
+        var service = new JobService(scoreConcurrency: 2);
+        int active = 0;
+        int maxActive = 0;
+
+        async Task Work()
+        {
+            int now = Interlocked.Increment(ref active);
+            InterlockedMax(ref maxActive, now);
+            await Task.Delay(60);
+            Interlocked.Decrement(ref active);
+        }
+
+        Job[] jobs = Enumerable.Range(0, 4)
+            .Select(i => service.Enqueue(NewJob(title: $"score {i}", work: (_, _, _) => Work())))
+            .ToArray();
+
+        await Task.WhenAll(jobs.Select(j => j.Completion));
+
+        Assert.Equal(2, maxActive);
+        Assert.All(jobs, j => Assert.Equal(JobState.Succeeded, j.State));
+    }
+
+    private static void InterlockedMax(ref int target, int value)
+    {
+        int current;
+        while ((current = Volatile.Read(ref target)) < value &&
+               Interlocked.CompareExchange(ref target, value, current) != current)
+        {
+        }
+    }
+
+    [Fact]
     public async Task Index_jobs_run_alongside_a_score()
     {
         var service = new JobService();

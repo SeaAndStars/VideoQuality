@@ -5,8 +5,9 @@ using VideoQuality.Core.Diagnostics;
 namespace VideoQuality.Core.Jobs;
 
 /// <summary>
-/// Runs jobs with per-kind lanes so expensive work does not overlap. Scoring is serialised (one
-/// ffmpeg/GPU run at a time); indexing can run alongside a score; exports are serialised.
+/// Runs jobs with per-kind lanes so expensive work does not overlap. Scoring runs
+/// <c>scoreConcurrency</c> at a time (one by default; two CUDA runs overlap well because each is
+/// NVDEC-bound); indexing can run alongside a score; exports are serialised.
 /// <para>
 /// Jobs are created and enqueued from the UI thread; their observable state is updated from the
 /// thread pool, so consumers must marshal to their UI thread (Avalonia bindings do this).
@@ -14,12 +15,18 @@ namespace VideoQuality.Core.Jobs;
 /// </summary>
 public sealed class JobService
 {
-    private readonly Dictionary<JobKind, SemaphoreSlim> _lanes = new()
+    private readonly Dictionary<JobKind, SemaphoreSlim> _lanes;
+
+    public JobService(int scoreConcurrency = 1)
     {
-        [JobKind.Score] = new SemaphoreSlim(1, 1),
-        [JobKind.Index] = new SemaphoreSlim(2, 2),
-        [JobKind.Export] = new SemaphoreSlim(1, 1),
-    };
+        int scores = Math.Max(1, scoreConcurrency);
+        _lanes = new Dictionary<JobKind, SemaphoreSlim>
+        {
+            [JobKind.Score] = new SemaphoreSlim(scores, scores),
+            [JobKind.Index] = new SemaphoreSlim(2, 2),
+            [JobKind.Export] = new SemaphoreSlim(1, 1),
+        };
+    }
 
     public ObservableCollection<Job> Jobs { get; } = [];
 
