@@ -227,7 +227,7 @@ public partial class TrimMergeViewModel : ObservableObject
         {
             foreach (string file in merge.TemporaryFiles)
             {
-                File.Delete(file);
+                FileSystem.TryDelete(file);
             }
         }
     }

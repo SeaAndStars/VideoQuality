@@ -6,6 +6,8 @@ using FluentIcons.Common;
 using VideoQuality.Core.Mkv;
 using VideoQuality.Core.Localization;
 
+using VideoQuality.Core.Tools;
+
 namespace VideoQuality.App.ViewModels;
 
 /// <summary>A track or attachment that can be ticked for extraction.</summary>
@@ -246,10 +248,7 @@ public partial class ExtractViewModel : ObservableObject
         }
         finally
         {
-            if (temporary is not null && File.Exists(temporary))
-            {
-                File.Delete(temporary);
-            }
+            FileSystem.TryDelete(temporary);
 
             IsBusy = false;
         }

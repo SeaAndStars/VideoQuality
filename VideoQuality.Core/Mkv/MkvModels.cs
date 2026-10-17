@@ -58,8 +58,7 @@ public sealed record MkvFileInfo(
         }
 
         JsonElement containerProps = container.TryGetProperty("properties", out JsonElement cp) ? cp : default;
-        double duration = containerProps.ValueKind == JsonValueKind.Object &&
-                          containerProps.TryGetProperty("duration", out JsonElement d) && d.TryGetInt64(out long ns)
+        double duration = containerProps.ValueKind == JsonValueKind.Object && Number(containerProps, "duration") is long ns
             ? ns / 1e9
             : 0;
 
@@ -94,13 +93,13 @@ public sealed record MkvFileInfo(
                     a.GetProperty("id").GetInt32(),
                     Text(a, "file_name"),
                     Text(a, "content_type"),
-                    a.TryGetProperty("size", out JsonElement size) ? size.GetInt64() : 0,
+                    Number(a, "size") ?? 0,
                     Text(a, "description")));
             }
         }
 
         int chapters = root.TryGetProperty("chapters", out JsonElement ch)
-            ? ch.EnumerateArray().Sum(c => c.TryGetProperty("num_entries", out JsonElement n) ? n.GetInt32() : 0)
+            ? ch.EnumerateArray().Sum(c => (int)(Number(c, "num_entries") ?? 0))
             : 0;
 
         return new MkvFileInfo(
@@ -118,6 +117,10 @@ public sealed record MkvFileInfo(
             ? value.GetString() ?? string.Empty
             : string.Empty;
 
+    /// <summary>An integer property; null when it is missing or not a number.</summary>
+    private static long? Number(JsonElement element, string name) =>
+        element.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.Number ? value.GetInt64() : null;
+
     private static bool Flag(JsonElement element, string name) =>
         element.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.True;
 
@@ -126,10 +129,8 @@ public sealed record MkvFileInfo(
         "video" => Text(p, "pixel_dimensions"),
         "audio" => string.Join(" · ", new[]
         {
-            p.TryGetProperty("audio_channels", out JsonElement ch) ? $"{ch.GetInt32()} ch" : null,
-            p.TryGetProperty("audio_sampling_frequency", out JsonElement hz)
-                ? (hz.GetInt32() / 1000.0).ToString("0.#", CultureInfo.InvariantCulture) + " kHz"
-                : null,
+            Number(p, "audio_channels") is long channels ? $"{channels} ch" : null,
+            Number(p, "audio_sampling_frequency") is long hz ? (hz / 1000.0).ToString("0.#", CultureInfo.InvariantCulture) + " kHz" : null,
         }.Where(s => s is not null)),
         _ => string.Empty,
     };

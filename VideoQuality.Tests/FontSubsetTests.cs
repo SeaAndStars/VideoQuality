@@ -4,16 +4,16 @@ using VideoQuality.Core.Fonts;
 
 namespace VideoQuality.Tests;
 
-/// <summary>Uses DejaVu from the system font folder (present on Ubuntu and CI); skips otherwise.</summary>
+/// <summary>Uses the DejaVu fonts in Fixtures/fonts.</summary>
 public sealed class FontSubsetTests : IDisposable
 {
-    private const string DejaVu = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
-    private const string DejaVuBold = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf";
+    private static readonly string DejaVu = Path.Combine(AppContext.BaseDirectory, "Fixtures", "fonts", "DejaVuSans.ttf");
+    private static readonly string DejaVuBold = Path.Combine(AppContext.BaseDirectory, "Fixtures", "fonts", "DejaVuSans-Bold.ttf");
     private readonly string _root = Directory.CreateTempSubdirectory("vq-fonts-").FullName;
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
-    private static void RequireFonts() => Assert.SkipUnless(File.Exists(DejaVu) && File.Exists(DejaVuBold), "DejaVu fonts not installed");
+    private static void RequireFonts() => Assert.True(File.Exists(DejaVu) && File.Exists(DejaVuBold), "Fixtures/fonts is missing");
 
     [Fact]
     public void Name_table_rewrite_keeps_the_file_valid()

@@ -316,14 +316,14 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
         catch (OperationCanceledException)
         {
             job.State = EncodeJobState.Cancelled;
-            TryDelete(job.Output);
+            FileSystem.TryDelete(job.Output);
         }
         catch (Exception ex)
         {
             job.State = EncodeJobState.Failed;
             job.Error = ex.Message;
             VqLog.Warn("encode", $"failed {job.Name}", ex);
-            TryDelete(job.Output);
+            FileSystem.TryDelete(job.Output);
         }
         finally
         {
@@ -342,21 +342,6 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
     private static string Tail(IReadOnlyList<string> log) =>
         string.Join(Environment.NewLine, log.Where(l => !l.StartsWith("frame=", StringComparison.Ordinal)).TakeLast(8));
 
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException)
-        {
-            // Still open by a dying process; the user can delete it.
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
-
     /// <summary>Two-pass logs: <c>prefix-0.log</c>, <c>prefix-0.log.mbtree</c>, <c>prefix.cutree</c>, ….</summary>
     private static void DeleteWithPrefix(string prefix)
     {
@@ -368,7 +353,7 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
 
         foreach (string file in Directory.EnumerateFiles(directory, Path.GetFileName(prefix) + "*"))
         {
-            TryDelete(file);
+            FileSystem.TryDelete(file);
         }
     }
 }

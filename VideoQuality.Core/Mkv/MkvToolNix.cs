@@ -270,14 +270,7 @@ public sealed partial class MkvToolNix
         }
         finally
         {
-            try
-            {
-                File.Delete(optionFile);
-            }
-            catch (IOException)
-            {
-                // Temp file; harmless if it lingers.
-            }
+            FileSystem.TryDelete(optionFile);
         }
     }
 

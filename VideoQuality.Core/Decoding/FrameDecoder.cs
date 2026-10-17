@@ -37,16 +37,12 @@ public sealed unsafe class FrameDecoder : IDisposable
     private SwsContext* _sws;
     private AVFrame* _frame;
     private AVPacket* _packet;
-    private int _swsWidth;
-    private int _swsHeight;
-    private int _swsFormat = -1;
     private int _lastIndex = -1;
     private int _keepFrom;
     private int _streamIndex;
     private AVRational _timeBase;
     private double _fps;
     private double _timeBaseSeconds;
-    private bool _draining;
     private bool _disposed;
 
     private FrameDecoder(string path)
@@ -57,79 +53,42 @@ public sealed unsafe class FrameDecoder : IDisposable
         AVFormatContext* format = null;
         try
         {
-            int result = ffmpeg.avformat_open_input(&format, path, null, null);
-            if (result < 0)
-            {
-                throw new InvalidOperationException($"Could not open '{path}': {FfmpegRuntime.ErrorText(result)}");
-            }
-
+            Check(ffmpeg.avformat_open_input(&format, path, null, null), "probe.error.open", path);
             _format = format;
-
-            result = ffmpeg.avformat_find_stream_info(_format, null);
-            if (result < 0)
-            {
-                throw new InvalidOperationException($"Could not read stream info for '{path}': {FfmpegRuntime.ErrorText(result)}");
-            }
+            Check(ffmpeg.avformat_find_stream_info(_format, null), "probe.error.streamInfo", path);
 
             _streamIndex = ffmpeg.av_find_best_stream(_format, AVMediaType.AVMEDIA_TYPE_VIDEO, -1, -1, null, 0);
-            if (_streamIndex < 0)
-            {
-                throw new InvalidOperationException($"'{path}' has no decodable video stream.");
-            }
+            Ensure(_streamIndex >= 0, "decoder.error.noVideo", path);
 
             AVStream* stream = _format->streams[_streamIndex];
             AVCodecParameters* codecParameters = stream->codecpar;
             AVCodec* codec = ffmpeg.avcodec_find_decoder(codecParameters->codec_id);
-            if (codec == null)
-            {
-                throw new InvalidOperationException(
-                    $"No decoder found for codec '{ffmpeg.avcodec_get_name(codecParameters->codec_id)}'.");
-            }
+            Ensure(codec != null, "decoder.error.noDecoder", ffmpeg.avcodec_get_name(codecParameters->codec_id));
 
             _codec = ffmpeg.avcodec_alloc_context3(codec);
-            if (_codec == null)
-            {
-                throw new OutOfMemoryException("avcodec_alloc_context3 failed.");
-            }
-
-            result = ffmpeg.avcodec_parameters_to_context(_codec, codecParameters);
-            if (result < 0)
-            {
-                throw new InvalidOperationException($"Could not copy codec parameters: {FfmpegRuntime.ErrorText(result)}");
-            }
-
+            Ensure(_codec != null, "decoder.error.native", "avcodec_alloc_context3");
+            Check(ffmpeg.avcodec_parameters_to_context(_codec, codecParameters), "decoder.error.call", "avcodec_parameters_to_context");
             _codec->pkt_timebase = stream->time_base;
             _codec->thread_count = 0; // let FFmpeg pick a thread count
-
-            result = ffmpeg.avcodec_open2(_codec, codec, null);
-            if (result < 0)
-            {
-                throw new InvalidOperationException($"Could not open decoder: {FfmpegRuntime.ErrorText(result)}");
-            }
+            Check(ffmpeg.avcodec_open2(_codec, codec, null), "decoder.error.call", "avcodec_open2");
 
             _frame = ffmpeg.av_frame_alloc();
             _packet = ffmpeg.av_packet_alloc();
-            if (_frame == null || _packet == null)
-            {
-                throw new OutOfMemoryException("Could not allocate FFmpeg frame or packet.");
-            }
+            Ensure(_frame != null && _packet != null, "decoder.error.native", "av_frame_alloc");
 
             _timeBase = stream->time_base;
             _timeBaseSeconds = ffmpeg.av_q2d(_timeBase);
-            _fps = ResolveFrameRate(stream);
+            _fps = ResolveFrameRate(stream->avg_frame_rate, stream->r_frame_rate);
 
-            double durationSeconds = _format->duration > 0
-                ? _format->duration / (double)ffmpeg.AV_TIME_BASE
-                : stream->duration > 0
-                    ? stream->duration * _timeBaseSeconds
-                    : 0;
+            // libavformat fills the container duration from the streams when it has none of its own.
+            double durationSeconds = Math.Max(0, _format->duration) / (double)ffmpeg.AV_TIME_BASE;
 
             int frameCount = stream->nb_frames > 0
                 ? (int)stream->nb_frames
                 : (int)Math.Round(durationSeconds * _fps);
 
-            string pixelFormat = ffmpeg.av_get_pix_fmt_name((AVPixelFormat)codecParameters->format)
-                ?? string.Empty;
+            // Interpolation turns an unknown format's null name into an empty string.
+            string pixelFormat = $"{ffmpeg.av_get_pix_fmt_name((AVPixelFormat)codecParameters->format)}";
 
             Info = new VideoInfo(
                 codecParameters->width,
@@ -140,7 +99,7 @@ public sealed unsafe class FrameDecoder : IDisposable
                 TimeSpan.FromSeconds(durationSeconds))
             {
                 PixelFormat = pixelFormat,
-                BitDepth = ResolveBitDepth(codecParameters, pixelFormat),
+                BitDepth = ResolveBitDepth(codecParameters->bits_per_raw_sample, pixelFormat),
                 ColorSpace = ResolveColorSpace(codecParameters->color_space),
                 ColorRange = ResolveColorRange(codecParameters->color_range),
                 IsLossy = IsLossyCodec(codecParameters->codec_id),
@@ -170,7 +129,7 @@ public sealed unsafe class FrameDecoder : IDisposable
         string fullPath = System.IO.Path.GetFullPath(path);
         if (!File.Exists(fullPath))
         {
-            throw new FileNotFoundException($"Video not found: {fullPath}", fullPath);
+            throw new FileNotFoundException(Localization.Loc.T("decoder.error.missing", fullPath), fullPath);
         }
 
         return new FrameDecoder(fullPath);
@@ -209,7 +168,9 @@ public sealed unsafe class FrameDecoder : IDisposable
                 keepFrom = Math.Max(0, frameIndex - _cacheCapacity / 2);
             }
 
-            if (_lastIndex < 0 || frameIndex < _lastIndex || frameIndex > _lastIndex + MaxForwardDecode)
+            // A fresh decoder is at the start: decode ahead unless the target is far. Seeking needs
+            // an index, which raw elementary streams (.h264/.hevc) do not have.
+            if (frameIndex < _lastIndex || frameIndex > _lastIndex + MaxForwardDecode)
             {
                 Seek(frameIndex);
             }
@@ -226,11 +187,29 @@ public sealed unsafe class FrameDecoder : IDisposable
         return (int)Math.Clamp(CacheBudgetBytes / frameBytes, MinCacheFrames, MaxCacheFrames);
     }
 
-    internal static int ResolveBitDepth(AVCodecParameters* parameters, string pixelFormat)
+    /// <summary>Throws <see cref="InvalidOperationException"/> with the text for <paramref name="key"/> unless <paramref name="ok"/>.</summary>
+    internal static void Ensure(bool ok, string key, params object?[] args)
     {
-        if (parameters->bits_per_raw_sample > 0)
+        if (!ok)
         {
-            return parameters->bits_per_raw_sample;
+            throw new InvalidOperationException(Localization.Loc.T(key, args));
+        }
+    }
+
+    /// <summary>Throws for a negative libav result, appending libav's description of the error.</summary>
+    internal static void Check(int result, string key, string subject)
+    {
+        if (result < 0)
+        {
+            throw new InvalidOperationException(Localization.Loc.T(key, subject, FfmpegRuntime.ErrorText(result)));
+        }
+    }
+
+    internal static int ResolveBitDepth(int bitsPerRawSample, string pixelFormat)
+    {
+        if (bitsPerRawSample > 0)
+        {
+            return bitsPerRawSample;
         }
 
         if (pixelFormat.Contains("p016", StringComparison.Ordinal))
@@ -285,18 +264,13 @@ public sealed unsafe class FrameDecoder : IDisposable
         AVCodecID.AV_CODEC_ID_PNG or
         AVCodecID.AV_CODEC_ID_QTRLE);
 
-    private static double ResolveFrameRate(AVStream* stream)
+    /// <summary>The average frame rate, else the real base rate, else 25.</summary>
+    internal static double ResolveFrameRate(AVRational average, AVRational real)
     {
-        double fps = 0;
-
-        if (stream->avg_frame_rate.den != 0 && stream->avg_frame_rate.num != 0)
+        double fps = average.den != 0 && average.num != 0 ? ffmpeg.av_q2d(average) : 0;
+        if (fps <= 0 && real.den != 0 && real.num != 0)
         {
-            fps = ffmpeg.av_q2d(stream->avg_frame_rate);
-        }
-
-        if (fps <= 0 && stream->r_frame_rate.den != 0 && stream->r_frame_rate.num != 0)
-        {
-            fps = ffmpeg.av_q2d(stream->r_frame_rate);
+            fps = ffmpeg.av_q2d(real);
         }
 
         return fps > 0 ? fps : 25.0;
@@ -306,24 +280,20 @@ public sealed unsafe class FrameDecoder : IDisposable
     {
         long target = (long)Math.Round(frameIndex / _fps / _timeBaseSeconds);
 
-        // Seek to the closest keyframe at or before the target, then walk forward.
-        int result = ffmpeg.avformat_seek_file(
-            _format,
-            _streamIndex,
-            long.MinValue,
-            target,
-            long.MaxValue,
-            AVSEEK_FLAG_BACKWARD);
-
-        if (result < 0)
-        {
-            // Not fatal for many containers: fall back to a plain seek request.
-            ffmpeg.avformat_seek_file(_format, _streamIndex, long.MinValue, target, long.MaxValue, 0);
-        }
+        // Seek to the closest keyframe at or before the target, then walk forward; some containers
+        // refuse a backward seek, which is not fatal: fall back to a plain seek request.
+        SeekWithFallback(flags => ffmpeg.avformat_seek_file(_format, _streamIndex, long.MinValue, target, long.MaxValue, flags));
 
         ffmpeg.avcodec_flush_buffers(_codec);
         _lastIndex = -1;
-        _draining = false;
+    }
+
+    internal static void SeekWithFallback(Func<int, int> seek)
+    {
+        if (seek(AVSEEK_FLAG_BACKWARD) < 0)
+        {
+            seek(0);
+        }
     }
 
     /// <summary>
@@ -364,40 +334,35 @@ public sealed unsafe class FrameDecoder : IDisposable
                 continue;
             }
 
+            // EOF once the flushed decoder is empty; any other error is thrown; otherwise it wants input.
             if (result == AVERROR_EOF)
             {
-                throw new EndOfStreamException($"Frame {targetIndex} is past the end of '{Path}'.");
+                throw new EndOfStreamException(Localization.Loc.T("decoder.error.pastEnd", targetIndex, Path));
             }
 
-            if (result != ffmpeg.AVERROR(ffmpeg.EAGAIN))
-            {
-                throw new InvalidOperationException($"avcodec_receive_frame failed: {FfmpegRuntime.ErrorText(result)}");
-            }
-
-            if (!SendNextPacket())
-            {
-                throw new EndOfStreamException($"Frame {targetIndex} is past the end of '{Path}'.");
-            }
+            CheckReceive(result);
+            SendNextPacket();
         }
     }
 
-    private bool SendNextPacket()
-    {
-        if (_draining)
-        {
-            return false;
-        }
+    /// <summary>avcodec_receive_frame's result when it returned no frame: EAGAIN is fine, anything else throws.</summary>
+    internal static void CheckReceive(int result) =>
+        Check(result == ffmpeg.AVERROR(ffmpeg.EAGAIN) ? 0 : result, "decoder.error.call", "avcodec_receive_frame");
 
+    /// <summary>
+    /// Feeds the next video packet; at the end of the file the flush packet, after which the decoder
+    /// returns its buffered frames and then EOF.
+    /// </summary>
+    private void SendNextPacket()
+    {
         while (true)
         {
             int result = ffmpeg.av_read_frame(_format, _packet);
 
             if (result < 0)
             {
-                // End of file: flush the decoder and let receive_frame drain any buffered frames.
-                _draining = true;
                 ffmpeg.avcodec_send_packet(_codec, null);
-                return true;
+                return;
             }
 
             if (_packet->stream_index != _streamIndex)
@@ -413,38 +378,17 @@ public sealed unsafe class FrameDecoder : IDisposable
                 ? AVDiscard.AVDISCARD_NONREF
                 : AVDiscard.AVDISCARD_DEFAULT;
 
+            // The decoder's output is drained before every send, so it always accepts the packet.
             result = ffmpeg.avcodec_send_packet(_codec, _packet);
             ffmpeg.av_packet_unref(_packet);
-
-            if (result == 0)
-            {
-                return true;
-            }
-
-            if (result == ffmpeg.AVERROR(ffmpeg.EAGAIN))
-            {
-                continue;
-            }
-
-            if (result == AVERROR_EOF)
-            {
-                _draining = true;
-                return false;
-            }
-
-            throw new InvalidOperationException($"avcodec_send_packet failed: {FfmpegRuntime.ErrorText(result)}");
+            Check(result, "decoder.error.call", "avcodec_send_packet");
+            return;
         }
     }
 
-    private int IndexFromPts(long pts)
-    {
-        if (pts == long.MinValue || _fps <= 0 || _timeBaseSeconds <= 0)
-        {
-            return _lastIndex + 1;
-        }
-
-        return (int)Math.Round(pts * _timeBaseSeconds * _fps);
-    }
+    /// <summary>Frame number of a timestamp; a frame without one follows the last.</summary>
+    private int IndexFromPts(long pts) =>
+        pts == long.MinValue ? _lastIndex + 1 : (int)Math.Round(pts * _timeBaseSeconds * _fps);
 
     private DecodedFrame ConvertFrame(AVFrame* frame)
     {
@@ -452,28 +396,13 @@ public sealed unsafe class FrameDecoder : IDisposable
         int height = frame->height;
         var format = (AVPixelFormat)frame->format;
 
-        if (_sws == null || _swsWidth != width || _swsHeight != height || _swsFormat != (int)format)
-        {
-            if (_sws != null)
-            {
-                ffmpeg.sws_freeContext(_sws);
-                _sws = null;
-            }
-
-            _sws = ffmpeg.sws_getContext(
-                width, height, format,
-                width, height, AVPixelFormat.AV_PIX_FMT_BGRA,
-                (int)SwsFlags.SWS_BILINEAR, null, null, null);
-
-            if (_sws == null)
-            {
-                throw new InvalidOperationException($"Could not create a BGRA scaler for {width}x{height} {format}.");
-            }
-
-            _swsWidth = width;
-            _swsHeight = height;
-            _swsFormat = (int)format;
-        }
+        // Reuses the scaler while size and format stay the same (they rarely change mid-stream).
+        _sws = ffmpeg.sws_getCachedContext(
+            _sws,
+            width, height, format,
+            width, height, AVPixelFormat.AV_PIX_FMT_BGRA,
+            (int)SwsFlags.SWS_BILINEAR, null, null, null);
+        Ensure(_sws != null, "decoder.error.scaler", width, height, format);
 
         int stride = width * 4;
 
@@ -494,10 +423,7 @@ public sealed unsafe class FrameDecoder : IDisposable
             var destinationStride = new int[4] { stride, 0, 0, 0 };
 
             int rows = ffmpeg.sws_scale(_sws, sourceData, sourceStride, 0, height, destinationData, destinationStride);
-            if (rows <= 0)
-            {
-                throw new InvalidOperationException("sws_scale did not convert the frame.");
-            }
+            Ensure(rows > 0, "decoder.error.native", "sws_scale");
         }
 
         return new DecodedFrame(width, height, stride, pixels, frame->best_effort_timestamp);
@@ -528,11 +454,8 @@ public sealed unsafe class FrameDecoder : IDisposable
                 return;
             }
 
-            if (_sws != null)
-            {
-                ffmpeg.sws_freeContext(_sws);
-                _sws = null;
-            }
+            ffmpeg.sws_freeContext(_sws); // accepts null
+            _sws = null;
 
             if (_frame != null)
             {

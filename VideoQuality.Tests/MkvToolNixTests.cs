@@ -66,12 +66,9 @@ public class MkvToolNixTests
     [Fact]
     public async Task Mux_then_extract_round_trips_subtitles_and_fonts()
     {
-        string? video = Environment.GetEnvironmentVariable("VQ_TEST_VIDEO");
-        Assert.SkipWhen(string.IsNullOrWhiteSpace(video) || !File.Exists(video), "set VQ_TEST_VIDEO to a local clip");
-        MkvToolNix? tools = await MkvToolNix.LocateAsync();
-        Assert.SkipWhen(tools is null, "mkvtoolnix is not installed");
-        const string Font = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
-        Assert.SkipUnless(File.Exists(Font), "DejaVu not installed");
+        string video = await TestMedia.ClipAsync();
+        MkvToolNix tools = (await MkvToolNix.LocateAsync())!;
+        string Font = Path.Combine(AppContext.BaseDirectory, "Fixtures", "fonts", "DejaVuSans.ttf");
 
         string root = Directory.CreateTempSubdirectory("vq-mkv-").FullName;
         try
@@ -80,9 +77,9 @@ public class MkvToolNixTests
             await File.WriteAllTextAsync(ass, "[Script Info]\nScriptType: v4.00+\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,你好\n");
             string output = Path.Combine(root, "out 输出.mkv");
 
-            var plan = new MuxPlan(output, [new MuxInput(video!), new MuxInput(ass, [new MuxTrack(0, "zh-Hans", "简体", Default: true)])],
+            var plan = new MuxPlan(output, [new MuxInput(video), new MuxInput(ass, [new MuxTrack(0, "zh-Hans", "简体", Default: true)])],
                 Attachments: [Font], Title: "Round trip");
-            MkvRunResult mux = await tools!.MuxAsync(MkvToolNix.BuildMuxArguments(plan, new Dictionary<string, MkvFileInfo>
+            MkvRunResult mux = await tools.MuxAsync(MkvToolNix.BuildMuxArguments(plan, new Dictionary<string, MkvFileInfo>
             {
                 [ass] = await tools.IdentifyAsync(ass),
             }), null, default);

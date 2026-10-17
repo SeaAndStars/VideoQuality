@@ -76,30 +76,12 @@ public sealed unsafe class PacketIndex
 
         try
         {
-            int result = ffmpeg.avformat_open_input(&format, path, null, null);
-            if (result < 0)
-            {
-                throw new InvalidOperationException($"Could not open '{path}': {FfmpegRuntime.ErrorText(result)}");
-            }
-
-            result = ffmpeg.avformat_find_stream_info(format, null);
-            if (result < 0)
-            {
-                throw new InvalidOperationException($"Could not read stream info for '{path}': {FfmpegRuntime.ErrorText(result)}");
-            }
-
+            FrameDecoder.Check(ffmpeg.avformat_open_input(&format, path, null, null), "probe.error.open", path);
+            FrameDecoder.Check(ffmpeg.avformat_find_stream_info(format, null), "probe.error.streamInfo", path);
             int streamIndex = ffmpeg.av_find_best_stream(format, AVMediaType.AVMEDIA_TYPE_VIDEO, -1, -1, null, 0);
-            if (streamIndex < 0)
-            {
-                throw new InvalidOperationException($"'{path}' has no video stream.");
-            }
-
-            AVStream* stream = format->streams[streamIndex];
+            FrameDecoder.Ensure(streamIndex >= 0, "probe.error.noVideo", path);
             packet = ffmpeg.av_packet_alloc();
-            if (packet == null)
-            {
-                throw new OutOfMemoryException("av_packet_alloc failed.");
-            }
+            FrameDecoder.Ensure(packet != null, "decoder.error.native", "av_packet_alloc");
 
             var packets = new List<VideoPacket>();
             long totalBytes = 0;
@@ -116,11 +98,8 @@ public sealed unsafe class PacketIndex
                 ffmpeg.av_packet_unref(packet);
             }
 
-            double duration = format->duration > 0
-                ? format->duration / (double)ffmpeg.AV_TIME_BASE
-                : stream->duration > 0
-                    ? stream->duration * ffmpeg.av_q2d(stream->time_base)
-                    : 0;
+            // libavformat fills the container duration from the streams when it has none of its own.
+            double duration = Math.Max(0, format->duration) / (double)ffmpeg.AV_TIME_BASE;
 
             return new PacketIndex(packets, totalBytes, duration);
         }

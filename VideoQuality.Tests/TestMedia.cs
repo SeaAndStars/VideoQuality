@@ -32,6 +32,67 @@ public static class TestMedia
         path,
     ]);
 
+    private static string[] Source(int seconds, string size = "320x180") =>
+        ["-f", "lavfi", "-i", $"testsrc2=size={size}:rate=24000/1001:duration={seconds}"];
+
+    /// <summary>HEVC 10-bit with BT.709 limited-range tags (MKV).</summary>
+    public static Task<string> Hevc10Async() => MakeAsync("hevc10.mkv", path =>
+        [.. Source(2), "-c:v", "libx265", "-preset", "ultrafast", "-pix_fmt", "yuv420p10le", "-x265-params", "log-level=error",
+         "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-color_range", "tv", path]);
+
+    /// <summary>Lossless FFV1, full range, BT.601 tags (MKV).</summary>
+    public static Task<string> LosslessAsync() => MakeAsync("ffv1.mkv", path =>
+        [.. Source(1), "-c:v", "ffv1", "-pix_fmt", "yuv420p", "-colorspace", "bt470bg", "-color_range", "pc", path]);
+
+    /// <summary>A raw H.264 elementary stream: no container, no timestamps, no duration.</summary>
+    public static Task<string> RawH264Async() => MakeAsync("raw.h264", path =>
+        [.. Source(1), "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-bsf:v", "h264_mp4toannexb", "-f", "h264", path]);
+
+    /// <summary>H.264 in MP4 (the container states the frame count).</summary>
+    public static Task<string> Mp4Async() => MakeAsync("clip.mp4", path =>
+        [.. Source(2), "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-colorspace", "smpte170m", path]);
+
+    /// <summary>AV1 (decoded by dav1d), BT.2020 tags (MKV).</summary>
+    public static Task<string> Av1Async() => MakeAsync("av1.mkv", path =>
+        [.. Source(1), "-c:v", "libsvtav1", "-preset", "12", "-pix_fmt", "yuv420p", "-colorspace", "bt2020nc", path]);
+
+    /// <summary>15 seconds (359 frames) with a keyframe every 48 frames, for long seeks.</summary>
+    public static Task<string> LongAsync() => MakeAsync("long.mkv", path =>
+        [.. Source(15), "-c:v", "libx264", "-preset", "ultrafast", "-g", "48", "-pix_fmt", "yuv420p", path]);
+
+    /// <summary>
+    /// Video, audio, a forced Chinese ASS track named JPSC and a font attachment (MKV): every kind of
+    /// Matroska stream a release has.
+    /// </summary>
+    public static Task<string> RichAsync() => MakeAsync("rich.mkv", path =>
+    [
+        .. Source(1), "-f", "lavfi", "-i", "sine=duration=1", "-i", Script(Root, "rich.ass"),
+        "-map", "0:v", "-map", "1:a", "-map", "2:s",
+        "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "flac", "-c:s", "copy",
+        "-metadata:s:s:0", "language=chi", "-metadata:s:s:0", "title=JPSC", "-disposition:s:0", "default+forced",
+        "-attach", Path.Combine(AppContext.BaseDirectory, "Fixtures", "fonts", "DejaVuSans.ttf"), "-metadata:s:t", "mimetype=font/ttf",
+        "-metadata", "title=Rich", path,
+    ]);
+
+    /// <summary>MP3 with cover art (an attached picture: a video stream that is not video).</summary>
+    public static Task<string> CoverAsync() => MakeAsync("cover.mp3", path =>
+    [
+        "-f", "lavfi", "-i", "sine=duration=1", "-f", "lavfi", "-i", "color=c=red:s=64x64:d=1",
+        "-map", "0:a", "-map", "1:v", "-frames:v", "1", "-c:a", "libmp3lame", "-c:v", "png", "-disposition:v", "attached_pic", path,
+    ]);
+
+    /// <summary>MPEG-TS with a video and a raw data stream.</summary>
+    public static Task<string> DataStreamAsync() => MakeAsync("data.ts", path =>
+    {
+        string data = Path.Combine(Root, "data.bin");
+        File.WriteAllBytes(data, Enumerable.Range(0, 2000).Select(i => (byte)i).ToArray());
+        return [.. Source(1), "-f", "data", "-i", data, "-map", "0:v", "-map", "1:d", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:d", "copy", path];
+    });
+
+    /// <summary>Audio only (no video stream).</summary>
+    public static Task<string> AudioOnlyAsync() => MakeAsync("audio.mka", path =>
+        ["-f", "lavfi", "-i", "sine=duration=1", "-c:a", "flac", path]);
+
     /// <summary>An ASS script that draws "TEST" big and white across the whole 2-second clip.</summary>
     public static string Script(string directory, string name = "clip.ass")
     {

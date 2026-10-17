@@ -197,17 +197,8 @@ public static unsafe class MediaInfoReader
         AVFormatContext* format = null;
         try
         {
-            int result = ffmpeg.avformat_open_input(&format, path, null, null);
-            if (result < 0)
-            {
-                throw new InvalidOperationException(Loc.T("probe.error.open", path, FfmpegRuntime.ErrorText(result)));
-            }
-
-            result = ffmpeg.avformat_find_stream_info(format, null);
-            if (result < 0)
-            {
-                throw new InvalidOperationException(Loc.T("probe.error.streamInfo", path, FfmpegRuntime.ErrorText(result)));
-            }
+            FrameDecoder.Check(ffmpeg.avformat_open_input(&format, path, null, null), "probe.error.open", path);
+            FrameDecoder.Check(ffmpeg.avformat_find_stream_info(format, null), "probe.error.streamInfo", path);
 
             var streams = new List<MediaStream>((int)format->nb_streams);
             for (int i = 0; i < format->nb_streams; i++)
@@ -287,7 +278,7 @@ public static unsafe class MediaInfoReader
             Width = p->width,
             Height = p->height,
             PixelFormat = pixelFormat,
-            BitDepth = kind == StreamKind.Video ? FrameDecoder.ResolveBitDepth(p, pixelFormat) : 0,
+            BitDepth = kind == StreamKind.Video ? FrameDecoder.ResolveBitDepth(p->bits_per_raw_sample, pixelFormat) : 0,
             FrameRate = kind == StreamKind.Video && rate.den != 0 ? ffmpeg.av_q2d(rate) : 0,
             FrameRateText = kind == StreamKind.Video && rate.den != 0 ? $"{rate.num}/{rate.den}" : string.Empty,
             ColorPrimaries = kind == StreamKind.Video ? Text(ffmpeg.av_color_primaries_name(p->color_primaries)) : string.Empty,
@@ -321,7 +312,8 @@ public static unsafe class MediaInfoReader
 
     private static string Tag(AVDictionary* dictionary, string key) => Tags(dictionary).GetValueOrDefault(key, string.Empty);
 
-    private static string Text(byte* value) => value == null ? string.Empty : System.Runtime.InteropServices.Marshal.PtrToStringUTF8((IntPtr)value)!;
+    // Interpolation turns a null native string into an empty one.
+    private static string Text(byte* value) => $"{System.Runtime.InteropServices.Marshal.PtrToStringUTF8((IntPtr)value)}";
 
-    private static string Text(string? value) => value ?? string.Empty;
+    private static string Text(string? value) => $"{value}";
 }

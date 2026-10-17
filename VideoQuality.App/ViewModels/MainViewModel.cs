@@ -480,7 +480,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex)
         {
-            return "unavailable: " + ex.Message;
+            return Loc.T("capabilities.unavailable", ex.Message);
         }
     }
 

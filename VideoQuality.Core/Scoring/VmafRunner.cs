@@ -56,6 +56,25 @@ public static partial class VmafRunner
 {
     private static readonly ConcurrentDictionary<string, VmafCapabilities> CapabilityCache = new(StringComparer.Ordinal);
 
+    /// <summary>How long a probe waits for ffmpeg (a fresh copy can sit behind an antivirus scan).</summary>
+    internal static TimeSpan ProbeTimeout { get; set; } = TimeSpan.FromSeconds(60);
+
+    /// <summary>Where drivers install nvidia-smi when it is not on PATH (WSL keeps it in /usr/lib/wsl/lib).</summary>
+    internal static IReadOnlyList<string> NvidiaSmiPaths { get; set; } = OperatingSystem.IsWindows()
+        ? [Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "nvidia-smi.exe")]
+        : ["/usr/bin/nvidia-smi", "/usr/lib/wsl/lib/nvidia-smi", "/opt/bin/nvidia-smi"];
+
+    /// <summary>Where custom VMAF-enabled ffmpeg builds usually live.</summary>
+    internal static IReadOnlyList<string> WellKnownFfmpegPaths { get; set; } =
+    [
+        OperatingSystem.IsWindows() ? @"C:\ffmpeg\bin\ffmpeg.exe" : "/opt/ffmpeg/bin/ffmpeg",
+        "/usr/local/opt/ffmpeg/bin/ffmpeg",
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "opt", "ffmpeg", "bin", "ffmpeg"),
+    ];
+
+    /// <summary>Forgets probed capabilities (tests; or after the user replaces ffmpeg).</summary>
+    internal static void ClearCapabilityCache() => CapabilityCache.Clear();
+
     public static async Task<VmafReport> RunAsync(
         string reference,
         string distorted,
@@ -132,7 +151,7 @@ public static partial class VmafRunner
     {
         string logPath = Path.Combine(Path.GetTempPath(), $"vq_vmaf_{Guid.NewGuid():N}.json");
         var arguments = BuildArguments(options, backend, logPath, reference, distorted);
-        string commandLine = FormatCommandLine(options.FfmpegPath, arguments);
+        string commandLine = Encode.FfmpegCommandBuilder.FormatCommandLine(options.FfmpegPath, arguments);
 
         VqLog.Info("vmaf", $"command {commandLine}");
 
@@ -143,8 +162,7 @@ public static partial class VmafRunner
 
             if (!File.Exists(logPath))
             {
-                throw new InvalidOperationException(
-                    $"ffmpeg exited successfully but did not write a VMAF log to '{logPath}'." + Environment.NewLine + commandLine);
+                throw new InvalidOperationException(Loc.T("vmaf.error.noLog", logPath) + Environment.NewLine + commandLine);
             }
 
             string json = await File.ReadAllTextAsync(logPath, cancellationToken).ConfigureAwait(false);
@@ -172,7 +190,7 @@ public static partial class VmafRunner
         {
             if (!options.KeepLog)
             {
-                TryDelete(logPath);
+                FileSystem.TryDelete(logPath);
             }
         }
     }
@@ -274,11 +292,10 @@ public static partial class VmafRunner
             yield return Path.Combine(root, "bin", OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg");
         }
 
-        yield return OperatingSystem.IsWindows() ? @"C:\ffmpeg\bin\ffmpeg.exe" : "/opt/ffmpeg/bin/ffmpeg";
-        yield return "/usr/local/opt/ffmpeg/bin/ffmpeg";
-        yield return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".local", "opt", "ffmpeg", "bin", "ffmpeg");
+        foreach (string path in WellKnownFfmpegPaths)
+        {
+            yield return path;
+        }
     }
 
     /// <summary>Checks the ffmpeg build for libvmaf / libvmaf_cuda and looks for an NVIDIA GPU.</summary>
@@ -295,7 +312,7 @@ public static partial class VmafRunner
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         // Generous: the first run of a freshly unzipped ffmpeg can sit behind an antivirus scan.
-        timeout.CancelAfter(TimeSpan.FromSeconds(60));
+        timeout.CancelAfter(ProbeTimeout);
 
         VmafCapabilities capabilities;
         try
@@ -317,11 +334,11 @@ public static partial class VmafRunner
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             // Our own timeout, not the caller's cancellation. Not cached, so a later probe retries.
-            return new VmafCapabilities(false, false, false, "unavailable: ffmpeg did not answer within 60 s");
+            return new VmafCapabilities(false, false, false, Loc.T("capabilities.timeout", ProbeTimeout.TotalSeconds));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            capabilities = new VmafCapabilities(false, false, false, $"unavailable: {ex.Message}");
+            capabilities = new VmafCapabilities(false, false, false, Loc.T("capabilities.unavailable", ex.Message));
         }
 
         CapabilityCache[ffmpegPath] = capabilities;
@@ -521,8 +538,8 @@ public static partial class VmafRunner
         if (result.ExitCode != 0)
         {
             string tail = Tail(result.Error, 4000);
-            throw new InvalidOperationException(
-                $"ffmpeg exited with code {result.ExitCode}.{Environment.NewLine}{tail}{Environment.NewLine}{FormatCommandLine(ffmpegPath, arguments)}");
+            throw new InvalidOperationException(Loc.T("encode.error.exit", result.ExitCode, tail) + Environment.NewLine +
+                Encode.FfmpegCommandBuilder.FormatCommandLine(ffmpegPath, arguments));
         }
     }
 
@@ -557,24 +574,8 @@ public static partial class VmafRunner
         return false;
     }
 
-    private static IEnumerable<string> NvidiaSmiCandidates()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            yield return "nvidia-smi.exe";
-            yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "nvidia-smi.exe");
-            yield break;
-        }
-
-        yield return "nvidia-smi";
-        foreach (string path in (string[])["/usr/bin/nvidia-smi", "/usr/lib/wsl/lib/nvidia-smi", "/opt/bin/nvidia-smi"])
-        {
-            if (File.Exists(path))
-            {
-                yield return path;
-            }
-        }
-    }
+    private static IEnumerable<string> NvidiaSmiCandidates() =>
+        NvidiaSmiPaths.Where(File.Exists).Prepend(OperatingSystem.IsWindows() ? "nvidia-smi.exe" : "nvidia-smi");
 
     private static bool HasLibvmaf(string filters) =>
         Regex.IsMatch(filters, @"(^|\s)libvmaf(\s|$)", RegexOptions.Multiline, Regex.InfiniteMatchTimeout);
@@ -589,7 +590,7 @@ public static partial class VmafRunner
         if (!document.RootElement.TryGetProperty("frames", out JsonElement framesElement) ||
             framesElement.ValueKind != JsonValueKind.Array)
         {
-            throw new InvalidDataException("The VMAF log has no 'frames' array: " + Tail(json, 400));
+            throw new InvalidDataException(Loc.T("vmaf.error.noFrames", Tail(json, 400)));
         }
 
         var frames = new List<VmafFrame>(framesElement.GetArrayLength());
@@ -597,8 +598,8 @@ public static partial class VmafRunner
 
         foreach (JsonElement frame in framesElement.EnumerateArray())
         {
-            int frameNumber = frame.TryGetProperty("frameNum", out JsonElement number) && number.TryGetInt32(out int parsed)
-                ? parsed
+            int frameNumber = frame.TryGetProperty("frameNum", out JsonElement number) && Number(number) is double parsed
+                ? (int)parsed
                 : fallbackIndex;
 
             if (frame.TryGetProperty("metrics", out JsonElement metrics) && metrics.ValueKind == JsonValueKind.Object)
@@ -615,7 +616,7 @@ public static partial class VmafRunner
 
         if (frames.Count == 0)
         {
-            throw new InvalidDataException("The VMAF log contained no 'vmaf' metrics: " + Tail(json, 400));
+            throw new InvalidDataException(Loc.T("vmaf.error.noMetrics", Tail(json, 400)));
         }
 
         return frames;
@@ -623,64 +624,20 @@ public static partial class VmafRunner
 
     private static double ReadVmaf(JsonElement metrics)
     {
-        if (metrics.TryGetProperty("vmaf", out JsonElement direct) && direct.TryGetDouble(out double value))
-        {
-            return value;
-        }
-
-        foreach (JsonProperty property in metrics.EnumerateObject())
-        {
-            if (property.Name.StartsWith("vmaf", StringComparison.OrdinalIgnoreCase) &&
-                property.Value.TryGetDouble(out value))
-            {
-                return value;
-            }
-        }
-
-        foreach (JsonProperty property in metrics.EnumerateObject())
-        {
-            if (property.Value.TryGetDouble(out value))
-            {
-                return value;
-            }
-        }
-
-        return double.NaN;
+        // "vmaf", else the first "vmaf…" score (e.g. vmaf_neg), else the first number at all.
+        List<JsonProperty> numbers = [.. metrics.EnumerateObject().Where(p => p.Value.ValueKind == JsonValueKind.Number)];
+        JsonProperty[] ordered =
+        [
+            .. numbers.Where(p => p.Name == "vmaf"),
+            .. numbers.Where(p => p.Name.StartsWith("vmaf", StringComparison.OrdinalIgnoreCase)),
+            .. numbers,
+        ];
+        return ordered.Length > 0 ? ordered[0].Value.GetDouble() : double.NaN;
     }
 
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
-        catch
-        {
-            // Best effort cleanup only.
-        }
-    }
-
-    private static string FormatCommandLine(string executable, IReadOnlyList<string> arguments)
-    {
-        var sb = new StringBuilder(executable);
-        foreach (string argument in arguments)
-        {
-            sb.Append(' ');
-            if (argument.Length == 0 || argument.Any(char.IsWhiteSpace) || argument.IndexOfAny([';', '&', '|', '<', '>', '"', '\'']) >= 0)
-            {
-                sb.Append('"').Append(argument.Replace("\"", "\\\"")).Append('"');
-            }
-            else
-            {
-                sb.Append(argument);
-            }
-        }
-
-        return sb.ToString();
-    }
+    /// <summary>The value of a JSON number; null for strings and everything else.</summary>
+    private static double? Number(JsonElement element) =>
+        element.ValueKind == JsonValueKind.Number ? element.GetDouble() : null;
 
     private static string Tail(string text, int maxLength) =>
         text.Length <= maxLength ? text : text[^maxLength..];

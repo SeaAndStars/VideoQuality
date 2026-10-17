@@ -23,38 +23,22 @@ public static unsafe class MediaProbe
         AVFormatContext* format = null;
         try
         {
-            int result = ffmpeg.avformat_open_input(&format, path, null, null);
-            if (result < 0)
-            {
-                throw new InvalidOperationException(Loc.T("probe.error.open", path, FfmpegRuntime.ErrorText(result)));
-            }
-
-            result = ffmpeg.avformat_find_stream_info(format, null);
-            if (result < 0)
-            {
-                throw new InvalidOperationException(Loc.T("probe.error.streamInfo", path, FfmpegRuntime.ErrorText(result)));
-            }
-
+            FrameDecoder.Check(ffmpeg.avformat_open_input(&format, path, null, null), "probe.error.open", path);
+            FrameDecoder.Check(ffmpeg.avformat_find_stream_info(format, null), "probe.error.streamInfo", path);
             int streamIndex = ffmpeg.av_find_best_stream(format, AVMediaType.AVMEDIA_TYPE_VIDEO, -1, -1, null, 0);
-            if (streamIndex < 0)
-            {
-                throw new InvalidOperationException(Loc.T("probe.error.noVideo", path));
-            }
+            FrameDecoder.Ensure(streamIndex >= 0, "probe.error.noVideo", path);
 
             AVStream* stream = format->streams[streamIndex];
             AVCodecParameters* parameters = stream->codecpar;
-            AVRational rate = stream->avg_frame_rate.num != 0 && stream->avg_frame_rate.den != 0
-                ? stream->avg_frame_rate
-                : stream->r_frame_rate;
-            string pixelFormat = ffmpeg.av_get_pix_fmt_name((AVPixelFormat)parameters->format) ?? string.Empty;
+            string pixelFormat = $"{ffmpeg.av_get_pix_fmt_name((AVPixelFormat)parameters->format)}";
 
             return new MediaProbeResult(
                 parameters->width,
                 parameters->height,
                 pixelFormat,
-                FrameDecoder.ResolveBitDepth(parameters, pixelFormat))
+                FrameDecoder.ResolveBitDepth(parameters->bits_per_raw_sample, pixelFormat))
             {
-                FrameRate = rate.den != 0 ? ffmpeg.av_q2d(rate) : 0,
+                FrameRate = FrameDecoder.ResolveFrameRate(stream->avg_frame_rate, stream->r_frame_rate),
             };
         }
         finally

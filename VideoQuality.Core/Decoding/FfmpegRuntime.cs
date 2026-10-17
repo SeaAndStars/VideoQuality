@@ -1,6 +1,8 @@
 using System.Runtime.InteropServices;
-using VideoQuality.Core.Diagnostics;
 using FFmpeg.AutoGen;
+using VideoQuality.Core.Diagnostics;
+using VideoQuality.Core.Localization;
+using VideoQuality.Core.Tools;
 
 namespace VideoQuality.Core.Decoding;
 
@@ -28,11 +30,6 @@ public static class FfmpegRuntime
 
     public static void Initialize()
     {
-        if (_initialized)
-        {
-            return;
-        }
-
         lock (Gate)
         {
             if (_initialized)
@@ -40,51 +37,15 @@ public static class FfmpegRuntime
                 return;
             }
 
-            string? directory = FindLibraryDirectory();
-            if (directory is not null)
-            {
-                ffmpeg.RootPath = directory;
-                LibraryDirectory = directory;
-
-                // The bindings load avcodec/avutil/… by full path, but Windows resolves *their*
-                // imports (libdav1d.dll, libvmaf.dll, libwinpthread-1.dll) only from the app
-                // directory, system directories and PATH. Add the FFmpeg directory to that search.
-                if (OperatingSystem.IsWindows() && !SetDllDirectory(directory))
-                {
-                    VqLog.Warn("libav", $"SetDllDirectory({directory}) failed: {Marshal.GetLastPInvokeError()}");
-                }
-            }
-
-            VqLog.Info("libav", $"loading from {LibraryDirectory ?? "(system search path)"}");
+            string? directory = FindLibraryDirectory(Candidates(Environment.GetEnvironmentVariable));
+            LibraryDirectory = directory;
+            UseDirectory(directory, path => ffmpeg.RootPath = path, OperatingSystem.IsWindows() ? SetDllDirectory : null);
+            VqLog.Info("libav", $"loading from {Describe(directory)}");
 
             // Fail loudly on an ABI mismatch: bindings for one major loading another can corrupt
-            // memory silently. A missing dependency DLL surfaces here as NotSupportedException.
-            int loadedMajor;
-            try
-            {
-                loadedMajor = (int)(ffmpeg.avcodec_version() >> 16);
-            }
-            catch (NotSupportedException ex)
-            {
-                string message =
-                    $"Could not load libavcodec {ExpectedAvcodecMajor} from {LibraryDirectory ?? "(system search path)"}. " +
-                    "The library or one of its dependencies is missing; set FFMPEG_LIB_PATH to a complete FFmpeg build.";
-                VqLog.Error("libav", message, ex);
-                throw new InvalidOperationException(message, ex);
-            }
-            if (loadedMajor != ExpectedAvcodecMajor)
-            {
-                string message =
-                    $"FFmpeg binding mismatch: FFmpeg.AutoGen expects libavcodec {ExpectedAvcodecMajor}, " +
-                    $"but {loadedMajor} was loaded from {LibraryDirectory ?? "(system search path)"}. " +
-                    "Point FFMPEG_LIB_PATH at a build with the matching soname, or update the bindings.";
-
-                VqLog.Error("libav", message);
-                throw new InvalidOperationException(message);
-            }
-
-            LoadedAvcodecMajor = loadedMajor;
-            VqLog.Info("libav", $"loaded libavcodec {loadedMajor} from {LibraryDirectory ?? "(system search path)"}");
+            // memory silently. A missing dependency DLL surfaces as NotSupportedException.
+            LoadedAvcodecMajor = ValidateLoaded(() => (int)(ffmpeg.avcodec_version() >> 16), directory);
+            VqLog.Info("libav", $"loaded libavcodec {LoadedAvcodecMajor} from {Describe(directory)}");
 
             // Route libav's own warnings/errors into the application log; the viewer decodes
             // in-process, where stderr would otherwise be invisible.
@@ -93,6 +54,53 @@ public static class FfmpegRuntime
             _initialized = true;
         }
     }
+
+    /// <summary>
+    /// Points the bindings at <paramref name="directory"/>. On Windows the bindings load
+    /// avcodec/avutil/… by full path, but Windows resolves *their* imports (libdav1d.dll, libvmaf.dll,
+    /// libwinpthread-1.dll) only from the app directory, system directories and PATH, so the FFmpeg
+    /// directory is added to that search with <paramref name="setDllDirectory"/>.
+    /// </summary>
+    internal static void UseDirectory(string? directory, Action<string> setRoot, Func<string, bool>? setDllDirectory)
+    {
+        if (directory is null)
+        {
+            return;
+        }
+
+        setRoot(directory);
+        if (setDllDirectory is not null && !setDllDirectory(directory))
+        {
+            VqLog.Warn("libav", $"SetDllDirectory({directory}) failed: {Marshal.GetLastPInvokeError()}");
+        }
+    }
+
+    /// <summary>The libavcodec major <paramref name="loadMajor"/> reports, or a clear error.</summary>
+    internal static int ValidateLoaded(Func<int> loadMajor, string? directory)
+    {
+        int major;
+        try
+        {
+            major = loadMajor();
+        }
+        catch (NotSupportedException ex)
+        {
+            string message = Loc.T("libav.error.load", ExpectedAvcodecMajor, Describe(directory));
+            VqLog.Error("libav", message, ex);
+            throw new InvalidOperationException(message, ex);
+        }
+
+        if (major != ExpectedAvcodecMajor)
+        {
+            string message = Loc.T("libav.error.mismatch", ExpectedAvcodecMajor, major, Describe(directory));
+            VqLog.Error("libav", message);
+            throw new InvalidOperationException(message);
+        }
+
+        return major;
+    }
+
+    internal static string Describe(string? directory) => directory ?? Loc.T("libav.systemPath");
 
     /// <summary>Installs the libav log bridge. Safe to call more than once.</summary>
     public static unsafe void InstallAvLogCallback()
@@ -109,39 +117,39 @@ public static class FfmpegRuntime
 
     private static unsafe void OnAvLog(void* avcl, int level, string format, byte* vl)
     {
-        try
+        // Levels are multiples of 8 plus optional print flags; mask the flags off. Every message
+        // reaches the callback, so the level filter is ours.
+        int severity = level & 0xF8;
+        if (severity > ffmpeg.AV_LOG_WARNING)
         {
-            // Levels are multiples of 8 plus optional print flags; mask the flags off.
-            int severity = level & 0xF8;
-            if (severity > ffmpeg.AV_LOG_WARNING)
-            {
-                return;
-            }
-
-            const int BufferSize = 1024;
-            byte* buffer = stackalloc byte[BufferSize];
-            int printPrefix = 1;
-            ffmpeg.av_log_format_line(avcl, level, format, vl, buffer, BufferSize, &printPrefix);
-
-            // libav formats UTF-8; the ANSI decoder garbled non-ASCII file names on Windows.
-            string message = Marshal.PtrToStringUTF8((IntPtr)buffer)?.Trim() ?? string.Empty;
-            if (message.Length == 0 || IsNoise(message))
-            {
-                return;
-            }
-
-            if (severity <= ffmpeg.AV_LOG_ERROR)
-            {
-                VqLog.Error("libav", message);
-            }
-            else
-            {
-                VqLog.Warn("libav", message);
-            }
+            return;
         }
-        catch
+
+        const int BufferSize = 1024;
+        byte* buffer = stackalloc byte[BufferSize];
+        int printPrefix = 1;
+        ffmpeg.av_log_format_line(avcl, level, format, vl, buffer, BufferSize, &printPrefix);
+
+        // libav formats UTF-8; the ANSI decoder garbled non-ASCII file names on Windows.
+        WriteLogLine(severity, Marshal.PtrToStringUTF8((IntPtr)buffer));
+    }
+
+    /// <summary>Writes one libav log line (warnings and errors only; empty lines and known noise are dropped).</summary>
+    internal static void WriteLogLine(int severity, string? text)
+    {
+        string message = (text ?? string.Empty).Trim();
+        if (message.Length == 0 || IsNoise(message))
         {
-            // A logger must never break decoding.
+            return;
+        }
+
+        if (severity <= ffmpeg.AV_LOG_ERROR)
+        {
+            VqLog.Error("libav", message);
+        }
+        else
+        {
+            VqLog.Warn("libav", message);
         }
     }
 
@@ -157,7 +165,7 @@ public static class FfmpegRuntime
     public static string Describe()
     {
         Initialize();
-        return $"{LibraryDirectory ?? "(system search path)"} (avcodec {ffmpeg.avcodec_version()})";
+        return $"{Describe(LibraryDirectory)} (avcodec {ffmpeg.avcodec_version()})";
     }
 
     /// <summary>Human-readable text for a negative FFmpeg return code.</summary>
@@ -166,96 +174,57 @@ public static class FfmpegRuntime
         const int BufferSize = 1024;
         byte* buffer = stackalloc byte[BufferSize];
         ffmpeg.av_strerror(error, buffer, BufferSize);
-        return Marshal.PtrToStringAnsi((IntPtr)buffer) ?? $"FFmpeg error {error}";
+        return Marshal.PtrToStringUTF8((IntPtr)buffer)!;
     }
 
     [DllImport("kernel32", CharSet = CharSet.Unicode, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetDllDirectory(string path);
 
-    private static IEnumerable<string> Candidates()
+    /// <summary>Where to look for the libraries, most specific first.</summary>
+    internal static IEnumerable<string> Candidates(Func<string, string?> environment)
     {
-        yield return Environment.GetEnvironmentVariable("FFMPEG_LIB_PATH") ?? string.Empty;
+        yield return environment("FFMPEG_LIB_PATH") ?? string.Empty;
 
-        string root = Environment.GetEnvironmentVariable("FFMPEG_ROOT") ?? string.Empty;
-        yield return root;
-        if (root.Length > 0)
+        // Windows builds keep the DLLs next to ffmpeg.exe in bin\; Linux uses lib/.
+        string root = environment("FFMPEG_ROOT") ?? string.Empty;
+        foreach (string folder in root.Length > 0 ? (string[])[root, Path.Combine(root, "bin"), Path.Combine(root, "lib")] : [])
         {
-            // Windows builds keep the DLLs next to ffmpeg.exe in bin\; Linux uses lib/.
-            yield return Path.Combine(root, "bin");
-            yield return Path.Combine(root, "lib");
+            yield return folder;
         }
 
         // The ffmpeg executable the user pointed at usually has its DLLs beside it on Windows.
-        if (Path.GetDirectoryName(Environment.GetEnvironmentVariable("VQ_FFMPEG") ?? string.Empty) is { Length: > 0 } ffmpegDirectory)
-        {
-            yield return ffmpegDirectory;
-        }
+        yield return Path.GetDirectoryName(environment("VQ_FFMPEG") ?? string.Empty) ?? string.Empty;
 
         // A release bundles ffmpeg and its libraries in ffmpeg/ beside the app.
         yield return AppPaths.BundledFfmpegDirectory;
         yield return AppContext.BaseDirectory;
 
-        if (OperatingSystem.IsWindows())
+        foreach (string folder in SystemFolders)
         {
-            // Where scripts/build-ffmpeg-windows.sh installs, and VmafRunner's default candidate.
-            yield return @"C:\ffmpeg\bin";
+            yield return folder;
         }
-
-        yield return "/opt/ffmpeg/lib";
-        yield return "/usr/lib/x86_64-linux-gnu";
-        yield return "/usr/lib/aarch64-linux-gnu";
-        yield return "/usr/lib";
-        yield return "/usr/local/lib";
-        yield return "/opt/ffmpeg/lib";
-        yield return "/opt/homebrew/lib";
-        yield return "/usr/local/lib64";
-        yield return "/usr/lib64";
     }
 
-    private static string? FindLibraryDirectory()
-    {
-        var directories = Candidates()
-            .Where(candidate => !string.IsNullOrWhiteSpace(candidate) && Directory.Exists(candidate))
-            .Select(Path.GetFullPath)
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
+    /// <summary>Usual install locations (scripts/build-ffmpeg-windows.sh installs to C:\ffmpeg\bin).</summary>
+    internal static IReadOnlyList<string> SystemFolders { get; } = OperatingSystem.IsWindows()
+        ? [@"C:\ffmpeg\bin"]
+        : ["/opt/ffmpeg/lib", "/usr/lib/x86_64-linux-gnu", "/usr/lib/aarch64-linux-gnu", "/usr/lib", "/usr/local/lib", "/opt/homebrew/lib", "/usr/local/lib64", "/usr/lib64"];
 
-        // Prefer a directory that actually has the soname these bindings expect; loading a
-        // different major from an earlier PATH entry is the failure this guards against.
+    /// <summary>
+    /// The first folder with the libavcodec these bindings expect; else the first with any libavcodec
+    /// (so the version check can report a useful mismatch); else null (the system search path).
+    /// </summary>
+    internal static string? FindLibraryDirectory(IEnumerable<string> candidates)
+    {
+        List<string> directories = [.. candidates
+            .Where(candidate => candidate.Length > 0 && Directory.Exists(candidate))
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.Ordinal)];
+
         string exactSoname = $"libavcodec.so.{ExpectedAvcodecMajor}";
         string exactDll = $"avcodec-{ExpectedAvcodecMajor}.dll";
-
-        foreach (string directory in directories)
-        {
-            if (File.Exists(Path.Combine(directory, exactSoname)) ||
-                File.Exists(Path.Combine(directory, exactDll)))
-            {
-                return directory;
-            }
-        }
-
-        // Fall back to any libav build so the guard can report a useful mismatch message.
-        foreach (string directory in directories)
-        {
-            try
-            {
-                if (Directory.EnumerateFiles(directory, "libavcodec.so*").Any() ||
-                    Directory.EnumerateFiles(directory, "avcodec-*.dll").Any())
-                {
-                    return directory;
-                }
-            }
-            catch (IOException)
-            {
-                // Unreadable directory; keep looking.
-            }
-            catch (UnauthorizedAccessException)
-            {
-                // Unreadable directory; keep looking.
-            }
-        }
-
-        return null;
+        return directories.FirstOrDefault(d => File.Exists(Path.Combine(d, exactSoname)) || File.Exists(Path.Combine(d, exactDll)))
+            ?? directories.FirstOrDefault(d => FileSystem.SafeEnumerateFiles(d, "libavcodec.so*").Concat(FileSystem.SafeEnumerateFiles(d, "avcodec-*.dll")).Any());
     }
 }
