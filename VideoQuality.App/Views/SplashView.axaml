@@ -8,13 +8,15 @@
                 x:DataType="vm:SplashViewModel"
                 Width="560" Height="320"
                 WindowStartupLocation="CenterScreen"
-                Background="Transparent"
-                TransparencyLevelHint="Transparent"
+                Background="{StaticResource VqSplashBrush}"
+                TransparencyLevelHint="None"
                 Icon="/Assets/app.ico"
                 Title="VideoQuality">
-    <!-- overlay layer: a raised card floating on its own shadow -->
-    <Border Classes="raised" Margin="16" CornerRadius="16" ClipToBounds="True"
-            Background="{DynamicResource SemiColorBackground1}">
+    <!-- An opaque window: a transparent one (for rounded corners and a drop shadow) turned the
+         whole card into a see-through layered window on Windows. Windows 11 rounds the corners
+         of normal windows itself. -->
+    <Border Background="{StaticResource VqSplashBrush}" BorderBrush="{DynamicResource SemiColorBorder}"
+            BorderThickness="1" ClipToBounds="True">
         <Grid RowDefinitions="*,Auto">
             <!-- accent wash in the two input colours -->
             <Border Grid.RowSpan="2" Opacity="0.22" IsHitTestVisible="False">

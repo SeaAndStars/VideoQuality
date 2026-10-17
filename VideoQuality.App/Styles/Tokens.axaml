@@ -18,6 +18,9 @@
     <CornerRadius x:Key="VqRadiusControl">8</CornerRadius>
     <CornerRadius x:Key="VqRadiusChip">999</CornerRadius>
 
+    <!-- Splash: the surface colour, fully opaque (never a translucent window). -->
+    <SolidColorBrush x:Key="VqSplashBrush" Color="#232429" />
+
     <!-- The viewer canvas sits below the surface layer so video reads as the brightest thing. -->
     <SolidColorBrush x:Key="VqCanvasBrush" Color="#0E0F12" />
 
