@@ -1,0 +1,43 @@
+<!--
+    Design tokens, defined once. Layer colours come from Semi's dark palette (see Layers.axaml);
+    this file holds what Semi does not: spacing, radii, the viewer canvas, the two input accents
+    and the colourblind-safe curve palette.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- 8 px grid -->
+    <x:Double x:Key="VqSpace1">4</x:Double>
+    <x:Double x:Key="VqSpace2">8</x:Double>
+    <x:Double x:Key="VqSpace3">12</x:Double>
+    <x:Double x:Key="VqSpace4">16</x:Double>
+    <Thickness x:Key="VqCardPadding">12</Thickness>
+    <Thickness x:Key="VqHeaderPadding">12,0</Thickness>
+
+    <CornerRadius x:Key="VqRadiusCard">12</CornerRadius>
+    <CornerRadius x:Key="VqRadiusControl">8</CornerRadius>
+    <CornerRadius x:Key="VqRadiusChip">999</CornerRadius>
+
+    <!-- The viewer canvas sits below the surface layer so video reads as the brightest thing. -->
+    <SolidColorBrush x:Key="VqCanvasBrush" Color="#0E0F12" />
+
+    <!-- Input accents: reference = blue, encode = orange (Okabe–Ito sky blue / orange). -->
+    <SolidColorBrush x:Key="VqReferenceBrush" Color="#56B4E9" />
+    <SolidColorBrush x:Key="VqEncodeBrush" Color="#E69F00" />
+
+    <!-- Status: mapped onto Okabe–Ito so they stay distinguishable for colour-vision deficiencies. -->
+    <SolidColorBrush x:Key="VqOkBrush" Color="#009E73" />
+    <SolidColorBrush x:Key="VqWarnBrush" Color="#E69F00" />
+    <SolidColorBrush x:Key="VqErrorBrush" Color="#D55E00" />
+    <SolidColorBrush x:Key="VqWarnSoftBrush" Color="#33E69F00" />
+    <SolidColorBrush x:Key="VqErrorSoftBrush" Color="#33D55E00" />
+
+    <!-- Overlay scrim and drop zones -->
+    <SolidColorBrush x:Key="VqScrimBrush" Color="#C80B0C0E" />
+    <SolidColorBrush x:Key="VqZoneBrush" Color="#E6232429" />
+    <SolidColorBrush x:Key="VqZoneHotBrush" Color="#F02B3442" />
+
+    <!-- Raised-layer shadow -->
+    <BoxShadows x:Key="VqRaisedShadow">0 4 16 0 #66000000</BoxShadows>
+    <BoxShadows x:Key="VqOverlayShadow">0 12 40 0 #99000000</BoxShadows>
+</ResourceDictionary>

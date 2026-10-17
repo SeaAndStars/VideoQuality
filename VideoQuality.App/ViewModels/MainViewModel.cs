@@ -13,6 +13,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VideoQuality.Core.Decoding;
 using VideoQuality.Core.Imaging;
+using VideoQuality.Core.Ingest;
+using VideoQuality.Core.Jobs;
 using VideoQuality.Core.Models;
 using VideoQuality.Core.Scoring;
 
@@ -25,17 +27,23 @@ namespace VideoQuality.App.ViewModels;
 /// </summary>
 public partial class MainViewModel : ViewModelBase, IDisposable
 {
+    // Okabe–Ito: distinguishable with the common colour-vision deficiencies, ordered for a dark
+    // background (black swapped for a light grey).
     private static readonly string[] Palette =
     [
-        "#4fc3f7", "#ffb74d", "#81c784", "#e57373",
-        "#ba68c8", "#ffd54f", "#4db6ac", "#f06292",
+        "#56B4E9", "#E69F00", "#009E73", "#D55E00",
+        "#CC79A7", "#F0E442", "#0072B2", "#BBBBBB",
     ];
+
+    // Two CUDA scores overlap well (each is NVDEC-bound); CPU libvmaf already uses every core, so
+    // CPU runs take this gate as well and stay one at a time.
+    private readonly JobService _jobs = new(scoreConcurrency: 2);
+    private readonly SemaphoreSlim _cpuScoreGate = new(1, 1);
 
     private readonly SemaphoreSlim _decodeLock = new(1, 1);
     private FrameDecoder? _referenceDecoder;
     private FrameDecoder? _distortedDecoder;
     private int _loadVersion;
-    private CancellationTokenSource? _analysisCancellation;
     private DispatcherTimer? _playTimer;
     private readonly Stopwatch _playClock = new();
     private int _playStartFrame;
@@ -45,7 +53,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly BitmapSwapChain _differenceBitmaps = new();
     private DecodedFrame? _lastReferenceFrame;
     private DecodedFrame? _lastDistortedFrame;
-    private bool _suppressEncodeOpen;
     private VmafCapabilities? _capabilities;
 
     public MainViewModel()
@@ -61,6 +68,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
     public ViewportState Viewport { get; }
+
+    /// <summary>Raised for transient feedback (duplicates, rejected files, Undo). The view shows a toast.</summary>
+    public event EventHandler<ToastRequest>? ToastRequested;
+
+    /// <summary>
+    /// Asks the user a yes/no question (title, message) and returns true for yes. Set by the view;
+    /// without it, questions resolve to their default (yes).
+    /// </summary>
+    public Func<string, string, Task<bool>>? ConfirmAsync { get; set; }
 
     public ObservableCollection<EncodeEntry> Encodes { get; } = [];
 
@@ -196,6 +212,27 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public double MaxFrame => Math.Max(0, FrameCount - 1);
 
     public bool HasEncodes => Encodes.Count > 0;
+
+    public bool HasReference => !string.IsNullOrWhiteSpace(ReferencePath);
+
+    /// <summary>Nothing loaded yet: the viewer shows the two drop zones as the first-run screen.</summary>
+    public bool IsEmpty => !HasReference && Encodes.Count == 0;
+
+    /// <summary>A drag with files is over the window; the view shows the drop overlay.</summary>
+    [ObservableProperty]
+    public partial bool IsDragging { get; set; }
+
+    public bool HasStaleEncodes => Encodes.Any(e => e.IsStale);
+
+    /// <summary>Short backend label for the toolbar chip, e.g. "CUDA" or "CPU".</summary>
+    public string BackendChip => SelectedBackend switch
+    {
+        VmafBackend.Cpu => "CPU",
+        VmafBackend.Cuda => "CUDA",
+        _ => _capabilities is { CudaUsable: true } ? "CUDA" : _capabilities is null ? "…" : "CPU",
+    };
+
+    public string ModelChip => VmafModels.ShortName(SelectedModel);
 
     public bool HasReferenceBadge => ReferenceBadge.Length > 0;
 
@@ -389,92 +426,458 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         await LoadFrameAsync().ConfigureAwait(true);
     }
 
-    /// <summary>Adds (or re-scores) one or more distorted files against the current reference.</summary>
-    public async Task AddEncodesAsync(IReadOnlyList<string> paths)
+    /// <summary>
+    /// The single entry point for incoming files: drop zones, file pickers, startup arguments,
+    /// Open With and paste all route through <see cref="DropRouter"/> and land here.
+    /// </summary>
+    public async Task HandleDropAsync(IReadOnlyList<string?> paths, DropZone zone)
     {
+        IsDragging = false;
         if (paths.Count == 0)
         {
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(ReferencePath))
+        DropPlan plan = DropRouter.Plan(paths, zone, ReferencePath, Encodes.Select(e => e.Path).ToList());
+
+        if (plan.Rejected.Count > 0)
         {
-            Status = "Pick a reference video first.";
+            string lines = string.Join(Environment.NewLine, plan.Rejected
+                .Take(4)
+                .Select(r => $"{(r.Path.Length > 0 ? Path.GetFileName(r.Path) : "item")} — {r.Reason}"));
+            string more = plan.Rejected.Count > 4 ? $"{Environment.NewLine}…and {plan.Rejected.Count - 4} more" : string.Empty;
+            Toast(ToastKind.Warning, $"Skipped {plan.Rejected.Count} item(s):{Environment.NewLine}{lines}{more}");
+        }
+
+        if (plan.Duplicates.Count > 0)
+        {
+            Toast(ToastKind.Info, plan.Duplicates.Count == 1
+                ? $"{Path.GetFileName(plan.Duplicates[0])} is already loaded."
+                : $"{plan.Duplicates.Count} files are already loaded.");
+        }
+
+        if (plan.IsEmpty)
+        {
             return;
         }
 
-        if (_referenceDecoder is null)
-        {
-            await SetReferenceAsync(ReferencePath).ConfigureAwait(true);
-        }
+        string? previousReference = ReferencePath;
+        bool rescore = true;
 
-        if (_referenceDecoder is null)
+        if (plan.Reference is not null)
         {
-            return;
-        }
-
-        IsBusy = true;
-        _analysisCancellation?.Dispose();
-        _analysisCancellation = new CancellationTokenSource();
-        CancellationToken token = _analysisCancellation.Token;
-
-        try
-        {
-            foreach (string path in paths)
+            if (plan.NeedsConfirm)
             {
-                if (!File.Exists(path))
-                {
-                    continue;
-                }
-
-                EncodeEntry entry = Encodes.FirstOrDefault(e => string.Equals(e.Path, path, StringComparison.Ordinal))
-                    ?? new EncodeEntry(path, Palette[Encodes.Count % Palette.Length]);
-
-                if (!Encodes.Contains(entry))
-                {
-                    Encodes.Add(entry);
-                }
-
-                _suppressEncodeOpen = true;
-                try
-                {
-                    SelectedEncode = entry;
-                }
-                finally
-                {
-                    _suppressEncodeOpen = false;
-                }
-
-                // Open first so the bit depth and packet index are known before choosing a backend.
-                await OpenSelectedEncodeAsync(entry).ConfigureAwait(true);
-                await ScoreEntryAsync(entry, token).ConfigureAwait(true);
+                int affected = Encodes.Count(e => !string.Equals(e.Path, plan.Reference, StringComparison.Ordinal));
+                rescore = ConfirmAsync is null || await ConfirmAsync(
+                    $"Re-score {affected} encode(s)?",
+                    $"The reference is changing to {Path.GetFileName(plan.Reference)}, so every existing score is stale. " +
+                    "Re-score them now? Choose No to keep them marked stale.").ConfigureAwait(true);
             }
 
-            Status = $"Scored {Encodes.Count} encode(s) against {Path.GetFileName(ReferencePath!)}.{ScoreNote(SelectedEncode)}";
+            // A file that was an encode is now the reference; it leaves the table.
+            if (Encodes.FirstOrDefault(e => string.Equals(e.Path, plan.Reference, StringComparison.Ordinal)) is { } promoted)
+            {
+                RemoveEncode(promoted);
+            }
+
+            await SetReferenceAsync(plan.Reference).ConfigureAwait(true);
+            if (_referenceDecoder is null)
+            {
+                return;
+            }
+
+            foreach (EncodeEntry entry in Encodes)
+            {
+                CancelJob(entry);
+                entry.Report = null;
+                entry.State = EncodeState.Stale;
+                entry.Warning = null;
+            }
+
+            NotifyReportChanged();
         }
-        catch (OperationCanceledException)
+
+        List<EncodeEntry> added = AddRows(plan.Encodes);
+
+        // Rows that were waiting for a reference, and (when confirmed) stale rows, score now.
+        if (HasReference)
         {
-            Status = "Scoring cancelled.";
+            foreach (EncodeEntry entry in Encodes.Where(e => !added.Contains(e)).ToList())
+            {
+                if (entry.State == EncodeState.WaitingForReference || (rescore && entry.State == EncodeState.Stale))
+                {
+                    _ = ProcessEncodeAsync(entry, indexFirst: entry.PacketCount <= 0);
+                }
+            }
+
+            UpdateWarnings();
         }
-        catch (Exception ex)
+
+        foreach (EncodeEntry entry in added)
         {
-            Status = "Scoring failed: " + ex.Message;
+            _ = ProcessEncodeAsync(entry, indexFirst: true);
         }
-        finally
+
+        if (plan.ReferenceOverflowed)
         {
-            IsBusy = false;
-            ProgressPercent = 0;
-            ProgressDetail = string.Empty;
-            _analysisCancellation?.Dispose();
-            _analysisCancellation = null;
+            Toast(ToastKind.Info,
+                $"{Path.GetFileName(plan.Reference)} is the reference; {added.Count} other file(s) were queued as encodes.",
+                "Undo",
+                () => _ = UndoDropAsync(previousReference, added));
         }
+        else if (!HasReference && added.Count > 0)
+        {
+            Status = "Encodes are queued. Drop a reference to start scoring.";
+        }
+
+        OnPropertyChanged(nameof(HasStaleEncodes));
     }
 
     /// <summary>Opens a reference and one or more encodes, then scores them (startup arguments).</summary>
-    public async Task OpenAndAnalyzeAsync(string reference, IReadOnlyList<string> encodes)
+    public Task OpenAndAnalyzeAsync(string reference, IReadOnlyList<string> encodes) =>
+        HandleDropAsync([reference, .. encodes], DropZone.Auto);
+
+    private List<EncodeEntry> AddRows(IReadOnlyList<string> paths)
     {
-        await SetReferenceAsync(reference).ConfigureAwait(true);
-        await AddEncodesAsync(encodes).ConfigureAwait(true);
+        var added = new List<EncodeEntry>();
+        foreach (string path in paths)
+        {
+            var entry = new EncodeEntry(path, NextColor())
+            {
+                State = HasReference ? EncodeState.Queued : EncodeState.WaitingForReference,
+            };
+
+            Encodes.Add(entry);
+            added.Add(entry);
+        }
+
+        if (SelectedEncode is null && added.Count > 0)
+        {
+            SelectedEncode = added[0];
+        }
+
+        return added;
+    }
+
+    private string NextColor()
+    {
+        var used = Encodes.Select(e => e.ColorHex).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return Palette.FirstOrDefault(c => !used.Contains(c)) ?? Palette[Encodes.Count % Palette.Length];
+    }
+
+    private async Task UndoDropAsync(string? previousReference, IReadOnlyList<EncodeEntry> added)
+    {
+        foreach (EncodeEntry entry in added)
+        {
+            RemoveEncode(entry);
+        }
+
+        if (previousReference is null)
+        {
+            ClearReference();
+        }
+        else
+        {
+            await SetReferenceAsync(previousReference).ConfigureAwait(true);
+        }
+
+        Status = "Drop undone.";
+    }
+
+    private void ClearReference()
+    {
+        _referenceDecoder?.Dispose();
+        _referenceDecoder = null;
+        ReferencePath = null;
+        ReferenceInfo = "no reference";
+        ReferenceName = "reference";
+        ReferenceBadge = string.Empty;
+        ReferenceBitmap = null;
+        _lastReferenceFrame = null;
+        DifferenceBitmap = null;
+
+        foreach (EncodeEntry entry in Encodes)
+        {
+            CancelJob(entry);
+            entry.Report = null;
+            entry.State = EncodeState.WaitingForReference;
+        }
+
+        NotifyReportChanged();
+    }
+
+    /// <summary>
+    /// Runs one row through the pipeline: probe + packet index (index lane), then a score (score
+    /// lane). Rows update in place, so the table shows each stage as it happens.
+    /// </summary>
+    private async Task ProcessEncodeAsync(EncodeEntry entry, bool indexFirst)
+    {
+        if (indexFirst)
+        {
+            entry.State = EncodeState.Indexing;
+            entry.Error = null;
+            UpdateJobSummary();
+
+            MediaProbeResult? probe = null;
+            PacketIndex? index = null;
+            string path = entry.Path;
+
+            Job indexJob = _jobs.Enqueue(new Job
+            {
+                Title = $"Index {entry.Name}",
+                Kind = JobKind.Index,
+                Subject = entry,
+                Work = (_, _, token) => Task.Run(() =>
+                {
+                    probe = MediaProbe.Probe(path);
+                    token.ThrowIfCancellationRequested();
+                    index = PacketIndex.Build(path);
+                }, token),
+            });
+
+            entry.ActiveJob = indexJob;
+            await indexJob.Completion.ConfigureAwait(true);
+            if (!ReferenceEquals(entry.ActiveJob, indexJob) || !Encodes.Contains(entry))
+            {
+                return; // removed or superseded while indexing
+            }
+
+            entry.ActiveJob = null;
+
+            if (indexJob.State != JobState.Succeeded || probe is null || index is null)
+            {
+                entry.State = indexJob.State == JobState.Cancelled ? EncodeState.Cancelled : EncodeState.Failed;
+                entry.Error = indexJob.Error ?? "could not read the file";
+                UpdateJobSummary();
+                return;
+            }
+
+            entry.BitDepth = probe.BitDepth;
+            entry.Width = probe.Width;
+            entry.Height = probe.Height;
+            entry.FrameRate = probe.FrameRate;
+            entry.PacketCount = index.FrameCount;
+            entry.BitrateKbps = index.BitrateKbps > 0
+                ? index.BitrateKbps
+                : _referenceDecoder?.Info.Duration.TotalSeconds is double seconds and > 0
+                    ? entry.FileSize * 8.0 / seconds / 1000.0
+                    : 0;
+        }
+
+        if (!HasReference || _referenceDecoder is null)
+        {
+            entry.State = EncodeState.WaitingForReference;
+            UpdateJobSummary();
+            return;
+        }
+
+        entry.Warning = DescribeMismatch(_referenceDecoder.Info, entry);
+        await ScoreEntryAsync(entry).ConfigureAwait(true);
+    }
+
+    private async Task ScoreEntryAsync(EncodeEntry entry)
+    {
+        CancelJob(entry);
+        entry.State = EncodeState.Queued;
+        entry.Progress = 0;
+        entry.Error = null;
+        UpdateJobSummary();
+
+        string reference = ReferencePath!;
+        int totalFrames = _referenceDecoder?.Info.FrameCount ?? 0;
+        VmafBackend backend = SelectedBackend;
+        string model = SelectedModel;
+        bool cpu = backend == VmafBackend.Cpu || _capabilities is { CudaUsable: false };
+        VmafReport? report = null;
+
+        // Created here, on the UI thread, so reports are marshalled back to it.
+        var progress = new Progress<VmafProgress>(p =>
+        {
+            if (p.FrameNumber is int frame && totalFrames > 0 && entry.State == EncodeState.Scoring)
+            {
+                entry.Progress = Math.Min(1, frame / (double)totalFrames);
+                UpdateJobSummary();
+            }
+        });
+
+        Job job = _jobs.Enqueue(new Job
+        {
+            Title = $"Score {entry.Name}",
+            Kind = JobKind.Score,
+            Subject = entry,
+            Work = async (_, _, token) =>
+            {
+                if (cpu)
+                {
+                    await _cpuScoreGate.WaitAsync(token).ConfigureAwait(false);
+                }
+
+                try
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (ReferenceEquals(entry.ActiveJob?.Subject, entry) && entry.State == EncodeState.Queued)
+                        {
+                            entry.State = EncodeState.Scoring;
+                            UpdateJobSummary();
+                        }
+                    });
+
+                    string ffmpeg = await VmafRunner.ResolveFfmpegAsync(FfmpegPath, token).ConfigureAwait(false);
+                    var options = new VmafOptions { FfmpegPath = ffmpeg, Backend = backend, Model = model };
+                    report = await VmafRunner.RunAsync(reference, entry.Path, options, progress, token).ConfigureAwait(false);
+                }
+                finally
+                {
+                    if (cpu)
+                    {
+                        _cpuScoreGate.Release();
+                    }
+                }
+            },
+        });
+
+        entry.ActiveJob = job;
+        await job.Completion.ConfigureAwait(true);
+        if (!ReferenceEquals(entry.ActiveJob, job))
+        {
+            return; // re-queued or removed meanwhile
+        }
+
+        entry.ActiveJob = null;
+
+        if (job.State == JobState.Succeeded && report is not null &&
+            string.Equals(reference, ReferencePath, StringComparison.Ordinal))
+        {
+            entry.Report = report;
+            entry.Progress = 1;
+            entry.State = EncodeState.Done;
+
+            if (ReferenceEquals(entry, SelectedEncode))
+            {
+                NotifyReportChanged();
+            }
+
+            UpdateModelConsistency();
+            OnPropertyChanged(nameof(Encodes));
+
+            string note = ScoreNote(entry);
+            if (note.Length > 0)
+            {
+                Status = entry.Name + ":" + note;
+            }
+        }
+        else if (job.State == JobState.Cancelled)
+        {
+            entry.State = EncodeState.Cancelled;
+        }
+        else if (job.State == JobState.Failed)
+        {
+            entry.State = EncodeState.Failed;
+            entry.Error = FirstLine(job.Error);
+            Toast(ToastKind.Error, $"Scoring {entry.Name} failed: {entry.Error}");
+        }
+
+        UpdateJobSummary();
+        OnPropertyChanged(nameof(HasStaleEncodes));
+    }
+
+    private void CancelJob(EncodeEntry entry)
+    {
+        if (entry.ActiveJob is { } job)
+        {
+            entry.ActiveJob = null;
+            _jobs.Cancel(job);
+        }
+    }
+
+    /// <summary>Summarises every row into the status-bar progress and Cancel button.</summary>
+    private void UpdateJobSummary()
+    {
+        List<EncodeEntry> busy = Encodes.Where(e => e.IsWorking || e.State == EncodeState.Queued).ToList();
+        IsBusy = busy.Count > 0;
+
+        if (!IsBusy)
+        {
+            ProgressPercent = 0;
+            ProgressDetail = string.Empty;
+            int done = Encodes.Count(e => e.IsDone);
+            if (done > 0 && Encodes.All(e => !e.IsBusy))
+            {
+                int failed = Encodes.Count(e => e.IsFailed);
+                Status = $"Scored {done} encode(s) against {ReferenceName}." +
+                         (failed > 0 ? $" {failed} failed." : string.Empty) +
+                         (SelectedEncode is { } selected ? ScoreNote(selected) : string.Empty);
+            }
+
+            return;
+        }
+
+        List<EncodeEntry> scoring = busy.Where(e => e.State == EncodeState.Scoring).ToList();
+        ProgressIndeterminate = scoring.Count == 0;
+        ProgressPercent = scoring.Count == 0 ? 0 : scoring.Average(e => e.Progress) * 100;
+
+        int finished = Encodes.Count(e => e.IsDone);
+        int total = finished + busy.Count;
+        ProgressDetail = scoring.Count switch
+        {
+            0 => $"Preparing {busy.Count} encode(s)…",
+            1 => $"Scoring {scoring[0].Name} · {finished + 1} of {total}",
+            _ => $"Scoring {scoring.Count} at once · {finished + scoring.Count} of {total}",
+        };
+        Status = ProgressDetail;
+    }
+
+    private void UpdateWarnings()
+    {
+        if (_referenceDecoder is null)
+        {
+            return;
+        }
+
+        foreach (EncodeEntry entry in Encodes.Where(e => e.Width > 0))
+        {
+            entry.Warning = DescribeMismatch(_referenceDecoder.Info, entry);
+        }
+    }
+
+    /// <summary>Resolution, frame-rate and frame-count differences; scaling is not implemented yet.</summary>
+    private static string? DescribeMismatch(VideoInfo reference, EncodeEntry entry)
+    {
+        var problems = new List<string>();
+
+        if (entry.Width > 0 && (entry.Width != reference.Width || entry.Height != reference.Height))
+        {
+            problems.Add($"resolution {entry.Width}×{entry.Height} vs reference {reference.Width}×{reference.Height}");
+        }
+
+        if (entry.FrameRate > 0 && reference.FrameRate > 0 && Math.Abs(entry.FrameRate - reference.FrameRate) > 0.01)
+        {
+            problems.Add(string.Format(CultureInfo.InvariantCulture,
+                "{0:0.###} fps vs reference {1:0.###} fps", entry.FrameRate, reference.FrameRate));
+        }
+
+        if (entry.PacketCount > 0 && reference.HasKnownFrameCount && entry.PacketCount != reference.FrameCount)
+        {
+            problems.Add($"{entry.PacketCount} frames vs reference {reference.FrameCount}");
+        }
+
+        return problems.Count == 0 ? null : "Mismatch: " + string.Join("; ", problems);
+    }
+
+    private void Toast(ToastKind kind, string message, string? actionLabel = null, Action? action = null) =>
+        ToastRequested?.Invoke(this, new ToastRequest(kind, message, actionLabel, action));
+
+    private static string FirstLine(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return "unknown error";
+        }
+
+        int newline = text.IndexOfAny(['\r', '\n']);
+        return newline >= 0 ? text[..newline] : text;
     }
 
     public void StepFrame(int delta)
@@ -576,8 +979,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        CancelJob(entry);
         Encodes.Remove(entry);
         UpdateModelConsistency();
+        UpdateJobSummary();
 
         if (ReferenceEquals(entry, SelectedEncode))
         {
@@ -589,10 +994,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         NotifyReportChanged();
 
-        if (!_suppressEncodeOpen)
-        {
-            _ = OpenSelectedEncodeAsync(value);
-        }
+        _ = OpenSelectedEncodeAsync(value);
     }
 
     partial void OnReferenceBadgeChanged(string value) => OnPropertyChanged(nameof(HasReferenceBadge));
@@ -673,44 +1075,44 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     partial void OnIsBusyChanged(bool value) => AnalyzeCommand.NotifyCanExecuteChanged();
 
+    partial void OnReferencePathChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasReference));
+        OnPropertyChanged(nameof(IsEmpty));
+        AnalyzeCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnSelectedBackendChanged(VmafBackend value) => OnPropertyChanged(nameof(BackendChip));
+
+    partial void OnSelectedModelChanged(string value) => OnPropertyChanged(nameof(ModelChip));
+
     partial void OnFfmpegPathChanged(string value) => _ = ProbeBackendAsync();
 
     [RelayCommand(CanExecute = nameof(CanAnalyze))]
-    private async Task AnalyzeAsync()
+    private Task AnalyzeAsync() => SelectedEncode is { } entry ? RescoreAsync(entry) : Task.CompletedTask;
+
+    /// <summary>Re-scores one row (hover action, or the toolbar for the selected row).</summary>
+    public Task RescoreAsync(EncodeEntry entry)
     {
-        if (SelectedEncode is not { } entry || string.IsNullOrWhiteSpace(ReferencePath))
+        if (!HasReference)
         {
-            return;
+            Status = "Drop a reference first.";
+            return Task.CompletedTask;
         }
 
-        IsBusy = true;
-        _analysisCancellation?.Dispose();
-        _analysisCancellation = new CancellationTokenSource();
+        return ProcessEncodeAsync(entry, indexFirst: entry.PacketCount <= 0);
+    }
 
-        try
+    [RelayCommand]
+    private void RescoreStale()
+    {
+        foreach (EncodeEntry entry in Encodes.Where(e => e.IsStale || e.IsFailed).ToList())
         {
-            await ScoreEntryAsync(entry, _analysisCancellation.Token).ConfigureAwait(true);
-            Status = $"Re-scored {entry.Name}.{ScoreNote(entry)}";
-        }
-        catch (OperationCanceledException)
-        {
-            Status = "Analysis cancelled.";
-        }
-        catch (Exception ex)
-        {
-            Status = "Analysis failed: " + ex.Message;
-        }
-        finally
-        {
-            IsBusy = false;
-            ProgressPercent = 0;
-            ProgressDetail = string.Empty;
-            _analysisCancellation?.Dispose();
-            _analysisCancellation = null;
+            _ = RescoreAsync(entry);
         }
     }
 
-    private bool CanAnalyze() => SelectedEncode is not null && !IsBusy;
+    private bool CanAnalyze() => SelectedEncode is { IsBusy: false } && HasReference;
 
     private static string ScoreNote(EncodeEntry? entry)
     {
@@ -740,7 +1142,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
-    private void CancelAnalysis() => _analysisCancellation?.Cancel();
+    private void CancelAnalysis()
+    {
+        foreach (EncodeEntry entry in Encodes.Where(e => e.ActiveJob is not null))
+        {
+            _jobs.Cancel(entry.ActiveJob!);
+        }
+    }
 
     [RelayCommand]
     private void AutoGain()
@@ -795,71 +1203,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private async Task ScoreEntryAsync(EncodeEntry entry, CancellationToken cancellationToken)
-    {
-        string ffmpeg = await VmafRunner.ResolveFfmpegAsync(FfmpegPath, cancellationToken).ConfigureAwait(true);
-
-        int referenceDepth = _referenceDecoder?.Info.BitDepth ?? 8;
-        int encodeDepth = entry.BitDepth > 0 ? entry.BitDepth : 8;
-        bool highBitDepth = Math.Max(referenceDepth, encodeDepth) > 8;
-
-        // GPU-first: Auto resolves to libvmaf_cuda whenever it is available, including 10-bit
-        // sources. libvmaf_cuda only accepts yuv420p, so the GPU scaler converts to 8-bit there;
-        // choose CPU explicitly when 10-bit precision matters more than speed.
-        var options = new VmafOptions
-        {
-            FfmpegPath = ffmpeg,
-            Backend = SelectedBackend,
-            Model = SelectedModel,
-        };
-
-        int totalFrames = _referenceDecoder?.Info.FrameCount ?? 0;
-        ProgressIndeterminate = totalFrames <= 0;
-        ProgressPercent = 0;
-
-        var progress = new Progress<VmafProgress>(p =>
-        {
-            if (p.FrameNumber is not int frame)
-            {
-                return;
-            }
-
-            ProgressPercent = totalFrames > 0 ? Math.Min(100, frame * 100.0 / totalFrames) : 0;
-            string speed = p.Fps > 0.5 ? $" · {p.Fps:0} fps" : string.Empty;
-            ProgressDetail = totalFrames > 0
-                ? $"{entry.Name}: {frame}/{totalFrames} frames{speed}"
-                : $"{entry.Name}: {frame} frames{speed}";
-            Status = ProgressDetail;
-        });
-
-        Status = $"Scoring {entry.Name}…";
-        VmafReport report = await VmafRunner
-            .RunAsync(ReferencePath!, entry.Path, options, progress, cancellationToken)
-            .ConfigureAwait(true);
-
-        entry.Report = report;
-
-
-        // Fallback only; OpenSelectedEncodeAsync normally fills this from the packet index.
-        if (entry.BitrateKbps <= 0)
-        {
-            double seconds = _referenceDecoder?.Info.Duration.TotalSeconds ?? 0;
-            entry.BitrateKbps = seconds > 0 ? entry.FileSize * 8.0 / seconds / 1000.0 : 0;
-        }
-
-        if (ReferenceEquals(entry, SelectedEncode))
-        {
-            NotifyReportChanged();
-        }
-
-        UpdateModelConsistency();
-        OnPropertyChanged(nameof(Encodes));
-    }
-
     private async Task OpenSelectedEncodeAsync(EncodeEntry? entry)
     {
-        bool opened = false;
-
         await _decodeLock.WaitAsync().ConfigureAwait(true);
         try
         {
@@ -877,9 +1222,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 DistortedInfo = Describe(entry.Name, info);
                 EncodeName = entry.Name;
                 entry.BitDepth = info.BitDepth;
-                entry.PacketCount = info.FrameCount;
                 EncodeBadge = info.IsHighBitDepth ? $"{info.BitDepth}-bit" : string.Empty;
-                opened = true;
 
                 if (_referenceDecoder is not null)
                 {
@@ -903,28 +1246,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             _decodeLock.Release();
         }
 
-        // Show the first frame before the packet walk, which reads the whole file.
         await LoadFrameAsync().ConfigureAwait(true);
-
-        if (opened && entry is not null)
-        {
-            // True video bitrate: sum of video packet sizes, not file size (which includes audio
-            // and container overhead).
-            try
-            {
-                string path = entry.Path;
-                PacketIndex index = await Task.Run(() => PacketIndex.Build(path)).ConfigureAwait(true);
-                entry.PacketCount = index.FrameCount;
-                if (index.BitrateKbps > 0)
-                {
-                    entry.BitrateKbps = index.BitrateKbps;
-                }
-            }
-            catch
-            {
-                // Keep the size/duration estimate as a fallback.
-            }
-        }
     }
 
     private void CheckColorMetadata(VideoInfo reference, VideoInfo encode)
@@ -1071,6 +1393,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private void OnEncodesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         OnPropertyChanged(nameof(HasEncodes));
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(HasStaleEncodes));
         OnPropertyChanged(nameof(Encodes));
         AnalyzeCommand.NotifyCanExecuteChanged();
     }
@@ -1083,6 +1407,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             VmafCapabilities capabilities = await VmafRunner.ProbeAsync(path).ConfigureAwait(true);
             _capabilities = capabilities;
+            OnPropertyChanged(nameof(BackendChip));
             LogPath = VqLog.CurrentPath ?? string.Empty;
             BackendStatus = capabilities.Describe();
             if (!capabilities.HasLibvmaf && !capabilities.HasLibvmafCuda)
@@ -1109,8 +1434,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
-        _analysisCancellation?.Cancel();
-        _analysisCancellation?.Dispose();
+        CancelAnalysis();
         _playTimer?.Stop();
         _flickerTimer?.Stop();
         _referenceDecoder?.Dispose();

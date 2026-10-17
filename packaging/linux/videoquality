@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# Launcher for the .desktop entry: forwards every file the file manager passes (%F).
+# Install: copy to ~/.local/bin, set VQ_HOME to the published app directory, then
+#   desktop-file-install --dir ~/.local/share/applications packaging/linux/videoquality.desktop
+VQ_HOME=${VQ_HOME:-"$HOME/.local/opt/videoquality"}
+exec dotnet "$VQ_HOME/VideoQuality.App.dll" "$@"

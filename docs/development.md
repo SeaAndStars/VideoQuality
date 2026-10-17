@@ -146,6 +146,7 @@ VideoQuality.App/          Avalonia UI
 VideoQuality.Cli/          headless commands
 VideoQuality.Tests/        xUnit unit tests + skippable integration tests
 VideoQuality.Benchmarks/   BenchmarkDotNet benchmarks for decoding and difference imaging
+packaging/linux/           .desktop entry (Open With) and launcher script
 scripts/verify.sh          clean build, solution-membership check, tests, probe
 scripts/capture-docs.sh    regenerates the documentation screenshots
 docs/                      user and developer documentation
@@ -184,12 +185,10 @@ Why this change, what behaviour it changes, and how it was verified."
 
 Short term, in rough priority:
 
-1. **Job model and structured logging.** The `Job`/`JobService` core is in place and tested
-   (queued/running/succeeded/failed/cancelled, per-kind lanes, cancel, retry, progress). Next: wire
-   scoring/indexing through it, per-row state, the status-bar job summary, a failure banner and a
-   retry action. The file log, session header, libav bridge and crash handlers are already in place;
-   the in-app log panel and diagnostic bundle remain. This comes before new metrics because it is
-   what makes the rest debuggable.
+1. **Structured logging.** Scoring and indexing run through `JobService` with per-row state, a
+   status-bar summary, failure toasts and per-row re-score. The file log, session header, libav bridge
+   and crash handlers are in place; the in-app log panel and diagnostic bundle remain. Single-instance
+   forwarding (a second launch sends its files to the running window) is also still open.
 2. Colour-matrix-aware YUV→RGB conversion (currently metadata-only).
 3. Rate-distortion plot and BD-rate, with ΔVMAF/Δbitrate against a chosen baseline.
 4. Worst-frames navigation and a graph hover tooltip.

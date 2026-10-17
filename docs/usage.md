@@ -2,38 +2,79 @@
 
 ## Opening files
 
-Three ways to get media in:
+Every way in goes through one router, so the rules are the same everywhere:
 
-1. **Reference…** then **Encodes…** — the second picker accepts multiple files and scores each one.
-2. Drag files onto the window: the first file becomes the reference if none is set, the rest are
-   added as encodes.
-3. Startup arguments: `VideoQuality.App <reference> <encode> [<encode> …] [--mode=wipe|flicker|difference]`.
+1. **Drag and drop.** While files are over the window, the viewer dims and two zones appear:
+   **Reference** (left) and **Compare** (right). The zone you drop on decides the role. Dropping
+   anywhere else behaves like startup arguments (below). With nothing loaded, the same two zones are
+   the first-run screen.
+2. **Reference** / **Encodes** in the toolbar (`Ctrl+O` / `Ctrl+Shift+O`): the same as dropping on
+   the matching zone.
+3. **Paste** (`Ctrl+V`): files on the clipboard, or one path per line of text (`file://` URIs work).
+4. **Startup arguments and "Open With"**:
+   `VideoQuality.App [<reference>] [<encode> …] [--mode=wipe|flicker|difference]`. A single file is
+   enough; it becomes the reference.
 
-Adding an encode opens it, builds a packet index for its true bitrate, and scores it against the
-reference. Re-scoring an existing row uses **Re-score**.
+The rules:
+
+| Where | What happens |
+|---|---|
+| Anywhere else / arguments / paste | The first file becomes the reference if none is set; everything else is an encode. |
+| **Reference** zone | The first file becomes the reference. Extra files are queued as encodes, with an **Undo** toast. |
+| **Compare** zone | Every file is an encode. Folders are scanned (not recursively) for `.mkv .mp4 .mov .webm .avi .ts .m2ts .ivf .y4m`. |
+
+- Replacing the reference while encodes exist makes every score stale. You are asked once
+  ("Re-score 4 encodes?", default yes). Choosing **No** leaves the rows marked stale; **Update
+  stale** in the toolbar re-scores them later.
+- Non-video files, missing files and non-local items (`smb://`, `mtp://`) are skipped, and a toast
+  says why. Files that are already loaded are ignored, with a toast.
+- Rows appear immediately as **queued**, then go through probe + packet index and scoring as jobs.
+  Encodes dropped before a reference wait for one. A resolution, frame-rate or frame-count mismatch
+  with the reference puts a warning icon on the row (scaling is not implemented yet).
+- Two CUDA scores run at once; CPU scores run one at a time because libvmaf already uses every core.
+
+On Linux, `packaging/linux/` has a `.desktop` entry (`MimeType=video/*`, `Exec=videoquality %F`) and
+a launcher script so file managers can **Open With** the app.
 
 ## The window
 
+The UI uses the Semi theme with Ursa controls and Fluent System Icons, in four layers:
+
+| Layer | Used for |
+|---|---|
+| base | window background, status line |
+| surface | cards: viewer panes, graph, encode table, timeline |
+| raised | the toolbar and labels that float over video |
+| overlay | drop zones, toasts, confirmation dialogs |
+
 ```
-┌ Reference… Encodes… Re-score Play │ View ▾ [mode controls] │ Fit 1:1 zoom 0–100 ┐
-├──────────────── viewer: two panes or one (wipe / flicker) ─────────────────────┤
-├────────────────────── VMAF graph ──────────────┬────── encode table ───────────┤
-├───────────────── frame / VMAF readout + slider ────────────────────────────────┤
-├───────────────────────── pooled stats ────────────────────────────────────────┤
-└──────────── status · backend · progress/Cancel · Settings ────────────────────┘
+┌ raised toolbar ─────────────────────────────────────────────────────────────────┐
+│ Reference Encodes Re-score │ ⏮ ▶ ⏭ │ [▥|⇔|ϟ|◪] mode controls │ ⊙ 1:1 % │ 0–100 │ NEG CUDA ⚙ │
+├──────────────── viewer: two panes or one (wipe / flicker) ──────────────────────┤
+╞════════════════ splitter (drag; double-click to auto-size) ═════════════════════╡
+├────────────────────── score graph ─────────────┬────── encode table ────────────┤
+├──────────────── frame / VMAF readout, slider, pooled stats ─────────────────────┤
+└──────────────────── status · backend · progress / Cancel ───────────────────────┘
 ```
 
-- **Pane headers** carry the file name, resolution, codec, frame rate, duration, a bit-depth badge
-  (`10-bit`) and a `lossy` badge when the reference itself is a delivery codec.
-- **Encode table**: colour swatch (matches the curve), name, backend/precision (`CUDA·8b` means the
-  GPU path converted a 10-bit source), mean, p1, true video bitrate, file size, and ✕ to remove.
-  Selecting a row swaps the viewer to that encode and thickens its curve.
-- **Graph**: per-frame VMAF for every scored encode. Autoscales by default; `0–100` pins the axis for
-  cross-clip comparison. The dashed line is the selected encode's mean, the red line is VMAF 85.
-  Click a colour swatch to hide that curve; **Smooth** applies a 5-frame moving average; **Δ baseline**
-  plots the difference from the first visible encode (useful when five curves overlap).
-- **Status bar**: current operation, progress bar and Cancel while scoring, capability summary, and
-  **Settings** (ffmpeg path, what was detected, log file location — `logs/` beside the app binary).
+- **Toolbar**: icon + label for the file actions, icon-only for the rest; every button has a tooltip
+  with its shortcut. The view switch is a segmented icon control (side by side, wipe, flicker,
+  difference). The **NEG** and **CUDA** chips show the model and backend, and open Settings (model,
+  backend, ffmpeg path, detection result, log file location).
+- **Pane headers** carry the file name, resolution, codec, frame rate, duration, a bit-depth chip
+  (`10-bit`) and an amber `lossy` chip when the reference itself is a delivery codec.
+- **Encode table**: a status icon (queued, working, done, failed, stale), a colour dot that matches the
+  curve (click it to hide the curve), name, model, mean, p1 and true video bitrate. Hovering a row
+  shows **Re-score**, **Reveal in folder** and **Remove**. Tooltips give the backend/precision
+  (`CUDA·8b` means the GPU path converted a 10-bit source), file size and any error. Selecting a row
+  swaps the viewer to that encode and thickens its curve.
+- **Graph**: per-frame VMAF for every scored encode, in the Okabe–Ito palette so the curves stay
+  distinguishable with colour-vision deficiencies. Autoscales by default; `0–100` pins the axis for
+  cross-clip comparison. The dashed line is the selected encode's mean; the dotted line is VMAF 85.
+  **Smooth** applies a 5-frame moving average; **Δ baseline** plots the difference from the first
+  visible encode.
+- **Splitter**: drag it to trade viewer height for graph height. The graph keeps a minimum height,
+  so wipe mode cannot crush it. Double-click to go back to sizing from the video's aspect ratio.
 
 ## Compare modes
 
@@ -54,10 +95,11 @@ All panes share one viewport (`ViewportState`), so both sides always show the sa
 
 - Mouse wheel zooms about the cursor (0.02×–16×).
 - Drag to pan.
-- **Fit** returns to fit-to-pane; **1:1** shows screen pixels per image pixel.
+- **Fit** (the target icon) returns to fit-to-pane; **1:1** shows screen pixels per image pixel.
 - The zoom readout shows the effective scale and `(fit)` when in fit mode.
 
-The viewer height is derived from the image aspect ratio, so fit mode has no letterbox dead space.
+The viewer height is derived from the image aspect ratio until you drag the splitter, so fit mode has
+no letterbox dead space.
 At 1:1 the image is clipped to its pane rather than painted over the headers.
 
 ## Keyboard
@@ -69,13 +111,16 @@ At 1:1 the image is clipped to its pane rather than painted over the headers.
 | `Home` / `End` | First / last frame |
 | `Space` | Play or pause (native frame rate) |
 | `F` (hold) | Reveal the encode in Flicker mode |
+| `Ctrl+O` / `Ctrl+Shift+O` | Choose the reference / add encodes |
+| `Ctrl+V` | Paste files or paths |
+| `Ctrl+R` | Re-score the selected encode |
 
 Playback is clock-driven: each tick computes the target frame from elapsed wall time, so a slow
 decode drops frames instead of playing in slow motion.
 
 ## Models
 
-The model dropdown defaults to **VMAF NEG** (`vmaf_v0.6.1neg`). NEG removes the enhancement gain
+The model (in Settings, behind the model chip) defaults to **VMAF NEG** (`vmaf_v0.6.1neg`). NEG removes the enhancement gain
 from the score, so a sharpened encode cannot buy points by looking crisper; it is the better default
 for encoder comparisons. `vmaf_v0.6.1` (standard) and `vmaf_4k_v0.6.1` are selectable, and the
 selected model is stored on every report, shown in the table's `MODEL` column and in the graph title

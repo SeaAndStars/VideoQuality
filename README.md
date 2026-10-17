@@ -13,6 +13,9 @@ ffmpeg build and machine support it, including 10-bit sources.
   default** — it does not reward sharpening or contrast changes the way plain VMAF does. Standard
   VMAF and the 4K model remain one click (or `--model`) away, and mixing models in one comparison is
   flagged.
+- **Drag and drop with explicit roles**: drop on **Reference** or **Compare**, or anywhere for the
+  automatic rule; folders, paste and Open With go through the same router. Rows appear at once and
+  move through probe → index → score as jobs, two CUDA scores at a time.
 - **Compares N encodes against one reference**: overlaid curves, a summary table with mean, p1,
   true video bitrate and file size, and a selectable row that drives the viewer.
 - **Shows both videos frame by frame**: side by side, wipe with a draggable divider, A/B flicker, or
@@ -23,9 +26,9 @@ ffmpeg build and machine support it, including 10-bit sources.
 - **Reports what it is actually doing**: backend and precision (`CUDA·8b` for converted 10-bit),
   ffmpeg path, bit depth, colour metadata, true bitrate, a progress bar with Cancel, and a session
   log in a `logs/` directory beside the binary.
-- **Tested**: 38 unit/ABI tests (progress parser, stats, packet index, exports, difference imaging,
-  job state machine, model defaults, libavcodec ABI) plus 4 integration tests that run when
-  `VQ_TEST_VIDEO` is set (42 total) and skip otherwise.
+- **Tested**: 50 unit/ABI tests (progress parser, stats, packet index, exports, difference imaging,
+  job state machine and lanes, drop routing, model defaults, libavcodec ABI) plus 4 integration tests that run when
+  `VQ_TEST_VIDEO` is set (54 total) and skip otherwise.
 
 ## Quick start
 
@@ -35,7 +38,7 @@ dotnet build VideoQuality.slnx
 # reference first, then any number of encodes
 dotnet run --project VideoQuality.App -- ref.mkv encode-a.mp4 encode-b.mp4
 
-# or open the app and use Reference… / Encodes…
+# or open the app and drop files on it (or use Reference / Encodes)
 dotnet run --project VideoQuality.App
 ```
 
@@ -77,9 +80,10 @@ The app finds a VMAF-enabled ffmpeg automatically (`$VQ_FFMPEG`, `$FFMPEG_ROOT/b
 
 Working and verified on Ubuntu 26.04, CUDA 13.1, RTX 5060 Ti: 8-bit and 10-bit scoring, H.264/HEVC/AV1,
 1080p playback (900 frames at 30 fps), wipe/flicker/difference, multi-encode overlays, the encode
-table, and 42 tests (38 unit/ABI + 4 integration; integration skips without `VQ_TEST_VIDEO`).
+table, and 54 tests (50 unit/ABI + 4 integration; integration skips without `VQ_TEST_VIDEO`).
 
 Not implemented yet: rate-distortion plots/BD-rate, worst-frames navigation, hover tooltips, score
 caching and PNG export, resolution-mismatch scaling, frame-offset control, colour-matrix-aware RGB
-conversion (the matrix is displayed and mismatches warned, but swscale's default is still used), and
-the job model / log panel (file logging and crash handlers exist).
+conversion (the matrix is displayed and mismatches warned, but swscale's default is still used), the
+in-app log panel (file logging and crash handlers exist), and single-instance forwarding of Open With
+files to a running window.

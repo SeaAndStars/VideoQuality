@@ -21,6 +21,7 @@ public sealed class LabelConverter : IValueConverter
         VmafBackend.Auto => "Auto",
         VmafBackend.Cpu => "CPU",
         VmafBackend.Cuda => "CUDA",
+        string model => VmafModels.DisplayName(model),
         _ => value?.ToString(),
     };
 

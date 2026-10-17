@@ -2,19 +2,25 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="VideoQuality.App.App"
              xmlns:local="using:VideoQuality.App"
+             xmlns:semi="https://irihi.tech/semi"
              RequestedThemeVariant="Dark">
 
     <Application.DataTemplates>
         <local:ViewLocator />
     </Application.DataTemplates>
 
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="/Styles/Tokens.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
     <Application.Styles>
-        <FluentTheme />
-        <Style Selector="TextBlock">
-            <Setter Property="Foreground" Value="#ccd2da" />
-        </Style>
-        <Style Selector="Button">
-            <Setter Property="CornerRadius" Value="4" />
-        </Style>
+        <!-- Semi supplies the base controls; Ursa's Semi theme styles the Ursa controls on top. -->
+        <semi:SemiTheme Locale="en-US" />
+        <semi:UrsaSemiTheme Locale="en-US" />
+        <StyleInclude Source="/Styles/Layers.axaml" />
     </Application.Styles>
 </Application>

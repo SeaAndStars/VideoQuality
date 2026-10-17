@@ -23,7 +23,7 @@ public partial class App : Application
 
             _ = viewModel.InitializeAsync();
 
-            // VideoQuality.App <reference> <encode> [<encode> …] [--mode=sidebyside|wipe|flicker|difference]
+            // VideoQuality.App [<reference>] [<encode> …] [--mode=sidebyside|wipe|flicker|difference]
             if (desktop.Args is { Length: > 0 } args)
             {
                 string? modeArgument = args.FirstOrDefault(a => a.StartsWith("--mode=", StringComparison.OrdinalIgnoreCase));
@@ -33,10 +33,12 @@ public partial class App : Application
                     viewModel.CompareMode = mode;
                 }
 
-                string[] media = args.Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
-                if (media.Length >= 2)
+                // Startup arguments and "Open With" go through the same router as a drop: the first
+                // file becomes the reference when none is set, the rest are encodes.
+                string?[] media = args.Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
+                if (media.Length > 0)
                 {
-                    _ = viewModel.OpenAndAnalyzeAsync(media[0], media[1..]);
+                    _ = viewModel.HandleDropAsync(media, Core.Ingest.DropZone.Auto);
                 }
             }
         }

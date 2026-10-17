@@ -26,6 +26,10 @@
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="FluentIcons.Avalonia" Version="2.1.343" />
+    <PackageReference Include="Irihi.Ursa" Version="2.2.0" />
+    <PackageReference Include="Irihi.Ursa.Themes.Semi" Version="2.2.0" />
     <PackageReference Include="ScottPlot.Avalonia" Version="5.1.59" />
+    <PackageReference Include="Semi.Avalonia" Version="12.1.0.1" />
   </ItemGroup>
 </Project>

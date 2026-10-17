@@ -1,0 +1,236 @@
+<!--
+    The layer model. Every container picks one class; nothing sets its own background colour.
+
+      base     window background                      SemiColorBackground0
+      surface  cards: viewer panes, graph, table       SemiColorBackground1 + 1 px border
+      raised   toolbar, floating legends, chips        SemiColorBackground2 + shadow
+      overlay  drop zones, dialogs, toasts             scrim + zone cards
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:u="https://irihi.tech/ursa"
+        xmlns:ic="using:FluentIcons.Avalonia">
+
+    <Style Selector="Window">
+        <Setter Property="Background" Value="{DynamicResource SemiColorBackground0}" />
+    </Style>
+
+    <Style Selector="Border.surface">
+        <Setter Property="Background" Value="{DynamicResource SemiColorBackground1}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource VqRadiusCard}" />
+        <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+
+    <Style Selector="Border.raised">
+        <Setter Property="Background" Value="{DynamicResource SemiColorBackground2}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource VqRadiusCard}" />
+        <Setter Property="BoxShadow" Value="{StaticResource VqRaisedShadow}" />
+    </Style>
+
+    <!-- Floating label over video: raised, translucent, small. -->
+    <Style Selector="Border.float">
+        <Setter Property="Background" Value="#CC1C1D21" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource VqRadiusControl}" />
+        <Setter Property="Padding" Value="8,4" />
+        <Setter Property="Margin" Value="12" />
+    </Style>
+
+    <Style Selector="Border.canvas">
+        <Setter Property="Background" Value="{StaticResource VqCanvasBrush}" />
+    </Style>
+
+    <!-- Section labels: small caps style used in pane headers and table headers. -->
+    <Style Selector="TextBlock.label">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="LetterSpacing" Value="0.6" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText2}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="TextBlock.muted">
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText2}" />
+    </Style>
+
+    <Style Selector="TextBlock.mono">
+        <Setter Property="FontFamily" Value="Cascadia Mono, JetBrains Mono, DejaVu Sans Mono, monospace" />
+    </Style>
+
+    <!-- Chips: pill-shaped status tags (badges, backend, model). -->
+    <Style Selector="Border.chip">
+        <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource VqRadiusChip}" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.chip TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.chip ic|SymbolIcon">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.chip.warn">
+        <Setter Property="Background" Value="{StaticResource VqWarnSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource VqWarnBrush}" />
+    </Style>
+    <Style Selector="Border.chip.warn TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource VqWarnBrush}" />
+    </Style>
+    <Style Selector="Border.chip.warn ic|SymbolIcon">
+        <Setter Property="Foreground" Value="{StaticResource VqWarnBrush}" />
+    </Style>
+    <Style Selector="Border.chip.accent">
+        <Setter Property="Background" Value="{DynamicResource SemiColorPrimaryLight}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}" />
+    </Style>
+    <Style Selector="Border.chip.accent TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorPrimary}" />
+    </Style>
+    <Style Selector="Border.chip.accent ic|SymbolIcon">
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorPrimary}" />
+    </Style>
+
+    <!-- Toolbar buttons: borderless icon buttons with a consistent hit target. -->
+    <Style Selector="u|IconButton.tool">
+        <Setter Property="Theme" Value="{DynamicResource BorderlessIconButton}" />
+    </Style>
+    <Style Selector="Button.tool">
+        <Setter Property="Theme" Value="{DynamicResource BorderlessButton}" />
+    </Style>
+    <Style Selector="u|IconButton.tool, Button.tool">
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="MinWidth" Value="32" />
+        <Setter Property="Padding" Value="8,4" />
+        <Setter Property="CornerRadius" Value="{StaticResource VqRadiusControl}" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+    </Style>
+    <Style Selector="u|IconToggleButton.tool">
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="MinWidth" Value="32" />
+        <Setter Property="Padding" Value="8,4" />
+        <Setter Property="CornerRadius" Value="{StaticResource VqRadiusControl}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+    </Style>
+    <Style Selector="u|IconToggleButton.tool:pointerover">
+        <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
+    </Style>
+    <Style Selector="u|IconToggleButton.tool:checked">
+        <Setter Property="Background" Value="{DynamicResource SemiColorPrimaryLight}" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorPrimary}" />
+    </Style>
+    <Style Selector="ic|SymbolIcon">
+        <Setter Property="FontSize" Value="18" />
+    </Style>
+
+    <!-- Segmented view switch (Ursa SelectionList). -->
+    <Style Selector="u|SelectionList.segmented">
+        <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
+        <Setter Property="CornerRadius" Value="{StaticResource VqRadiusControl}" />
+        <Setter Property="Padding" Value="2" />
+    </Style>
+    <Style Selector="u|SelectionList.segmented u|SelectionListItem">
+        <Setter Property="Padding" Value="10,5" />
+        <Setter Property="MinWidth" Value="36" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+
+    <!-- Encode table rows: hover actions fade in, the tiny ✕ is gone. -->
+    <Style Selector="ListBox.encodes ListBoxItem">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Margin" Value="0,1" />
+        <Setter Property="CornerRadius" Value="{StaticResource VqRadiusControl}" />
+    </Style>
+    <Style Selector="ListBox.encodes ListBoxItem StackPanel.actions">
+        <Setter Property="Opacity" Value="0" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="ListBox.encodes ListBoxItem:pointerover StackPanel.actions, ListBox.encodes ListBoxItem:selected StackPanel.actions">
+        <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="Button.rowaction">
+        <Setter Property="Theme" Value="{DynamicResource BorderlessButton}" />
+        <Setter Property="Padding" Value="4" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="Button.rowaction ic|SymbolIcon">
+        <Setter Property="FontSize" Value="15" />
+    </Style>
+
+    <!-- Overlay: fades in over 120 ms; zones are dashed cards that light up under the pointer. -->
+    <Style Selector="Panel.overlay">
+        <Setter Property="Opacity" Value="0" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Panel.overlay.visible">
+        <Setter Property="Opacity" Value="1" />
+        <Setter Property="IsHitTestVisible" Value="True" />
+    </Style>
+
+    <Style Selector="Border.zone">
+        <Setter Property="Background" Value="{StaticResource VqZoneBrush}" />
+        <Setter Property="CornerRadius" Value="{StaticResource VqRadiusCard}" />
+        <Setter Property="BoxShadow" Value="{StaticResource VqOverlayShadow}" />
+        <Setter Property="Padding" Value="24" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.12" />
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Border.zone.hot">
+        <Setter Property="Background" Value="{StaticResource VqZoneHotBrush}" />
+    </Style>
+    <Style Selector="Border.zone Rectangle.dash">
+        <Setter Property="Stroke" Value="{DynamicResource SemiColorText3}" />
+        <Setter Property="StrokeThickness" Value="1.5" />
+        <Setter Property="StrokeDashArray" Value="6,4" />
+        <Setter Property="RadiusX" Value="10" />
+        <Setter Property="RadiusY" Value="10" />
+        <Setter Property="Margin" Value="-12" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+    <Style Selector="Border.zone.hot Rectangle.dash">
+        <Setter Property="Stroke" Value="{DynamicResource SemiColorPrimary}" />
+        <Setter Property="StrokeThickness" Value="2" />
+    </Style>
+    <Style Selector="Border.zone ic|SymbolIcon.zoneicon">
+        <Setter Property="FontSize" Value="36" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText1}" />
+    </Style>
+    <Style Selector="Border.zone.hot ic|SymbolIcon.zoneicon">
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorPrimary}" />
+    </Style>
+
+    <Style Selector="GridSplitter.viewer">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Height" Value="8" />
+        <Setter Property="ResizeDirection" Value="Rows" />
+    </Style>
+    <Style Selector="GridSplitter.viewer:pointerover">
+        <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
+    </Style>
+</Styles>

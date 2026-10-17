@@ -3,11 +3,16 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Controls.Notifications;
+using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using ScottPlot;
+using Ursa.Controls;
 using ScottPlot.Plottables;
 using VideoQuality.App.Controls;
 using VideoQuality.App.ViewModels;
+using VideoQuality.Core.Ingest;
 using VideoQuality.Core.Scoring;
 
 namespace VideoQuality.App.Views;
@@ -21,12 +26,17 @@ public partial class MainWindow : Window
     private bool _panning;
     private bool _draggingWipe;
     private Point _panLast;
+    private bool _userSizedViewer;
+    private Border? _hotZone;
+    private WindowToastManager? _toasts;
 
     public MainWindow()
     {
         InitializeComponent();
 
         DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragEnterEvent, OnDragEnter);
+        AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
         AddHandler(KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel);
@@ -44,8 +54,16 @@ public partial class MainWindow : Window
             view.SizeChanged += (_, _) => UpdateZoomLabel();
         }
 
+        ViewerSplitter.DragCompleted += (_, _) => _userSizedViewer = true;
+        ViewerSplitter.DoubleTapped += (_, _) =>
+        {
+            _userSizedViewer = false;
+            UpdateViewerHeight();
+        };
+
         Loaded += (_, _) =>
         {
+            _toasts = new WindowToastManager(this) { MaxItems = 4 };
             UpdateZoomLabel();
             UpdateViewerHeight();
         };
@@ -62,6 +80,8 @@ public partial class MainWindow : Window
         {
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
             _viewModel.Viewport.PropertyChanged -= OnViewportPropertyChanged;
+            _viewModel.ToastRequested -= OnToastRequested;
+            _viewModel.ConfirmAsync = null;
         }
 
         _viewModel = DataContext as MainViewModel;
@@ -70,6 +90,8 @@ public partial class MainWindow : Window
         {
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
             _viewModel.Viewport.PropertyChanged += OnViewportPropertyChanged;
+            _viewModel.ToastRequested += OnToastRequested;
+            _viewModel.ConfirmAsync = ConfirmAsync;
         }
 
         RedrawPlot();
@@ -95,6 +117,7 @@ public partial class MainWindow : Window
                 break;
 
             case nameof(MainViewModel.CompareMode):
+            case nameof(MainViewModel.IsEmpty):
                 UpdateZoomLabel();
                 UpdateViewerHeight();
                 break;
@@ -122,10 +145,11 @@ public partial class MainWindow : Window
         plot.Clear();
         plot.SetStyle(new PlotStyle
         {
-            FigureBackgroundColor = Color.FromHex("#0b0d10"),
-            DataBackgroundColor = Color.FromHex("#0b0d10"),
-            AxisColor = Color.FromHex("#9aa0a6"),
-            GridMajorLineColor = Color.FromHex("#23262b"),
+            // Matches the surface layer (SemiColorBackground1) so the plot sits flush in its card.
+            FigureBackgroundColor = Color.FromHex("#232429"),
+            DataBackgroundColor = Color.FromHex("#232429"),
+            AxisColor = Color.FromHex("#A0A1A7"),
+            GridMajorLineColor = Color.FromHex("#2F3036"),
         });
 
         _marker = null;
@@ -188,7 +212,7 @@ public partial class MainWindow : Window
             else
             {
                 plot.Add.HorizontalLine(report.Stats.Mean, 1, Colors.Gray, LinePattern.Dashed);
-                plot.Add.HorizontalLine(85, 1, Color.FromHex("#e06c75"), LinePattern.Solid);
+                plot.Add.HorizontalLine(85, 1, Color.FromHex("#D55E00"), LinePattern.Dotted);
             }
         }
 
@@ -436,7 +460,11 @@ public partial class MainWindow : Window
         _ => FlickerView,
     };
 
-    /// <summary>Pins the viewer height to the image aspect so fit mode has no letterbox dead space.</summary>
+    /// <summary>
+    /// Sizes the viewer row to the image aspect so fit mode has no letterbox dead space, until the
+    /// user drags the splitter (double-click it to return to automatic sizing). The graph row has a
+    /// minimum height, so wipe mode can no longer crush the plot.
+    /// </summary>
     private void UpdateViewerHeight()
     {
         if (_viewModel is null)
@@ -454,21 +482,23 @@ public partial class MainWindow : Window
             ? _viewModel.ImageWidth / _viewModel.ImageHeight
             : 16.0 / 9.0;
 
-        double paneWidth = _viewModel.IsTwoPane ? (width - 8) / 2 : width;
-        double height = Math.Clamp(paneWidth / aspect + 30, 200, 640);
-
-        // Wipe/flicker use the full width, which would otherwise squeeze the graph and table.
-        double windowHeight = Bounds.Height > 0 ? Bounds.Height : 900;
-        height = Math.Min(height, windowHeight * 0.55);
-
-        if (double.IsNaN(ViewerHost.Height) || Math.Abs(ViewerHost.Height - height) > 1)
+        RowDefinition viewerRow = Layout.RowDefinitions[2];
+        if (!_userSizedViewer)
         {
-            ViewerHost.Height = height;
+            double paneWidth = _viewModel.IsTwoPane ? (width - 12) / 2 : width;
+            double height = Math.Clamp(paneWidth / aspect + 40, 200, 640);
+            double windowHeight = Bounds.Height > 0 ? Bounds.Height : 900;
+            height = Math.Min(height, windowHeight * 0.55);
+
+            if (Math.Abs(viewerRow.Height.Value - height) > 1)
+            {
+                viewerRow.Height = new GridLength(height);
+            }
         }
 
         // A single-pane view gets the image's own width so wipe/flicker do not letterbox sideways.
-        double contentHeight = Math.Max(120, ViewerHost.Height - 30);
-        double singleWidth = contentHeight * aspect;
+        double contentHeight = Math.Max(120, ViewerHost.Bounds.Height - 40);
+        double singleWidth = Math.Min(width, contentHeight * aspect);
         if (double.IsNaN(SinglePaneHost.Width) || Math.Abs(SinglePaneHost.Width - singleWidth) > 1)
         {
             SinglePaneHost.Width = singleWidth;
@@ -512,6 +542,29 @@ public partial class MainWindow : Window
         }
 
         int step = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 10 : 1;
+
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            switch (e.Key)
+            {
+                case Key.O when e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+                    OnPickEncodes(this, new RoutedEventArgs());
+                    e.Handled = true;
+                    return;
+                case Key.O:
+                    OnPickReference(this, new RoutedEventArgs());
+                    e.Handled = true;
+                    return;
+                case Key.V:
+                    _ = PasteAsync();
+                    e.Handled = true;
+                    return;
+                case Key.R:
+                    _viewModel.AnalyzeCommand.Execute(null);
+                    e.Handled = true;
+                    return;
+            }
+        }
 
         switch (e.Key)
         {
@@ -561,28 +614,56 @@ public partial class MainWindow : Window
     private async void OnPickReference(object? sender, RoutedEventArgs e)
     {
         IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(VideoPicker("Choose the reference video", false));
-        string? path = files.Count > 0 ? files[0].TryGetLocalPath() : null;
-
-        if (path is not null && _viewModel is not null)
+        if (files.Count > 0 && _viewModel is not null)
         {
-            await _viewModel.SetReferenceAsync(path);
+            await _viewModel.HandleDropAsync([.. files.Select(file => file.TryGetLocalPath())], DropZone.Reference);
         }
     }
 
     private async void OnPickEncodes(object? sender, RoutedEventArgs e)
     {
         IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(VideoPicker("Add encodes to compare", true));
-        string[] paths = files
-            .Select(file => file.TryGetLocalPath())
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Cast<string>()
-            .ToArray();
-
-        if (paths.Length > 0 && _viewModel is not null)
+        if (files.Count > 0 && _viewModel is not null)
         {
-            await _viewModel.AddEncodesAsync(paths);
+            await _viewModel.HandleDropAsync([.. files.Select(file => file.TryGetLocalPath())], DropZone.Encodes);
         }
     }
+
+    /// <summary>Ctrl+V: files on the clipboard, or one path per line of text (file:// URIs too).</summary>
+    private async Task PasteAsync()
+    {
+        if (_viewModel is null || Clipboard is not { } clipboard)
+        {
+            return;
+        }
+
+        IStorageItem[]? files = await clipboard.TryGetFilesAsync();
+        if (files is { Length: > 0 })
+        {
+            await _viewModel.HandleDropAsync([.. files.Select(f => f.TryGetLocalPath())], DropZone.Auto);
+            return;
+        }
+
+        string? text = await clipboard.TryGetTextAsync();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        List<string?> paths = text
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(line => line.Trim('"', '\''))
+            .Select(line => Uri.TryCreate(line, UriKind.Absolute, out Uri? uri) && !uri.IsFile && uri.Scheme != "file"
+                ? null // smb://, mtp://, http://: not local
+                : uri is { IsFile: true } ? uri.LocalPath : line)
+            .ToList();
+
+        await _viewModel.HandleDropAsync(paths, DropZone.Auto);
+    }
+
+    private void OnStepBack(object? sender, RoutedEventArgs e) => _viewModel?.StepFrame(-1);
+
+    private void OnStepForward(object? sender, RoutedEventArgs e) => _viewModel?.StepFrame(1);
 
     private void OnRemoveEncode(object? sender, RoutedEventArgs e)
     {
@@ -594,6 +675,26 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    private void OnRescoreEncode(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: EncodeEntry entry } && _viewModel is not null)
+        {
+            _ = _viewModel.RescoreAsync(entry);
+        }
+
+        e.Handled = true;
+    }
+
+    private async void OnRevealEncode(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is Button { DataContext: EncodeEntry entry } &&
+            Path.GetDirectoryName(entry.Path) is { } folder)
+        {
+            await Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(folder));
+        }
+    }
+
     private static FilePickerOpenOptions VideoPicker(string title, bool allowMultiple) => new()
     {
         Title = title,
@@ -602,45 +703,153 @@ public partial class MainWindow : Window
         [
             new FilePickerFileType("Video")
             {
-                Patterns = ["*.mp4", "*.mkv", "*.mov", "*.webm", "*.y4m", "*.avi", "*.ts"],
+                Patterns = [.. DropRouter.VideoExtensions.Select(extension => "*" + extension)],
                 MimeTypes = ["video/*"],
             },
         ],
     };
 
-    private void OnDragOver(object? sender, DragEventArgs e) =>
-        e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
+    // ---------------------------------------------------------------- drag and drop
+
+    private static bool HasFiles(DragEventArgs e) => e.DataTransfer.Contains(DataFormat.File);
+
+    private void OnDragEnter(object? sender, DragEventArgs e)
+    {
+        if (_viewModel is not null && HasFiles(e))
+        {
+            _viewModel.IsDragging = true;
+        }
+    }
+
+    // DragLeave also fires when the pointer crosses into a child control; only hide the overlay
+    // when the pointer has really left the window, otherwise it flickers.
+    private void OnDragLeave(object? sender, DragEventArgs e)
+    {
+        Point position = e.GetPosition(this);
+        if (_viewModel is not null &&
+            (position.X <= 0 || position.Y <= 0 || position.X >= Bounds.Width || position.Y >= Bounds.Height))
+        {
+            _viewModel.IsDragging = false;
+            SetHotZone(null);
+        }
+    }
+
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = HasFiles(e) ? DragDropEffects.Copy : DragDropEffects.None;
+        SetHotZone(ZoneAt(e.Source));
+        e.Handled = true;
+    }
 
     private async void OnDrop(object? sender, DragEventArgs e)
     {
-        if (_viewModel is null || !e.DataTransfer.Contains(DataFormat.File))
+        e.Handled = true;
+        Border? zoneBorder = ZoneAt(e.Source);
+        SetHotZone(null);
+
+        if (_viewModel is null)
         {
             return;
         }
 
-        string[] paths = (e.DataTransfer.TryGetFiles() ?? [])
+        _viewModel.IsDragging = false;
+        if (!HasFiles(e))
+        {
+            return;
+        }
+
+        // Non-local items (smb://, mtp://) come through as null and are rejected with a reason.
+        List<string?> paths = (e.DataTransfer.TryGetFiles() ?? [])
             .Select(item => item.TryGetLocalPath())
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Cast<string>()
-            .ToArray();
+            .ToList();
 
-        if (paths.Length == 0)
-        {
-            return;
-        }
+        DropZone zone = zoneBorder?.Tag is DropZone tagged ? tagged : DropZone.Auto;
+        await _viewModel.HandleDropAsync(paths, zone);
+    }
 
-        if (string.IsNullOrWhiteSpace(_viewModel.ReferencePath))
+    private static Border? ZoneAt(object? source)
+    {
+        for (Visual? visual = source as Visual; visual is not null; visual = visual.GetVisualParent())
         {
-            await _viewModel.SetReferenceAsync(paths[0]);
-            if (paths.Length > 1)
+            if (visual is Border border && border.Classes.Contains("zone"))
             {
-                await _viewModel.AddEncodesAsync(paths[1..]);
+                return border;
             }
         }
-        else
+
+        return null;
+    }
+
+    private void SetHotZone(Border? zone)
+    {
+        if (ReferenceEquals(zone, _hotZone))
         {
-            await _viewModel.AddEncodesAsync(paths);
+            return;
         }
+
+        _hotZone?.Classes.Remove("hot");
+        _hotZone = zone;
+        _hotZone?.Classes.Add("hot");
+    }
+
+    // ---------------------------------------------------------------- feedback
+
+    private void OnToastRequested(object? sender, ToastRequest request)
+    {
+        if (_toasts is null)
+        {
+            return;
+        }
+
+        NotificationType type = request.Kind switch
+        {
+            ToastKind.Success => NotificationType.Success,
+            ToastKind.Warning => NotificationType.Warning,
+            ToastKind.Error => NotificationType.Error,
+            _ => NotificationType.Information,
+        };
+
+        object content = request.Message;
+        if (request.ActionLabel is not null && request.Action is not null)
+        {
+            var action = new Button
+            {
+                Content = request.ActionLabel,
+                Theme = (Avalonia.Styling.ControlTheme?)this.FindResource("BorderlessButton"),
+                Padding = new Thickness(8, 2),
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            };
+
+            action.Click += (_, _) =>
+            {
+                action.IsEnabled = false;
+                action.Content = "Done";
+                request.Action();
+            };
+
+            content = new StackPanel
+            {
+                Orientation = Avalonia.Layout.Orientation.Horizontal,
+                Spacing = 12,
+                Children =
+                {
+                    new TextBlock { Text = request.Message, TextWrapping = Avalonia.Media.TextWrapping.Wrap, MaxWidth = 380, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center },
+                    action,
+                },
+            };
+        }
+
+        TimeSpan expiration = request.Action is not null ? TimeSpan.FromSeconds(8) : TimeSpan.FromSeconds(4);
+        _toasts.Show(content, type, expiration, showIcon: true, showClose: true, onClick: null, onClose: null, classes: []);
+    }
+
+    private async Task<bool> ConfirmAsync(string title, string message)
+    {
+        MessageBoxResult result = await MessageBox.ShowAsync(
+            this, message, title, MessageBoxIcon.Question, MessageBoxButton.YesNo);
+
+        // Closing the box without choosing keeps the default (yes).
+        return result != MessageBoxResult.No;
     }
 
     protected override void OnClosed(EventArgs e)
@@ -649,6 +858,7 @@ public partial class MainWindow : Window
         {
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
             _viewModel.Viewport.PropertyChanged -= OnViewportPropertyChanged;
+            _viewModel.ToastRequested -= OnToastRequested;
             _viewModel.Dispose();
         }
 

@@ -7,6 +7,19 @@ using VideoQuality.Core.Scoring;
 
 namespace VideoQuality.App.ViewModels;
 
+/// <summary>Where an encode is in the probe → packet index → score pipeline.</summary>
+public enum EncodeState
+{
+    Queued,
+    Indexing,
+    WaitingForReference,
+    Scoring,
+    Done,
+    Stale,
+    Failed,
+    Cancelled,
+}
+
 /// <summary>One distorted file being compared against the reference.</summary>
 public partial class EncodeEntry : ObservableObject
 {
@@ -15,7 +28,7 @@ public partial class EncodeEntry : ObservableObject
         Path = path;
         ColorHex = colorHex;
         Name = System.IO.Path.GetFileName(path);
-        FileSize = new FileInfo(path).Length;
+        FileSize = File.Exists(path) ? new FileInfo(path).Length : 0;
         Swatch = new SolidColorBrush(Avalonia.Media.Color.Parse(colorHex));
         PlotColor = ScottPlot.Color.FromHex(colorHex);
     }
@@ -53,11 +66,72 @@ public partial class EncodeEntry : ObservableObject
     [NotifyPropertyChangedFor(nameof(BadgeText))]
     public partial int BitDepth { get; set; }
 
+    /// <summary>Probed stream geometry and rate, used to warn about mismatches with the reference.</summary>
+    public int Width { get; set; }
+
+    public int Height { get; set; }
+
+    public double FrameRate { get; set; }
+
     /// <summary>Number of video packets, from the packet index; a cross-check on the decoded count.</summary>
     [ObservableProperty]
     public partial int PacketCount { get; set; }
 
     public string BadgeText => BitDepth > 8 ? $"{BitDepth}-bit" : string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatusText))]
+    [NotifyPropertyChangedFor(nameof(IsPending))]
+    [NotifyPropertyChangedFor(nameof(IsWorking))]
+    [NotifyPropertyChangedFor(nameof(IsDone))]
+    [NotifyPropertyChangedFor(nameof(IsFailed))]
+    [NotifyPropertyChangedFor(nameof(IsStale))]
+    [NotifyPropertyChangedFor(nameof(IsBusy))]
+    public partial EncodeState State { get; set; } = EncodeState.Queued;
+
+    /// <summary>Score progress, 0..1, while <see cref="State"/> is Scoring.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatusText))]
+    public partial double Progress { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatusText))]
+    public partial string? Error { get; set; }
+
+    /// <summary>Resolution, frame-rate or frame-count mismatch against the reference.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasWarning))]
+    public partial string? Warning { get; set; }
+
+    /// <summary>The job currently working on this row, so it can be cancelled.</summary>
+    public Core.Jobs.Job? ActiveJob { get; set; }
+
+    public bool HasWarning => !string.IsNullOrEmpty(Warning);
+
+    public bool IsPending => State is EncodeState.Queued or EncodeState.WaitingForReference;
+
+    public bool IsWorking => State is EncodeState.Indexing or EncodeState.Scoring;
+
+    public bool IsBusy => IsPending || IsWorking;
+
+    public bool IsDone => State == EncodeState.Done;
+
+    public bool IsFailed => State is EncodeState.Failed or EncodeState.Cancelled;
+
+    public bool IsStale => State == EncodeState.Stale;
+
+    /// <summary>Tooltip for the status icon.</summary>
+    public string StatusText => State switch
+    {
+        EncodeState.Queued => "Queued",
+        EncodeState.Indexing => "Reading packets…",
+        EncodeState.WaitingForReference => "Waiting for a reference",
+        EncodeState.Scoring => $"Scoring… {Progress * 100:0}%",
+        EncodeState.Done => "Scored",
+        EncodeState.Stale => "Stale: the reference changed. Re-score to update.",
+        EncodeState.Cancelled => "Cancelled",
+        _ => "Failed: " + (Error ?? "unknown error"),
+    };
 
     /// <summary>Curve visibility; toggled by clicking the colour swatch.</summary>
     [ObservableProperty]

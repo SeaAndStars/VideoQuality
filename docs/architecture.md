@@ -13,13 +13,17 @@ VideoQuality.Core      no UI; safe to use from tests or other tools
     PacketIndex.cs     demux-only packet walk: true bitrate, frame count, keyframes
     FfmpegRuntime.cs   locates libav*.so for the bindings, av_strerror helper
   Imaging/PixelDiff.cs difference image + percentile helper
+  Ingest/DropRouter.cs incoming paths → reference / encodes / rejected / duplicates
+  Jobs/                Job, JobService: per-kind lanes, cancel, retry
   Models/              VmafFrame, VmafStats, VmafReport, VideoInfo
 
-VideoQuality.App       Avalonia 12 desktop UI
-  ViewModels/          MainViewModel, EncodeEntry, ViewportState, CompareMode
+VideoQuality.App       Avalonia 12 desktop UI on Semi.Avalonia + Ursa, Fluent System Icons
+  ViewModels/          MainViewModel, EncodeEntry, ViewportState, CompareMode,
+                       BitmapSwapChain, ToastRequest
   Controls/            FrameView (one image), WipeView (two images + divider)
-  Views/               MainWindow.axaml(.cs): layout, plot, input handling
-  Converters/          enum → friendly labels
+  Views/               MainWindow.axaml(.cs): layout, plot, input, drag and drop, toasts
+  Styles/              Tokens.axaml (spacing, radii, accents, palette), Layers.axaml (layer classes)
+  Converters/          enum → friendly labels and icons
 
 VideoQuality.Cli       probe / score / frame commands, no UI
 ```
@@ -112,12 +116,26 @@ matrix-aware.
 `VideoQuality.Core/Jobs` holds the UI-independent job model. A `Job` has a title, kind, optional
 subject, a work factory (`(job, progress, token) => Task`), a `CancellationTokenSource`, and
 observable state/progress/detail/error/elapsed. `JobService` enqueues jobs into per-kind lanes:
-scoring is serialised (one ffmpeg/GPU run at a time), indexing may run two at a time alongside a
+scoring runs `scoreConcurrency` at a time (one by default), indexing may run two at a time alongside a
 score, exports are serialised. `Cancel` works both queued and running; `Retry` creates a fresh job
 from the same factory.
 
-The UI does not consume it yet — scoring still runs inline in `MainViewModel` — but the state machine
-and lane behaviour are covered by tests and are the intended replacement for the ad-hoc busy flag.
+The UI runs every encode through it. `MainViewModel.ProcessEncodeAsync` enqueues an index job
+(probe + packet index), then a score job, and mirrors each stage onto the row's `EncodeState`
+(queued → indexing → scoring → done / failed / cancelled; stale after a reference change; waiting
+when there is no reference yet). The app creates the service with a score lane two wide, because two
+CUDA runs overlap well; a CPU run also takes a one-slot gate, so CPU scores stay serial. The status
+bar summarises all rows, and Cancel cancels every queued and running job.
+
+## Ingest
+
+`DropRouter.Plan(paths, zone, currentReference, currentEncodes)` is pure apart from reading the file
+system: it expands folders, rejects non-video, missing and non-local paths with a reason, drops
+duplicates, and decides the reference and the encodes. It also says whether replacing the
+reference needs confirmation and whether a reference-zone drop overflowed into encodes (the Undo
+case). Drop zones, file pickers, paste, startup arguments and Open With all call
+`MainViewModel.HandleDropAsync`, which applies the plan. Drag and drop cannot be driven under Xvfb, so
+the router's unit tests are the test path for these rules.
 
 ## Where to extend
 

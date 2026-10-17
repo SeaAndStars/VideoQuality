@@ -66,9 +66,11 @@ if [[ -n "${VQ_PROGRESS_REF:-}" && -n "${VQ_PROGRESS_ENCODE:-}" ]]; then
     pid=$!
     sleep "${VQ_PROGRESS_SETTLE:-12}"
 
+    # Ctrl+R re-scores the selected encode; a shortcut survives toolbar layout changes.
+    # Xvfb has no window manager, so focus the window with a click on the status bar first.
     window=$(DISPLAY=$display xdotool search --name "VideoQuality" | head -1)
-    DISPLAY=$display xdotool mousemove --window "$window" 255 25 click 1
-    sleep 1
+    DISPLAY=$display xdotool mousemove --window "$window" 600 930 click 1 key ctrl+r
+    sleep "${VQ_PROGRESS_DELAY:-1}"
     DISPLAY=$display import -window root "$root/docs/screenshot-progress.png"
     kill "$pid" >/dev/null 2>&1 || true
     wait "$pid" >/dev/null 2>&1 || true

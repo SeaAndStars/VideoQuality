@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=VideoQuality
+GenericName=Video quality comparison
+Comment=Compare encodes against a reference with VMAF
+Exec=videoquality %F
+Icon=video-x-generic
+Terminal=false
+Categories=AudioVideo;Video;
+MimeType=video/*;video/mp4;video/x-matroska;video/quicktime;video/webm;video/x-msvideo;video/mp2t;video/x-ivf;video/x-yuv4mpeg;
+Keywords=VMAF;encode;compare;quality;
