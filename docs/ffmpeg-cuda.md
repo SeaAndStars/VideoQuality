@@ -112,6 +112,49 @@ dotnet run --project VideoQuality.Cli -- probe
 
 `vq frame` additionally proves the bindings load the same soname and that decoding works.
 
+## Windows
+
+The Windows build is cross-compiled from Linux/WSL with mingw-w64, at the same versions as the Linux
+stack (FFmpeg n9.0.2, libvmaf v3.2.1 with CUDA, dav1d 1.5.1, nv-codec-headers n13.0.19.1):
+
+```bash
+apt-get install -y gcc-mingw-w64-x86-64-posix g++-mingw-w64-x86-64-posix nasm meson ninja-build
+./scripts/build-ffmpeg-windows.sh                     # installs C:\ffmpeg\bin (VQ_WIN_PREFIX to change)
+```
+
+Cross-compiling CUDA works because neither FFmpeg nor libvmaf links the CUDA runtime: the Linux `nvcc`
+compiles device code to PTX/fatbin that is embedded as byte arrays, and the host side loads
+`nvcuda.dll` at run time through nv-codec-headers' dynlink loader. The script patches one line of
+libvmaf's meson build so that nvcc is treated as a build-machine tool, and builds libvmaf inside its
+source tree because the nvcc command uses relative include paths.
+
+Publish the app and CLI (self-contained, no .NET install needed on the target):
+
+```bash
+dotnet publish VideoQuality.App -c Release -r win-x64 --self-contained -o out/win/app
+dotnet publish VideoQuality.Cli -c Release -r win-x64 --self-contained -o out/win/cli
+```
+
+The app finds the DLLs in `C:\ffmpeg\bin` (also `FFMPEG_LIB_PATH`, `FFMPEG_ROOT\bin`, or the folder of
+`VQ_FFMPEG`) and adds that folder to the DLL search path, because Windows resolves `avcodec-63.dll`'s
+own imports (`libdav1d.dll`, `libwinpthread-1.dll`) only from the app folder, system folders and PATH.
+An `ffmpeg.exe` on PATH that has VMAF still wins over `C:\ffmpeg`; set `VQ_FFMPEG` or the Settings path
+to choose explicitly.
+
+Verified on Windows 10 22H2, driver 617.42, RTX 5060 Ti:
+
+| Check | Windows | Linux |
+|---|---:|---:|
+| 1080p H.264, 900 frames, CUDA (NEG mean, time) | 91.020, 1.6 s | 91.02, 2.6 s |
+| same, CPU | 91.022, 4.7 s | 91.022 |
+| AV1, CPU (dav1d) / CUDA (NVDEC) | 91.207 / 91.193 | 91.207 / 91.201 |
+| 10-bit HEVC, CPU | 92.883 | 92.883 |
+| decoded frame 42 (BGRA) | byte-identical | |
+| app: five 720p encodes, two at a time | 0.8–0.9 s each | |
+
+The first CUDA run after installing takes several seconds longer while the driver JIT-compiles
+FFmpeg's PTX filters; the driver caches the result.
+
 ## How the app chooses the backend
 
 1. `Auto` (default): CUDA whenever `libvmaf_cuda` exists **and** `nvidia-smi -L` reports a GPU.

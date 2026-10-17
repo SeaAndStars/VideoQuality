@@ -179,7 +179,7 @@
                         <Button Classes="tool" Click="OnActualSize" Content="1:1" FontWeight="SemiBold"
                                 ToolTip.Tip="Actual pixels" AutomationProperties.Name="Actual size" />
                         <TextBlock x:Name="ZoomLabel" Classes="mono muted" Text="fit" VerticalAlignment="Center"
-                                   Width="84" TextAlignment="Center" FontSize="12" />
+                                   MinWidth="96" TextAlignment="Center" FontSize="12" />
 
                         <u:ToolBarSeparator Orientation="Vertical" Margin="6,6" />
 

@@ -45,11 +45,33 @@ public static class FfmpegRuntime
             {
                 ffmpeg.RootPath = directory;
                 LibraryDirectory = directory;
+
+                // The bindings load avcodec/avutil/… by full path, but Windows resolves *their*
+                // imports (libdav1d.dll, libvmaf.dll, libwinpthread-1.dll) only from the app
+                // directory, system directories and PATH. Add the FFmpeg directory to that search.
+                if (OperatingSystem.IsWindows() && !SetDllDirectory(directory))
+                {
+                    VqLog.Warn("libav", $"SetDllDirectory({directory}) failed: {Marshal.GetLastPInvokeError()}");
+                }
             }
 
+            VqLog.Info("libav", $"loading from {LibraryDirectory ?? "(system search path)"}");
+
             // Fail loudly on an ABI mismatch: bindings for one major loading another can corrupt
-            // memory silently.
-            int loadedMajor = (int)(ffmpeg.avcodec_version() >> 16);
+            // memory silently. A missing dependency DLL surfaces here as NotSupportedException.
+            int loadedMajor;
+            try
+            {
+                loadedMajor = (int)(ffmpeg.avcodec_version() >> 16);
+            }
+            catch (NotSupportedException ex)
+            {
+                string message =
+                    $"Could not load libavcodec {ExpectedAvcodecMajor} from {LibraryDirectory ?? "(system search path)"}. " +
+                    "The library or one of its dependencies is missing; set FFMPEG_LIB_PATH to a complete FFmpeg build.";
+                VqLog.Error("libav", message, ex);
+                throw new InvalidOperationException(message, ex);
+            }
             if (loadedMajor != ExpectedAvcodecMajor)
             {
                 string message =
@@ -138,11 +160,37 @@ public static class FfmpegRuntime
         return Marshal.PtrToStringAnsi((IntPtr)buffer) ?? $"FFmpeg error {error}";
     }
 
+    [DllImport("kernel32", CharSet = CharSet.Unicode, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetDllDirectory(string path);
+
     private static IEnumerable<string> Candidates()
     {
         yield return Environment.GetEnvironmentVariable("FFMPEG_LIB_PATH") ?? string.Empty;
-        yield return Environment.GetEnvironmentVariable("FFMPEG_ROOT") ?? string.Empty;
+
+        string root = Environment.GetEnvironmentVariable("FFMPEG_ROOT") ?? string.Empty;
+        yield return root;
+        if (root.Length > 0)
+        {
+            // Windows builds keep the DLLs next to ffmpeg.exe in bin\; Linux uses lib/.
+            yield return Path.Combine(root, "bin");
+            yield return Path.Combine(root, "lib");
+        }
+
+        // The ffmpeg executable the user pointed at usually has its DLLs beside it on Windows.
+        if (Path.GetDirectoryName(Environment.GetEnvironmentVariable("VQ_FFMPEG") ?? string.Empty) is { Length: > 0 } ffmpegDirectory)
+        {
+            yield return ffmpegDirectory;
+        }
+
         yield return AppContext.BaseDirectory;
+
+        if (OperatingSystem.IsWindows())
+        {
+            // Where scripts/build-ffmpeg-windows.sh installs, and VmafRunner's default candidate.
+            yield return @"C:\ffmpeg\bin";
+        }
+
         yield return "/opt/ffmpeg/lib";
         yield return "/usr/lib/x86_64-linux-gnu";
         yield return "/usr/lib/aarch64-linux-gnu";

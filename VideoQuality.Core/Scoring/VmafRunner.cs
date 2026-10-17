@@ -366,23 +366,33 @@ public static partial class VmafRunner
     }
 
     /// <summary>
-    /// Escapes a value that is embedded in an ffmpeg filter option list. The temporary log path we
-    /// generate is already simple, but user-supplied model paths are not, so be conservative.
+    /// Escapes a value embedded in an ffmpeg filter option list inside <c>-filter_complex</c>.
+    /// Two levels apply: the option parser treats <c>\ : '</c> as special, then the filtergraph
+    /// parser treats <c>\ ' [ ] , ;</c> as special and strips one level of backslashes first. A
+    /// Windows path such as <c>C:/Temp/x.json</c> therefore becomes <c>C\\:/Temp/x.json</c>; with a
+    /// single backslash the graph parser eats it and the option parser splits on the drive colon.
     /// </summary>
-    private static string EscapeFilterValue(string value)
+    internal static string EscapeFilterValue(string value)
     {
-        var sb = new StringBuilder(value.Length + 8);
-        foreach (char c in value.Replace('\\', '/'))
+        // libvmaf and ffmpeg accept forward slashes on Windows; this avoids escaping every separator.
+        string option = Escape(value.Replace('\\', '/'), "\\:'");
+        return Escape(option, "\\'[],;");
+
+        static string Escape(string text, string special)
         {
-            if (c is ':' or '\'' or ',' or '[' or ']' or ';')
+            var sb = new StringBuilder(text.Length + 8);
+            foreach (char c in text)
             {
-                sb.Append('\\');
+                if (special.Contains(c))
+                {
+                    sb.Append('\\');
+                }
+
+                sb.Append(c);
             }
 
-            sb.Append(c);
+            return sb.ToString();
         }
-
-        return sb.ToString();
     }
 
     private static VmafExecutionBackend ResolveBackend(VmafBackend requested, VmafCapabilities capabilities)
