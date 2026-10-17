@@ -295,6 +295,8 @@
   "probe.error.noVideo": "'{0}' has no video stream.",
   "probe.error.open": "Could not open '{0}': {1}",
   "probe.error.streamInfo": "Could not read stream info for '{0}': {1}",
+  "process.error.signal": "Could not pause or resume process {0} (status {1}).",
+  "process.error.start": "Could not start '{0}': {1}",
   "settings.about": "ABOUT",
   "settings.aboutLicense": "MIT licensed. Bundles FFmpeg (LGPL) with libvmaf (BSD-2-Clause+patent) and MKVToolNix (GPL-2.0, run as separate programs); font subsetting uses HarfBuzz (MIT).",
   "settings.appFolder": "App folder",

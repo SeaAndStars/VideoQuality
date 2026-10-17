@@ -21,7 +21,7 @@ public class IntegrationTests
         return (ffmpeg, capabilities);
     }
 
-    [SkippableFact]
+    [Fact]
     public void Loaded_libavcodec_matches_the_bindings()
     {
         try
@@ -30,20 +30,20 @@ public class IntegrationTests
         }
         catch (Exception ex)
         {
-            Skip.If(true, "libav could not be loaded: " + ex.Message);
+            Assert.SkipWhen(true, "libav could not be loaded: " + ex.Message);
         }
 
         Assert.Equal(FfmpegRuntime.ExpectedAvcodecMajor, FfmpegRuntime.LoadedAvcodecMajor);
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Same_file_scores_near_100()
     {
         string? video = Video;
-        Skip.If(string.IsNullOrWhiteSpace(video) || !File.Exists(video), "set VQ_TEST_VIDEO to a local clip");
+        Assert.SkipWhen(string.IsNullOrWhiteSpace(video) || !File.Exists(video), "set VQ_TEST_VIDEO to a local clip");
 
         (string ffmpeg, VmafCapabilities capabilities) = await ResolveAsync();
-        Skip.If(!capabilities.HasLibvmaf, "resolved ffmpeg has no libvmaf");
+        Assert.SkipWhen(!capabilities.HasLibvmaf, "resolved ffmpeg has no libvmaf");
 
         VmafReport report = await VmafRunner.RunAsync(
             video!,
@@ -54,14 +54,14 @@ public class IntegrationTests
         Assert.True(report.Stats.Mean > 99.0, $"mean was {report.Stats.Mean:F3}");
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Cpu_and_cuda_agree_on_8_bit()
     {
         string? video = Video;
-        Skip.If(string.IsNullOrWhiteSpace(video) || !File.Exists(video), "set VQ_TEST_VIDEO to a local clip");
+        Assert.SkipWhen(string.IsNullOrWhiteSpace(video) || !File.Exists(video), "set VQ_TEST_VIDEO to a local clip");
 
         (string ffmpeg, VmafCapabilities capabilities) = await ResolveAsync();
-        Skip.If(!capabilities.CudaUsable, "libvmaf_cuda or an NVIDIA GPU is not available");
+        Assert.SkipWhen(!capabilities.CudaUsable, "libvmaf_cuda or an NVIDIA GPU is not available");
 
         VmafReport cpu = await VmafRunner.RunAsync(
             video!,
@@ -79,14 +79,14 @@ public class IntegrationTests
             $"CPU {cpu.Stats.Mean:F3} vs CUDA {gpu.Stats.Mean:F3}");
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Decoded_frame_matches_ffmpeg_extraction()
     {
         string? video = Video;
-        Skip.If(string.IsNullOrWhiteSpace(video) || !File.Exists(video), "set VQ_TEST_VIDEO to a local clip");
+        Assert.SkipWhen(string.IsNullOrWhiteSpace(video) || !File.Exists(video), "set VQ_TEST_VIDEO to a local clip");
 
         (string ffmpeg, _) = await ResolveAsync();
-        Skip.If(ffmpeg is null, "no ffmpeg executable");
+        Assert.SkipWhen(ffmpeg is null, "no ffmpeg executable");
 
         using FrameDecoder decoder = FrameDecoder.Open(video!);
         DecodedFrame decoded = decoder.DecodeFrame(5);
@@ -103,11 +103,11 @@ public class IntegrationTests
         Assert.True(maxDifference <= 2, $"max channel difference was {maxDifference}");
     }
 
-    [SkippableFact]
+    [Fact]
     public void Stepping_backwards_returns_the_same_pixels_as_a_fresh_decode()
     {
         string? video = Video;
-        Skip.If(string.IsNullOrWhiteSpace(video) || !File.Exists(video), "set VQ_TEST_VIDEO to a local clip");
+        Assert.SkipWhen(string.IsNullOrWhiteSpace(video) || !File.Exists(video), "set VQ_TEST_VIDEO to a local clip");
 
         using FrameDecoder stepper = FrameDecoder.Open(video!);
         int start = Math.Min(stepper.Info.FrameCount - 1, 40);

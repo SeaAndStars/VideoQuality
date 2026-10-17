@@ -186,8 +186,11 @@ jobs:
           # GPL-2.0 corresponding source for the bundled MKVToolNix binaries.
           ./scripts/fetch-mkvtoolnix.sh source artifacts/mkvtoolnix-source
           mv artifacts/mkvtoolnix-source/mkvtoolnix-*.tar.xz artifacts/
+          # GPL-3.0 corresponding source for the bundled encoder ffmpeg.
+          ./scripts/fetch-ffmpeg-gpl.sh source artifacts/ffmpeg-gpl-source
+          mv artifacts/ffmpeg-gpl-source/ffmpeg-*.tar.gz artifacts/
           cd artifacts
-          sha256sum VideoQuality-*.zip VideoQuality-*.tar.gz mkvtoolnix-*.tar.xz > SHA256SUMS.txt
+          sha256sum VideoQuality-*.zip VideoQuality-*.tar.gz mkvtoolnix-*.tar.xz ffmpeg-*.tar.gz > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Publish GitHub release
@@ -197,4 +200,4 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             --title "VideoQuality ${{ needs.verify.outputs.version }}" \
             --verify-tag --generate-notes \
-            artifacts/VideoQuality-*.zip artifacts/VideoQuality-*.tar.gz artifacts/mkvtoolnix-*.tar.xz artifacts/SHA256SUMS.txt
+            artifacts/VideoQuality-*.zip artifacts/VideoQuality-*.tar.gz artifacts/mkvtoolnix-*.tar.xz artifacts/ffmpeg-*.tar.gz artifacts/SHA256SUMS.txt

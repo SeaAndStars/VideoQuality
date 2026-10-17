@@ -8,6 +8,7 @@ using VideoQuality.Core.Decoding;
 using VideoQuality.Core.Diagnostics;
 using VideoQuality.Core.Models;
 using VideoQuality.Core.Localization;
+using VideoQuality.Core.Tools;
 
 namespace VideoQuality.Core.Scoring;
 
@@ -32,6 +33,9 @@ public sealed class VmafOptions
 
     /// <summary>Keep the temporary JSON log after the run.</summary>
     public bool KeepLog { get; set; }
+
+    /// <summary>Runs ffmpeg and nvidia-smi; tests substitute scripted tools.</summary>
+    public IProcessRunner ProcessRunner { get; set; } = SystemProcessRunner.Instance;
 }
 
 /// <summary>Progress reported while ffmpeg is running, parsed from <c>-progress pipe:1</c>.</summary>
@@ -75,7 +79,7 @@ public static partial class VmafRunner
         options ??= new VmafOptions();
         cancellationToken.ThrowIfCancellationRequested();
 
-        var capabilities = await ProbeAsync(options.FfmpegPath, cancellationToken).ConfigureAwait(false);
+        var capabilities = await ProbeAsync(options.FfmpegPath, options.ProcessRunner, cancellationToken).ConfigureAwait(false);
         var backend = ResolveBackend(options.Backend, capabilities);
         string model = string.IsNullOrWhiteSpace(options.Model) ? VmafModels.Default : options.Model.Trim();
 
@@ -135,7 +139,7 @@ public static partial class VmafRunner
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            await ExecuteAsync(options.FfmpegPath, arguments, progress, cancellationToken).ConfigureAwait(false);
+            await ExecuteAsync(options.ProcessRunner, options.FfmpegPath, arguments, progress, cancellationToken).ConfigureAwait(false);
 
             if (!File.Exists(logPath))
             {
@@ -194,7 +198,11 @@ public static partial class VmafRunner
     /// has VMAF, then well-known custom build locations. A release therefore uses the ffmpeg it was
     /// tested with even when another one is on PATH.
     /// </summary>
-    public static async Task<string> ResolveFfmpegAsync(string? requested = null, CancellationToken cancellationToken = default)
+    public static Task<string> ResolveFfmpegAsync(string? requested = null, CancellationToken cancellationToken = default) =>
+        ResolveFfmpegAsync(requested, SystemProcessRunner.Instance, cancellationToken);
+
+    /// <inheritdoc cref="ResolveFfmpegAsync(string?, CancellationToken)"/>
+    public static async Task<string> ResolveFfmpegAsync(string? requested, IProcessRunner runner, CancellationToken cancellationToken = default)
     {
         if (!string.IsNullOrWhiteSpace(requested) &&
             !string.Equals(requested.Trim(), "ffmpeg", StringComparison.Ordinal))
@@ -210,14 +218,14 @@ public static partial class VmafRunner
 
         if (BundledFfmpeg is { } bundled)
         {
-            VmafCapabilities bundledCapabilities = await ProbeAsync(bundled, cancellationToken).ConfigureAwait(false);
+            VmafCapabilities bundledCapabilities = await ProbeAsync(bundled, runner, cancellationToken).ConfigureAwait(false);
             if (bundledCapabilities.HasLibvmaf || bundledCapabilities.HasLibvmafCuda)
             {
                 return bundled;
             }
         }
 
-        VmafCapabilities onPath = await ProbeAsync("ffmpeg", cancellationToken).ConfigureAwait(false);
+        VmafCapabilities onPath = await ProbeAsync("ffmpeg", runner, cancellationToken).ConfigureAwait(false);
         if (onPath.HasLibvmaf || onPath.HasLibvmafCuda)
         {
             return "ffmpeg";
@@ -230,7 +238,7 @@ public static partial class VmafRunner
                 continue;
             }
 
-            VmafCapabilities capabilities = await ProbeAsync(candidate, cancellationToken).ConfigureAwait(false);
+            VmafCapabilities capabilities = await ProbeAsync(candidate, runner, cancellationToken).ConfigureAwait(false);
             if (capabilities.HasLibvmaf || capabilities.HasLibvmafCuda)
             {
                 return candidate;
@@ -274,7 +282,11 @@ public static partial class VmafRunner
     }
 
     /// <summary>Checks the ffmpeg build for libvmaf / libvmaf_cuda and looks for an NVIDIA GPU.</summary>
-    public static async Task<VmafCapabilities> ProbeAsync(string ffmpegPath = "ffmpeg", CancellationToken cancellationToken = default)
+    public static Task<VmafCapabilities> ProbeAsync(string ffmpegPath = "ffmpeg", CancellationToken cancellationToken = default) =>
+        ProbeAsync(ffmpegPath, SystemProcessRunner.Instance, cancellationToken);
+
+    /// <inheritdoc cref="ProbeAsync(string, CancellationToken)"/>
+    public static async Task<VmafCapabilities> ProbeAsync(string ffmpegPath, IProcessRunner runner, CancellationToken cancellationToken = default)
     {
         if (CapabilityCache.TryGetValue(ffmpegPath, out var cached))
         {
@@ -288,9 +300,9 @@ public static partial class VmafRunner
         VmafCapabilities capabilities;
         try
         {
-            string filters = await CaptureAsync(ffmpegPath, ["-hide_banner", "-filters"], timeout.Token).ConfigureAwait(false);
-            string version = await CaptureAsync(ffmpegPath, ["-hide_banner", "-version"], timeout.Token).ConfigureAwait(false);
-            bool hasGpu = await HasNvidiaGpuAsync(timeout.Token).ConfigureAwait(false);
+            string filters = await CaptureAsync(runner, ffmpegPath, ["-hide_banner", "-filters"], timeout.Token).ConfigureAwait(false);
+            string version = await CaptureAsync(runner, ffmpegPath, ["-hide_banner", "-version"], timeout.Token).ConfigureAwait(false);
+            bool hasGpu = await HasNvidiaGpuAsync(runner, timeout.Token).ConfigureAwait(false);
 
             string versionLine = version
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -483,149 +495,46 @@ public static partial class VmafRunner
     }
 
     private static async Task ExecuteAsync(
+        IProcessRunner runner,
         string ffmpegPath,
         IReadOnlyList<string> arguments,
         IProgress<VmafProgress>? progress,
         CancellationToken cancellationToken)
     {
-        var startInfo = new ProcessStartInfo(ffmpegPath)
-        {
-            RedirectStandardError = true,
-            RedirectStandardOutput = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-
-        foreach (string argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        using var process = new Process { StartInfo = startInfo };
-        var stderr = new StringBuilder();
-
-        try
-        {
-            if (!process.Start())
+        var parser = new FfmpegProgressParser();
+        ProcessResult result = await runner.RunAsync(
+            new ProcessRequest
             {
-                throw new InvalidOperationException($"Could not start '{ffmpegPath}'.");
-            }
-        }
-        catch (Exception ex) when (ex is not InvalidOperationException)
-        {
-            throw new InvalidOperationException($"Could not start '{ffmpegPath}': {ex.Message}", ex);
-        }
-
-        using var registration = cancellationToken.Register(() => TryKill(process));
-
-        Task pump = Task.Run(async () =>
-        {
-            while (true)
-            {
-                string? line;
-                try
+                FileName = ffmpegPath,
+                Arguments = arguments,
+                CaptureLimit = 64_000,
+                OnOutputLine = line =>
                 {
-                    line = await process.StandardError.ReadLineAsync(cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-
-                if (line is null)
-                {
-                    break;
-                }
-
-                lock (stderr)
-                {
-                    if (stderr.Length < 64_000)
+                    if (parser.Consume(line) is { } value)
                     {
-                        stderr.AppendLine(line);
+                        progress?.Report(value);
                     }
-                }
+                },
+            },
+            cancellationToken).ConfigureAwait(false);
 
-
-            }
-        }, CancellationToken.None);
-
-        Task progressPump = Task.Run(async () =>
+        if (result.ExitCode != 0)
         {
-            var parser = new FfmpegProgressParser();
-
-            while (true)
-            {
-                string? line;
-                try
-                {
-                    line = await process.StandardOutput.ReadLineAsync(cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-
-                if (line is null)
-                {
-                    break;
-                }
-
-                if (parser.Consume(line) is { } value)
-                {
-                    progress?.Report(value);
-                }
-            }
-        }, CancellationToken.None);
-
-        // The process is killed by the cancellation registration, so this wait is always finite.
-        await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-        await pump.ConfigureAwait(false);
-        await progressPump.ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (process.ExitCode != 0)
-        {
-            string tail = Tail(stderr.ToString(), 4000);
+            string tail = Tail(result.Error, 4000);
             throw new InvalidOperationException(
-                $"ffmpeg exited with code {process.ExitCode}.{Environment.NewLine}{tail}{Environment.NewLine}{FormatCommandLine(ffmpegPath, arguments)}");
+                $"ffmpeg exited with code {result.ExitCode}.{Environment.NewLine}{tail}{Environment.NewLine}{FormatCommandLine(ffmpegPath, arguments)}");
         }
     }
 
-    private static async Task<string> CaptureAsync(string fileName, string[] arguments, CancellationToken cancellationToken)
+    private static async Task<string> CaptureAsync(
+        IProcessRunner runner, string fileName, string[] arguments, CancellationToken cancellationToken)
     {
-        var startInfo = new ProcessStartInfo(fileName)
-        {
-            RedirectStandardError = true,
-            RedirectStandardOutput = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-
-        foreach (string argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        using var process = new Process { StartInfo = startInfo };
-        process.Start();
-
-        Task<string> stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        Task<string> stderr = process.StandardError.ReadToEndAsync(cancellationToken);
-
-        try
-        {
-            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            TryKill(process); // do not leave a stuck probe running
-            throw;
-        }
-
-        return (await stdout.ConfigureAwait(false)) + (await stderr.ConfigureAwait(false));
+        ProcessResult result = await runner.RunAsync(
+            new ProcessRequest { FileName = fileName, Arguments = arguments }, cancellationToken).ConfigureAwait(false);
+        return result.Output + result.Error;
     }
 
-    private static async Task<bool> HasNvidiaGpuAsync(CancellationToken cancellationToken)
+    private static async Task<bool> HasNvidiaGpuAsync(IProcessRunner runner, CancellationToken cancellationToken)
     {
         // PATH first, then where drivers install it: a desktop launcher or a minimal environment may
         // not have the driver's directory on PATH (WSL keeps it in /usr/lib/wsl/lib).
@@ -633,7 +542,7 @@ public static partial class VmafRunner
         {
             try
             {
-                string output = await CaptureAsync(executable, ["-L"], cancellationToken).ConfigureAwait(false);
+                string output = await CaptureAsync(runner, executable, ["-L"], cancellationToken).ConfigureAwait(false);
                 if (output.Contains("GPU", StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
@@ -737,21 +646,6 @@ public static partial class VmafRunner
         }
 
         return double.NaN;
-    }
-
-    private static void TryKill(Process process)
-    {
-        try
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
-        }
-        catch
-        {
-            // The process may have exited between the check and the kill; nothing to do.
-        }
     }
 
     private static void TryDelete(string path)

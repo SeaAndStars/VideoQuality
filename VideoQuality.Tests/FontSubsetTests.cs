@@ -13,9 +13,9 @@ public sealed class FontSubsetTests : IDisposable
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
-    private static void RequireFonts() => Skip.IfNot(File.Exists(DejaVu) && File.Exists(DejaVuBold), "DejaVu fonts not installed");
+    private static void RequireFonts() => Assert.SkipUnless(File.Exists(DejaVu) && File.Exists(DejaVuBold), "DejaVu fonts not installed");
 
-    [SkippableFact]
+    [Fact]
     public void Name_table_rewrite_keeps_the_file_valid()
     {
         RequireFonts();
@@ -32,7 +32,7 @@ public sealed class FontSubsetTests : IDisposable
         Assert.Equal(0xB1B0AFBAu, SfntChecksum(bytes));
     }
 
-    [SkippableFact]
+    [Fact]
     public void HarfBuzz_subset_keeps_exactly_the_requested_characters()
     {
         RequireFonts();
@@ -47,7 +47,7 @@ public sealed class FontSubsetTests : IDisposable
         Assert.Empty(HarfBuzzSubset.MissingGlyphs(subset, 0, "Helo,".Select(c => (int)c)));
     }
 
-    [SkippableFact]
+    [Fact]
     public void Matching_prefers_a_real_bold_face_and_reports_synthetic_italic()
     {
         RequireFonts();
@@ -66,7 +66,7 @@ public sealed class FontSubsetTests : IDisposable
         Assert.Null(catalog.Match(new FontRequest("No Such Font", 400, false)));
     }
 
-    [SkippableFact]
+    [Fact]
     public void End_to_end_subset_renames_fonts_and_scripts()
     {
         RequireFonts();

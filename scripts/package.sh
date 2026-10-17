@@ -13,6 +13,7 @@
 #   ffmpeg/             ffmpeg, ffprobe and the libav/libvmaf/dav1d libraries
 #   tools/vq[.exe]      the command-line tool, also a single file
 #   tools/mkvtoolnix/   mkvmerge and mkvextract (GPL-2.0, upstream binaries) for Extract/Mux
+#   tools/ffmpeg-encode/ the encoder ffmpeg (GPL-3.0 static build: x264, x265, SVT-AV1, libass, …)
 #   licenses/           THIRD-PARTY-NOTICES.txt and license texts
 #   logs/               created at run time
 #   (Linux) videoquality.png, install-desktop-entry.sh   application-menu integration
@@ -96,6 +97,12 @@ mkdir -p "$out/licenses/mkvtoolnix"
 mv "$out/tools/mkvtoolnix/licenses/"* "$out/licenses/mkvtoolnix/"
 rmdir "$out/tools/mkvtoolnix/licenses"
 
+echo "== bundle the encoder ffmpeg (GPL)"
+"$root/scripts/fetch-ffmpeg-gpl.sh" "$rid" "$out/tools/ffmpeg-encode"
+encoder_version=$(cat "$out/tools/ffmpeg-encode/VERSION")
+rm "$out/tools/ffmpeg-encode/VERSION"
+mv "$out/tools/ffmpeg-encode/LICENSE-GPL-3.0.txt" "$out/licenses/FFmpeg-encoder-GPL-3.0.txt"
+
 if [[ $rid == linux-x64 ]]; then
     echo "== desktop integration"
     rsvg-convert -w 256 -h 256 "$root/VideoQuality.App/Assets/app-icon.svg" -o "$out/videoquality.png"
@@ -174,6 +181,17 @@ Public License 2.0 (licenses/mkvtoolnix/MKVToolNix-GPL-2.0.txt). VideoQuality ru
 programs. Corresponding source: mkvtoolnix-$mkvtoolnix_version.tar.xz, attached to every VideoQuality
 release on GitHub and at https://mkvtoolnix.download/sources/.
 $mkvtoolnix_note
+
+ENCODER FFMPEG (tools/ffmpeg-encode/)
+The Encode, Trim & Merge and Pipeline pages run a separate, statically linked FFmpeg build
+($encoder_version) from BtbN/FFmpeg-Builds (https://github.com/BtbN/FFmpeg-Builds), configured with
+--enable-gpl --enable-version3 and libraries such as x264, x265, SVT-AV1, libass and the NVENC/QSV/AMF
+interfaces; licensed under the GNU General Public License 3.0 (licenses/FFmpeg-encoder-GPL-3.0.txt).
+VideoQuality only runs it as a separate program; it is not linked into VideoQuality.
+Corresponding source: the FFmpeg source of that commit is attached to every VideoQuality release on
+GitHub; the exact library versions are pinned by the build scripts at the same tag of
+https://github.com/BtbN/FFmpeg-Builds. A copy of the complete corresponding source is available on
+request for three years (open an issue at https://github.com/SeaAndStars/VideoQuality).
 
 NATIVE LIBRARIES (in ffmpeg/)
   libvmaf v3.2.1       BSD-2-Clause-Patent    https://github.com/Netflix/vmaf

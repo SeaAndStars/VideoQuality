@@ -295,6 +295,8 @@
   "probe.error.noVideo": "'{0}' 没有视频流。",
   "probe.error.open": "无法打开 '{0}'：{1}",
   "probe.error.streamInfo": "无法读取 '{0}' 的流信息：{1}",
+  "process.error.signal": "无法暂停或恢复进程 {0}（状态 {1}）。",
+  "process.error.start": "无法启动 '{0}'：{1}",
   "settings.about": "关于",
   "settings.aboutLicense": "MIT 许可。附带 FFmpeg（LGPL）及 libvmaf（BSD-2-Clause+patent）和 MKVToolNix（GPL-2.0，作为独立程序运行）；字体子集化使用 HarfBuzz（MIT）。",
   "settings.appFolder": "程序文件夹",

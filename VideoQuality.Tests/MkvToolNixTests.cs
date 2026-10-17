@@ -63,15 +63,15 @@ public class MkvToolNixTests
         Assert.Equal((progress, warning, error), MkvToolNix.ParseGuiLine(line));
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Mux_then_extract_round_trips_subtitles_and_fonts()
     {
         string? video = Environment.GetEnvironmentVariable("VQ_TEST_VIDEO");
-        Skip.If(string.IsNullOrWhiteSpace(video) || !File.Exists(video), "set VQ_TEST_VIDEO to a local clip");
+        Assert.SkipWhen(string.IsNullOrWhiteSpace(video) || !File.Exists(video), "set VQ_TEST_VIDEO to a local clip");
         MkvToolNix? tools = await MkvToolNix.LocateAsync();
-        Skip.If(tools is null, "mkvtoolnix is not installed");
+        Assert.SkipWhen(tools is null, "mkvtoolnix is not installed");
         const string Font = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
-        Skip.IfNot(File.Exists(Font), "DejaVu not installed");
+        Assert.SkipUnless(File.Exists(Font), "DejaVu not installed");
 
         string root = Directory.CreateTempSubdirectory("vq-mkv-").FullName;
         try

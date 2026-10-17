@@ -1,8 +1,8 @@
-using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using VideoQuality.Core.Diagnostics;
+using VideoQuality.Core.Tools;
 
 namespace VideoQuality.Core.Mkv;
 
@@ -33,12 +33,16 @@ public sealed record MkvRunResult(int ExitCode, IReadOnlyList<string> Warnings, 
 /// </summary>
 public sealed partial class MkvToolNix
 {
-    private MkvToolNix(string mkvmerge, string mkvextract, string version)
+    private MkvToolNix(string mkvmerge, string mkvextract, string version, IProcessRunner runner)
     {
         MkvMerge = mkvmerge;
         MkvExtract = mkvextract;
         Version = version;
+        Runner = runner;
     }
+
+    /// <summary>Runs mkvmerge and mkvextract; tests substitute scripted tools.</summary>
+    public IProcessRunner Runner { get; }
 
     public string MkvMerge { get; }
 
@@ -50,7 +54,11 @@ public sealed partial class MkvToolNix
     /// Finds mkvtoolnix: an explicit folder, a portable copy in the app's tools/mkvtoolnix, PATH,
     /// then the standard Windows install. Null when none works.
     /// </summary>
-    public static async Task<MkvToolNix?> LocateAsync(string? folder = null, CancellationToken cancellationToken = default)
+    public static Task<MkvToolNix?> LocateAsync(string? folder = null, CancellationToken cancellationToken = default) =>
+        LocateAsync(folder, SystemProcessRunner.Instance, cancellationToken);
+
+    /// <inheritdoc cref="LocateAsync(string?, CancellationToken)"/>
+    public static async Task<MkvToolNix?> LocateAsync(string? folder, IProcessRunner runner, CancellationToken cancellationToken = default)
     {
         string exe = OperatingSystem.IsWindows() ? ".exe" : string.Empty;
         foreach (string? directory in Candidates(folder))
@@ -64,13 +72,13 @@ public sealed partial class MkvToolNix
             string extract = directory is null ? "mkvextract" + exe : Path.Combine(directory, "mkvextract" + exe);
             try
             {
-                (int code, string output) = await CaptureAsync(merge, ["--version"], cancellationToken).ConfigureAwait(false);
+                (int code, string output) = await CaptureAsync(runner, merge, ["--version"], cancellationToken).ConfigureAwait(false);
                 if (code == 0 && output.StartsWith("mkvmerge", StringComparison.Ordinal))
                 {
-                    return new MkvToolNix(merge, extract, output.Split('\n')[0].Trim());
+                    return new MkvToolNix(merge, extract, output.Split('\n')[0].Trim(), runner);
                 }
             }
-            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+            catch (ProcessStartException)
             {
                 // Not here; try the next location.
             }
@@ -106,7 +114,7 @@ public sealed partial class MkvToolNix
 
     public async Task<MkvFileInfo> IdentifyAsync(string path, CancellationToken cancellationToken = default)
     {
-        (int code, string output) = await CaptureAsync(MkvMerge, ["-J", path], cancellationToken).ConfigureAwait(false);
+        (int code, string output) = await CaptureAsync(Runner, MkvMerge, ["-J", path], cancellationToken).ConfigureAwait(false);
         if (code == 2 && !output.TrimStart().StartsWith('{'))
         {
             throw new InvalidDataException(output.Trim());
@@ -149,7 +157,7 @@ public sealed partial class MkvToolNix
     }
 
     public Task<MkvRunResult> ExtractAsync(IReadOnlyList<string> arguments, IProgress<double>? progress, CancellationToken cancellationToken) =>
-        RunAsync(MkvExtract, arguments, progress, cancellationToken);
+        RunAsync(Runner, MkvExtract, arguments, progress, cancellationToken);
 
     // ---------------------------------------------------------------- mux
 
@@ -258,7 +266,7 @@ public sealed partial class MkvToolNix
             .ConfigureAwait(false);
         try
         {
-            return await RunAsync(MkvMerge, ["@" + optionFile], progress, cancellationToken).ConfigureAwait(false);
+            return await RunAsync(Runner, MkvMerge, ["@" + optionFile], progress, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -300,92 +308,52 @@ public sealed partial class MkvToolNix
     private static partial Regex ProgressPattern();
 
     private static async Task<MkvRunResult> RunAsync(
-        string executable, IReadOnlyList<string> arguments, IProgress<double>? progress, CancellationToken cancellationToken)
+        IProcessRunner runner, string executable, IReadOnlyList<string> arguments, IProgress<double>? progress, CancellationToken cancellationToken)
     {
-        var startInfo = new ProcessStartInfo(executable)
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
-        };
-
-        foreach (string argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
         VqLog.Info("mkv", $"{Path.GetFileName(executable)} {string.Join(' ', arguments)}");
-        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException($"Could not start {executable}.");
-        using CancellationTokenRegistration registration = cancellationToken.Register(() =>
-        {
-            try
-            {
-                process.Kill(entireProcessTree: true);
-            }
-            catch (InvalidOperationException)
-            {
-                // Already exited.
-            }
-        });
-
         var warnings = new List<string>();
         var errors = new List<string>();
-        Task<string> stderr = process.StandardError.ReadToEndAsync(CancellationToken.None);
+        ProcessResult result = await runner.RunAsync(
+            new ProcessRequest
+            {
+                FileName = executable,
+                Arguments = arguments,
+                OnOutputLine = line =>
+                {
+                    (double? value, string? warning, string? error) = ParseGuiLine(line);
+                    if (value is double fraction)
+                    {
+                        progress?.Report(fraction);
+                    }
 
-        while (await process.StandardOutput.ReadLineAsync(CancellationToken.None).ConfigureAwait(false) is { } line)
+                    if (warning is not null)
+                    {
+                        warnings.Add(warning);
+                    }
+
+                    if (error is not null)
+                    {
+                        errors.Add(error);
+                    }
+                },
+            },
+            cancellationToken).ConfigureAwait(false);
+
+        if (!string.IsNullOrWhiteSpace(result.Error))
         {
-            (double? value, string? warning, string? error) = ParseGuiLine(line);
-            if (value is double fraction)
-            {
-                progress?.Report(fraction);
-            }
-
-            if (warning is not null)
-            {
-                warnings.Add(warning);
-            }
-
-            if (error is not null)
-            {
-                errors.Add(error);
-            }
+            errors.Add(result.Error.Trim());
         }
 
-        await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-        string standardError = await stderr.ConfigureAwait(false);
-        if (!string.IsNullOrWhiteSpace(standardError))
-        {
-            errors.Add(standardError.Trim());
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        VqLog.Info("mkv", $"{Path.GetFileName(executable)} exit {process.ExitCode}, {warnings.Count} warning(s), {errors.Count} error(s)");
-        return new MkvRunResult(process.ExitCode, warnings, errors);
+        VqLog.Info("mkv", $"{Path.GetFileName(executable)} exit {result.ExitCode}, {warnings.Count} warning(s), {errors.Count} error(s)");
+        return new MkvRunResult(result.ExitCode, warnings, errors);
     }
 
-    private static async Task<(int Code, string Output)> CaptureAsync(string executable, string[] arguments, CancellationToken cancellationToken)
+    private static async Task<(int Code, string Output)> CaptureAsync(
+        IProcessRunner runner, string executable, string[] arguments, CancellationToken cancellationToken)
     {
-        var startInfo = new ProcessStartInfo(executable)
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
-        };
-
-        foreach (string argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException($"Could not start {executable}.");
-        Task<string> output = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        Task<string> error = process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-        string text = await output.ConfigureAwait(false);
-        return (process.ExitCode, text.Length > 0 ? text : await error.ConfigureAwait(false));
+        ProcessResult result = await runner.RunAsync(
+            new ProcessRequest { FileName = executable, Arguments = arguments, CaptureLimit = 64 * 1024 * 1024 },
+            cancellationToken).ConfigureAwait(false);
+        return (result.ExitCode, result.Output.Length > 0 ? result.Output : result.Error);
     }
 }
