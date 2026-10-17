@@ -42,6 +42,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private DecodedFrame? _lastReferenceFrame;
     private DecodedFrame? _lastDistortedFrame;
     private bool _suppressEncodeOpen;
+    private string _lastScoreNote = string.Empty;
 
     public MainViewModel()
     {
@@ -396,7 +397,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 await ScoreEntryAsync(entry, token).ConfigureAwait(true);
             }
 
-            Status = $"Scored {Encodes.Count} encode(s) against {Path.GetFileName(ReferencePath!)}.";
+            Status = $"Scored {Encodes.Count} encode(s) against {Path.GetFileName(ReferencePath!)}.{_lastScoreNote}";
         }
         catch (OperationCanceledException)
         {
@@ -609,7 +610,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         try
         {
             await ScoreEntryAsync(entry, _analysisCancellation.Token).ConfigureAwait(true);
-            Status = $"Re-scored {entry.Name}.";
+            Status = $"Re-scored {entry.Name}.{_lastScoreNote}";
         }
         catch (OperationCanceledException)
         {
@@ -691,28 +692,17 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         string ffmpeg = await VmafRunner.ResolveFfmpegAsync(FfmpegPath, cancellationToken).ConfigureAwait(true);
 
-        VmafBackend backend = SelectedBackend;
-        string note = string.Empty;
         int referenceDepth = _referenceDecoder?.Info.BitDepth ?? 8;
         int encodeDepth = entry.BitDepth > 0 ? entry.BitDepth : 8;
+        bool highBitDepth = Math.Max(referenceDepth, encodeDepth) > 8;
 
-        if (Math.Max(referenceDepth, encodeDepth) > 8)
-        {
-            if (backend == VmafBackend.Auto)
-            {
-                backend = VmafBackend.Cpu;
-                note = "  (CPU: high bit depth, avoids the CUDA path's 8-bit conversion)";
-            }
-            else if (backend == VmafBackend.Cuda)
-            {
-                note = "  (CUDA path converts to 8-bit)";
-            }
-        }
-
+        // GPU-first: Auto resolves to libvmaf_cuda whenever it is available, including 10-bit
+        // sources. libvmaf_cuda only accepts yuv420p, so the GPU scaler converts to 8-bit there;
+        // choose CPU explicitly when 10-bit precision matters more than speed.
         var options = new VmafOptions
         {
             FfmpegPath = ffmpeg,
-            Backend = backend,
+            Backend = SelectedBackend,
             Model = SelectedModel,
         };
 
@@ -735,12 +725,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             Status = ProgressDetail;
         });
 
-        Status = $"Scoring {entry.Name}…{note}";
+        Status = $"Scoring {entry.Name}…";
         VmafReport report = await VmafRunner
             .RunAsync(ReferencePath!, entry.Path, options, progress, cancellationToken)
             .ConfigureAwait(true);
 
         entry.Report = report;
+
+        _lastScoreNote = highBitDepth && report.Backend == VmafExecutionBackend.Cuda
+            ? " 10-bit input was converted to 8-bit on the GPU; choose CPU for full precision."
+            : string.Empty;
 
         // Fallback only; OpenSelectedEncodeAsync normally fills this from the packet index.
         if (entry.BitrateKbps <= 0)
