@@ -40,6 +40,37 @@ ffmpeg -i ref.mkv -c:v libx264 -crf 24 -preset medium -pix_fmt yuv420p dist2.mp4
 ffmpeg -i ref.mkv -c:v libx265 -crf 28 -preset faster -pix_fmt yuv420p10le dist10.mp4
 ```
 
+## Tests
+
+```bash
+dotnet test VideoQuality.Tests/VideoQuality.Tests.csproj
+```
+
+Unit tests cover the pure parts: the `-progress` parser, pooled statistics, packet-index bitrate and
+keyframe math, CSV/JSON export, and the difference image. Integration tests are marked
+`[SkippableFact]` and skip unless a real clip and a VMAF-enabled ffmpeg are available:
+
+```bash
+VQ_TEST_VIDEO=/path/to/ref.mkv dotnet test VideoQuality.Tests/VideoQuality.Tests.csproj
+```
+
+With `VQ_TEST_VIDEO` set they verify that the same file scores ≈100, that CPU and CUDA agree on 8-bit
+input, and that a decoded frame matches ffmpeg's own BGRA extraction. Set `VQ_FFMPEG` if the ffmpeg
+to use is not the auto-resolved one.
+
+## Logging and diagnostics
+
+Every build writes a session log to `$XDG_STATE_HOME/videoquality/logs/vq-YYYYMMDD.log`
+(`~/.local/state/...` by default, `%LOCALAPPDATA%\VideoQuality\logs` on Windows):
+
+- startup session header: core version, .NET, OS, ffmpeg path and capabilities, libav path;
+- every score: backend, model, source bit depth, exact command line, result and duration;
+- CUDA failures and CPU fallbacks, with the exception;
+- unhandled exceptions and unobserved task exceptions from the app.
+
+`vq diag` prints the same header, and `vq probe` prints the log path. The app shows it in
+**Settings**.
+
 ## Verification checklist
 
 1. `probe` resolves the custom ffmpeg and reports `libvmaf`, `libvmaf_cuda`, GPU.
@@ -65,6 +96,7 @@ VideoQuality.slnx          solution
 VideoQuality.Core/         scoring, decoding, models (no UI)
 VideoQuality.App/          Avalonia UI
 VideoQuality.Cli/          headless commands
+VideoQuality.Tests/        xUnit unit tests + skippable integration tests
 docs/                      user and developer documentation
   usage.md                 UI and CLI
   ffmpeg-cuda.md           build recipe, GPU policy, troubleshooting
@@ -101,10 +133,14 @@ Why this change, what behaviour it changes, and how it was verified."
 
 Short term, in rough priority:
 
-1. Colour-matrix-aware YUV→RGB conversion (currently metadata-only).
-2. Rate-distortion plot and BD-rate, with ΔVMAF/Δbitrate against a chosen baseline.
-3. Worst-frames navigation and a graph hover tooltip.
-4. PSNR/SSIM/CAMBI from the same libvmaf pass.
-5. Export (JSON/CSV/PNG) and score caching keyed by file hash + model + backend.
-6. Resolution-mismatch scaling and frame-offset control.
-7. A shared job model with structured logging, a log panel and diagnostic bundles.
+1. **Job model and structured logging.** A shared `Job` (queued/running/succeeded/failed/cancelled,
+   progress, cancel, retry) covering scoring, indexing and export; per-row job state; a log panel and
+   a diagnostic bundle. The file log, session header and crash handlers are in place; the job runner
+   and UI surfaces are not. This comes before new metrics because it is what makes the rest
+   debuggable.
+2. Colour-matrix-aware YUV→RGB conversion (currently metadata-only).
+3. Rate-distortion plot and BD-rate, with ΔVMAF/Δbitrate against a chosen baseline.
+4. Worst-frames navigation and a graph hover tooltip.
+5. PSNR/SSIM/CAMBI from the same libvmaf pass.
+6. Score caching keyed by file hash + model + backend, and PNG export.
+7. Resolution-mismatch scaling and frame-offset control.

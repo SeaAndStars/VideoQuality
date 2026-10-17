@@ -7,8 +7,9 @@ hand-crafted features — VIF (detail preservation at several scales), ADM (deta
 impairment), motion — and feeds them to a small SVM regressor trained on subjective scores. It is not
 a neural network and does not generate or enhance anything.
 
-Because it never looks at the bitstream, the codec is irrelevant (H.264, HEVC, AV1, VP9 all work) as
-long as both files decode to aligned frames at the same resolution.
+Because it never looks at the bitstream, the codec is irrelevant as long as both files decode to
+aligned frames at the same resolution. H.264, HEVC and AV1 are exercised in the test set; AV1 needs
+dav1d for the CPU path (see [ffmpeg-cuda.md](ffmpeg-cuda.md)).
 
 ## Models
 
@@ -63,8 +64,17 @@ high-bitrate reference.
 | CUDA (8-bit conversion on GPU) | 93.848 | 91.050 |
 | CPU (true 10-bit) | 93.888 | 91.080 |
 
-The difference is small but real. Use CPU when 10-bit precision is the point; use CUDA for
-throughput. Never mix backends inside one comparison — each report records which one produced it.
+The difference is small but real. **Treat 0.04 as a lower bound, not a typical figure**: the test
+encode was made from an 8-bit reference, so there was little genuine 10-bit detail to lose. Use CPU
+when 10-bit precision is the point; use CUDA for throughput. Never mix backends inside one comparison
+— each report records which one produced it, and the table shows `CUDA·8b` for converted runs.
+
+## HDR
+
+The standard VMAF models (`vmaf_v0.6.1`, `vmaf_4k_v0.6.1`) are trained on SDR content. Scores on PQ
+or HLG material are not meaningful on either backend; VMAF has no HDR model in this pipeline. If you
+need a perceptual comparison for HDR, use a metric designed for it rather than reading these numbers
+as quality.
 
 ## Reading the pooled stats
 

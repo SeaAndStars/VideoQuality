@@ -25,12 +25,13 @@ reference. Re-scoring an existing row uses **Re-score**.
 
 - **Pane headers** carry the file name, resolution, codec, frame rate, duration, a bit-depth badge
   (`10-bit`) and a `lossy` badge when the reference itself is a delivery codec.
-- **Encode table**: colour swatch (matches the curve), name, mean, p1, true video bitrate, file size,
-  and ✕ to remove. Selecting a row swaps the viewer to that encode and thickens its curve.
+- **Encode table**: colour swatch (matches the curve), name, backend/precision (`CUDA·8b` means the
+  GPU path converted a 10-bit source), mean, p1, true video bitrate, file size, and ✕ to remove.
+  Selecting a row swaps the viewer to that encode and thickens its curve.
 - **Graph**: per-frame VMAF for every scored encode. Autoscales by default; `0–100` pins the axis for
   cross-clip comparison. The dashed line is the selected encode's mean, the red line is VMAF 85.
 - **Status bar**: current operation, progress bar and Cancel while scoring, capability summary, and
-  **Settings** (ffmpeg path and what was detected).
+  **Settings** (ffmpeg path, what was detected, log file location).
 
 ## Compare modes
 
@@ -73,7 +74,10 @@ decode drops frames instead of playing in slow motion.
 ## Scoring behaviour
 
 - Backend **Auto** picks CUDA whenever `libvmaf_cuda` is present and an NVIDIA GPU is visible;
-  otherwise CPU. Both can be forced in the toolbar.
+  otherwise CPU. Both can be forced in the toolbar. If an Auto CUDA run fails (for example an NVDEC
+  profile the GPU cannot decode), it retries once on CPU and says so.
+- Each report permanently records its backend and precision; converted 10-bit runs keep `·8b` in the
+  table, the JSON export and the status line.
 - Progress comes from `ffmpeg -progress pipe:1` and shows frame count and encoding speed. Cancel
   kills the ffmpeg process tree and discards the partial log.
 - A 10-bit source scored on CUDA is converted to 8-bit by `scale_cuda` because `libvmaf_cuda`
@@ -85,17 +89,23 @@ decode drops frames instead of playing in slow motion.
 
 ```
 vq probe  [--ffmpeg PATH]
-    Resolve and describe the ffmpeg build: version, libvmaf, libvmaf_cuda, NVIDIA GPU.
+    Resolve and describe the ffmpeg build: version, libvmaf, libvmaf_cuda, GPU, libav path, log path.
 
-vq score <reference> <distorted> [--gpu|--cpu] [--model NAME] [--ffmpeg PATH] [--json out.csv]
-    Run VMAF. Default backend is Auto (CUDA when available).
+vq score <reference> <distorted> [--gpu|--cpu] [--model NAME] [--ffmpeg PATH]
+                            [--csv out.csv] [--json out.json]
+    Run VMAF. Default backend is Auto (CUDA when available). --csv writes frame,vmaf rows;
+    --json writes the full report (backend, precision, model, stats, command, frames).
 
 vq frame <video> [index] [--ppm out.ppm]
     Decode one frame through FFmpeg.AutoGen and optionally write a PPM.
+
+vq diag  [--ffmpeg PATH]
+    Print a session header: versions, OS, ffmpeg capabilities, libav path, log location.
 ```
 
-`score` prints backend, frame count, mean, harmonic mean, p1, min, max, standard deviation, elapsed
-time and the exact ffmpeg command line. `--json` writes `frame,vmaf` rows.
+`score` prints backend and precision, frame count, mean, harmonic mean, p1, min, max, standard
+deviation, elapsed time and the exact ffmpeg command line. A converted 10-bit run prints
+`CUDA·10b→8b` and a note.
 
 The CLI resolves ffmpeg the same way the app does and prints the resolved path, so a
 `probe`/`score` mismatch is impossible.

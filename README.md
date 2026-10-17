@@ -16,8 +16,11 @@ ffmpeg build and machine support it, including 10-bit sources.
   an amplified difference heatmap — with synced zoom/pan across every pane.
 - **Decodes through FFmpeg.AutoGen**, not external frame extraction, with exact seeks and an LRU
   cache so stepping back and forth is cheap.
-- **Reports what it is actually doing**: backend, ffmpeg path, bit depth, colour metadata, true
-  bitrate, packet count, and a progress bar with Cancel while scoring.
+- **Reports what it is actually doing**: backend and precision (`CUDA·8b` for converted 10-bit),
+  ffmpeg path, bit depth, colour metadata, true bitrate, a progress bar with Cancel, and a session
+  log under `$XDG_STATE_HOME/videoquality/logs`.
+- **Tested**: xUnit unit tests for the progress parser, stats, packet index and exports, plus
+  skippable integration tests for scoring agreement and frame-exact decoding.
 
 ## Quick start
 
@@ -35,8 +38,9 @@ Headless:
 
 ```bash
 dotnet run --project VideoQuality.Cli -- probe
-dotnet run --project VideoQuality.Cli -- score ref.mkv dist.mp4 --json out.csv
+dotnet run --project VideoQuality.Cli -- score ref.mkv dist.mp4 --csv out.csv --json out.json
 dotnet run --project VideoQuality.Cli -- frame dist.mp4 42 --ppm frame.ppm
+dotnet run --project VideoQuality.Cli -- diag
 ```
 
 The app finds a VMAF-enabled ffmpeg automatically (`$VQ_FFMPEG`, `$FFMPEG_ROOT/bin/ffmpeg`,
@@ -64,8 +68,9 @@ The app finds a VMAF-enabled ffmpeg automatically (`$VQ_FFMPEG`, `$FFMPEG_ROOT/b
 
 ## Status
 
-Working and verified on Ubuntu 26.04, CUDA 13.1, RTX 5060 Ti: 8-bit and 10-bit scoring, 1080p
-playback (900 frames at 30 fps), wipe/flicker/difference, multi-encode overlays and the encode table.
+Working and verified on Ubuntu 26.04, CUDA 13.1, RTX 5060 Ti: 8-bit and 10-bit scoring, H.264/HEVC/AV1,
+1080p playback (900 frames at 30 fps), wipe/flicker/difference, multi-encode overlays, the encode
+table, and 22 passing tests (integration tests skip without `VQ_TEST_VIDEO`).
 
 Not implemented yet: rate-distortion plots/BD-rate, worst-frames navigation, hover tooltips, export
 and score caching, resolution-mismatch scaling, frame-offset control, colour-matrix-aware RGB

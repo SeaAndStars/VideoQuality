@@ -26,8 +26,8 @@ on `PATH` — the app resolves it by path instead.
 ## Building
 
 ```bash
-# 0. CUDA compiler + headers (Ubuntu package names)
-apt-get install -y --no-install-recommends cuda-nvcc-13-1 cuda-cudart-dev-13-1 nasm meson
+# 0. CUDA compiler, headers, AV1 decoder (Ubuntu package names)
+apt-get install -y --no-install-recommends cuda-nvcc-13-1 cuda-cudart-dev-13-1 nasm meson libdav1d-dev
 
 # 1. nv-codec-headers
 git clone https://code.ffmpeg.org/FFmpeg/nv-codec-headers.git
@@ -35,9 +35,11 @@ cd nv-codec-headers
 git checkout n13.0.19.1   # master renamed an NVENC struct field and breaks ffmpeg 8.0.x
 make install
 
-# 2. libvmaf with CUDA (v3.0.0 does not compile against CUDA 13; use master)
-git clone --depth 1 https://github.com/Netflix/vmaf.git
-cd vmaf/libvmaf
+# 2. libvmaf with CUDA (v3.0.0 does not compile against CUDA 13; master does)
+git clone https://github.com/Netflix/vmaf.git
+cd vmaf
+git checkout 94f3ff0dd8d0062e39b27d0eadfc57457022b663   # verified with CUDA 13.1 + ffmpeg 8.0.1
+cd libvmaf
 export PATH=/usr/local/cuda/bin:$PATH
 export NVCC_PREPEND_FLAGS="-arch=sm_120"
 meson setup build --prefix=/opt/vmaf --buildtype=release --default-library=shared \
@@ -45,9 +47,11 @@ meson setup build --prefix=/opt/vmaf --buildtype=release --default-library=share
 ninja -C build && ninja -C build install
 
 # 3. ffmpeg
+git clone --depth 1 --branch n8.0.1 https://git.ffmpeg.org/ffmpeg.git ffmpeg-8.0.1
+cd ffmpeg-8.0.1
 export PKG_CONFIG_PATH=/opt/vmaf/lib/x86_64-linux-gnu/pkgconfig
 ./configure --prefix=/opt/ffmpeg --disable-doc --enable-gpl --enable-nonfree \
-    --enable-libvmaf --enable-cuda-nvcc --enable-ffnvcodec \
+    --enable-libvmaf --enable-libdav1d --enable-cuda-nvcc --enable-ffnvcodec \
     --nvccflags="-gencode arch=compute_120,code=sm_120" \
     --extra-cflags=-I/usr/local/cuda/include \
     --extra-ldflags="-L/opt/vmaf/lib/x86_64-linux-gnu -Wl,-rpath,/opt/vmaf/lib/x86_64-linux-gnu -Wl,-rpath,/usr/local/cuda/lib64"
@@ -63,6 +67,8 @@ Why each unusual flag is needed:
 - `NVCC_PREPEND_FLAGS` for libvmaf — its meson build compiles PTX without an arch flag; PTX for
   `sm_120` is what the driver JITs on Blackwell.
 - `-Wl,-rpath` — lets `/opt/ffmpeg/bin/ffmpeg` find `libvmaf.so.3` without `LD_LIBRARY_PATH`.
+- `--enable-libdav1d` — the native AV1 decoder in this build failed on SVT-AV1 output
+  (`Get current frame error`); dav1d decodes it, and it is what the distro build uses too.
 
 ## Verifying
 
@@ -88,6 +94,21 @@ dotnet run --project VideoQuality.Cli -- probe
 
 Capability probing runs `ffmpeg -filters`, `ffmpeg -version` and `nvidia-smi -L`, cached per ffmpeg
 path. The resolved backend is recorded on every report and shown next to the stats.
+
+## AV1
+
+AV1 is exercised end to end: an 8-bit SVT-AV1 encode scores **92.508 on CPU (dav1d)** and
+**92.442 on CUDA (`av1_cuvid`)**, and the viewer decodes it through FFmpeg.AutoGen with an exact frame
+match against ffmpeg's own extraction. Without dav1d, CPU AV1 scoring of SVT-AV1 output fails; the GPU
+path was unaffected because NVDEC does the decoding.
+
+## Decoding and NVDEC failures
+
+The CUDA scoring path uses `-hwaccel cuda`, which decodes through NVDEC (`*_cuvid`). NVDEC does not
+support every profile or bit depth, so a CUDA run can fail even when the filter is present. With
+backend **Auto**, the runner retries once on CPU and records `fellBackToCpu` plus the reason in the
+report (and the app says so in the status line). An explicitly forced CUDA run fails loudly instead
+of silently changing backend.
 
 ## 10-bit inputs
 
@@ -128,3 +149,4 @@ by `score`, shown in the app's **Settings** flyout, and stored in each report.
 | `undefined reference to __cxa_throw` at link | libvmaf is static; rebuild shared. |
 | CUDA scores differ from CPU | Expected: different implementation and, for 10-bit, an 8-bit intermediate. Do not mix backends within a comparison. |
 | CUDA filter errors on 10-bit formats | Use `scale_cuda=format=yuv420p`; the filter does not accept `p010le`. |
+| AV1 CPU score fails with `Get current frame error` | Build ffmpeg with `--enable-libdav1d`; the native decoder failed on SVT-AV1 output. |
