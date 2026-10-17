@@ -1,0 +1,142 @@
+{
+ "attachments": [
+  {
+   "content_type": "font/ttf",
+   "description": "",
+   "file_name": "DejaVuSans.ttf",
+   "id": 1,
+   "properties": {
+    "uid": 7982027529007732091
+   },
+   "size": 759720
+  }
+ ],
+ "chapters": [],
+ "container": {
+  "properties": {
+   "container_type": 17,
+   "date_local": "2026-10-17T20:46:20+08:00",
+   "date_utc": "2026-10-17T12:46:20Z",
+   "duration": 10031000000,
+   "is_providing_timestamps": true,
+   "muxing_application": "libebml v1.4.5 + libmatroska v1.7.1",
+   "segment_uid": "66c7c56b0e7576c81b754e44216d3f91",
+   "timestamp_scale": 1000000,
+   "title": "Sample Episode",
+   "writing_application": "mkvmerge v97.0 ('You Don't Have A Clue') 64-bit"
+  },
+  "recognized": true,
+  "supported": true,
+  "type": "Matroska"
+ },
+ "errors": [],
+ "file_name": "sample.mkv",
+ "global_tags": [
+  {
+   "num_entries": 2
+  }
+ ],
+ "identification_format_version": 20,
+ "track_tags": [
+  {
+   "num_entries": 1,
+   "track_id": 0
+  }
+ ],
+ "tracks": [
+  {
+   "codec": "AVC/H.264/MPEG-4p10",
+   "id": 0,
+   "properties": {
+    "codec_id": "V_MPEG4/ISO/AVC",
+    "codec_private_data": "01f4001fffe1001867f4001faeb402802dd80880000003008000001e078c195001000568ce01af20fdf8f800",
+    "codec_private_length": 44,
+    "color_range": 1,
+    "default_duration": 33333333,
+    "default_track": false,
+    "display_dimensions": "1280x720",
+    "display_unit": 0,
+    "enabled_track": true,
+    "forced_track": false,
+    "language": "jpn",
+    "language_ietf": "ja",
+    "minimum_timestamp": 0,
+    "num_index_entries": 2,
+    "number": 1,
+    "packetizer": "mpeg4_p10_video",
+    "pixel_dimensions": "1280x720",
+    "tag__statistics_tags": "BPS DURATION NUMBER_OF_FRAMES NUMBER_OF_BYTES",
+    "tag__statistics_writing_app": "mkvmerge v97.0 ('You Don't Have A Clue') 64-bit",
+    "tag__statistics_writing_date_utc": "2026-10-17 12:46:20",
+    "tag_bps": "16311825",
+    "tag_duration": "00:00:10.000000000",
+    "tag_encoder": "Lavc62.11.100 libx264",
+    "tag_number_of_bytes": "20389782",
+    "tag_number_of_frames": "300",
+    "track_name": "Video",
+    "uid": 2809927656913577876
+   },
+   "type": "video"
+  },
+  {
+   "codec": "AAC",
+   "id": 1,
+   "properties": {
+    "audio_channels": 1,
+    "audio_sampling_frequency": 44100,
+    "codec_id": "A_AAC",
+    "codec_private_data": "120856e500",
+    "codec_private_length": 5,
+    "default_duration": 23219954,
+    "default_track": true,
+    "enabled_track": true,
+    "forced_track": false,
+    "language": "jpn",
+    "language_ietf": "ja",
+    "minimum_timestamp": 0,
+    "num_index_entries": 0,
+    "number": 2,
+    "tag__statistics_tags": "BPS DURATION NUMBER_OF_FRAMES NUMBER_OF_BYTES",
+    "tag__statistics_writing_app": "mkvmerge v97.0 ('You Don't Have A Clue') 64-bit",
+    "tag__statistics_writing_date_utc": "2026-10-17 12:46:20",
+    "tag_bps": "96184",
+    "tag_duration": "00:00:10.031000000",
+    "tag_number_of_bytes": "120603",
+    "tag_number_of_frames": "432",
+    "track_name": "Japanese 2.0",
+    "uid": 15027396702923220264
+   },
+   "type": "audio"
+  },
+  {
+   "codec": "SubStationAlpha",
+   "id": 2,
+   "properties": {
+    "codec_id": "S_TEXT/ASS",
+    "codec_private_data": "5b53637269707420496e666f5d0d0a536372697074547970653a2076342e30302b0d0a0d0a5b56342b205374796c65735d0d0a466f726d61743a204e616d652c20466f6e746e616d652c20466f6e7473697a652c20426f6c642c204974616c69630d0a5374796c653a2044656661756c742c44656a6156752053616e732c35302c302c300d0a0d0a5b4576656e74735d0d0a466f726d61743a204c617965722c2053746172742c20456e642c205374796c652c204e616d652c204d617267696e4c2c204d617267696e522c204d617267696e562c204566666563742c20546578740d0a0d0a",
+    "codec_private_length": 229,
+    "default_track": true,
+    "enabled_track": true,
+    "encoding": "UTF-8",
+    "forced_track": false,
+    "language": "chi",
+    "language_ietf": "zh-Hans",
+    "minimum_timestamp": 1000000000,
+    "num_index_entries": 1,
+    "number": 3,
+    "tag__statistics_tags": "BPS DURATION NUMBER_OF_FRAMES NUMBER_OF_BYTES",
+    "tag__statistics_writing_app": "mkvmerge v97.0 ('You Don't Have A Clue') 64-bit",
+    "tag__statistics_writing_date_utc": "2026-10-17 12:46:20",
+    "tag_bps": "100",
+    "tag_duration": "00:00:02.000000000",
+    "tag_number_of_bytes": "25",
+    "tag_number_of_frames": "1",
+    "text_subtitles": true,
+    "track_name": "简体中文",
+    "uid": 7578643327773788868
+   },
+   "type": "subtitles"
+  }
+ ],
+ "warnings": []
+}
