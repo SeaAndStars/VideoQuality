@@ -285,7 +285,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public int FrameCount => Frames.Count;
 
-    public double MaxFrame => Math.Max(0, FrameCount - 1);
+    // At least 1 so an empty (disabled) slider shows its thumb at the start, not the far end.
+    public double MaxFrame => Math.Max(1, FrameCount - 1);
+
+    public bool HasFrames => FrameCount > 1;
 
     public bool HasEncodes => Encodes.Count > 0;
 
@@ -340,7 +343,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public string RightPaneTitle => IsDifference
         ? $"DIFFERENCE  ×{DifferenceGain:0.#}  ·  {ChannelLabel}"
-        : "DISTORTED";
+        : "ENCODE";
 
     public string DifferenceLegend
     {
@@ -1484,6 +1487,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(Frames));
         OnPropertyChanged(nameof(FrameCount));
         OnPropertyChanged(nameof(MaxFrame));
+        OnPropertyChanged(nameof(HasFrames));
         OnPropertyChanged(nameof(StatsText));
         OnPropertyChanged(nameof(FrameText));
         OnPropertyChanged(nameof(CanPlay));

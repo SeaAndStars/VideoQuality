@@ -64,6 +64,7 @@
 
     <!-- Chips: pill-shaped status tags (badges, backend, model). -->
     <Style Selector="Border.chip">
+        <Setter Property="Height" Value="22" />
         <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
         <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
         <Setter Property="BorderThickness" Value="1" />
@@ -130,6 +131,41 @@
         <Setter Property="Background" Value="{DynamicResource SemiColorPrimaryLight}" />
         <Setter Property="Foreground" Value="{DynamicResource SemiColorPrimary}" />
     </Style>
+    <!-- Toolbar row: every control is 32 px tall so icons, text and boxes share one centre line. -->
+    <Style Selector="Border.toolbar ComboBox">
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.toolbar Slider">
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Card header: one height for every card so neighbouring headers line up. -->
+    <Style Selector="Grid.cardheader">
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Section heading inside flyouts and dialogs. -->
+    <Style Selector="TextBlock.section">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="LetterSpacing" Value="0.6" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText1}" />
+    </Style>
+
+    <!-- Tooltips float on the raised layer, dark like everything else. -->
+    <Style Selector="ToolTip">
+        <Setter Property="Background" Value="{DynamicResource SemiColorBackground3}" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource VqRadiusControl}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="8,5" />
+    </Style>
+
     <Style Selector="ic|SymbolIcon">
         <Setter Property="FontSize" Value="18" />
         <Setter Property="HorizontalAlignment" Value="Center" />
@@ -165,12 +201,19 @@
         <Setter Property="Padding" Value="2" />
     </Style>
     <Style Selector="u|SelectionList.segmented">
+        <!-- The theme's minimum height made the group 50 px tall; 28 + the border's 2 px inset = 32. -->
+        <Setter Property="Height" Value="28" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="CornerRadius" Value="6" />
         <Setter Property="Padding" Value="0" />
     </Style>
     <Style Selector="u|SelectionList.segmented u|SelectionListItem">
-        <Setter Property="Padding" Value="10,5" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Padding" Value="10,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="MinWidth" Value="36" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
     </Style>

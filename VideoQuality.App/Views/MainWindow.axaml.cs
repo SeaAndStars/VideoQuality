@@ -172,9 +172,8 @@ public partial class MainWindow : UrsaWindow
         if (entries.Count == 0)
         {
             plot.Axes.SetLimits(0, 100, 0, 100);
-            plot.Title(all.Count == 0 ? "VMAF per frame" : "All curves hidden");
-            plot.XLabel("frame");
-            plot.YLabel("VMAF");
+            GraphSubtitle.Text = all.Count == 0 ? string.Empty : "all curves hidden";
+            StyleAxes(plot, "frame", "VMAF");
             PlotView.Refresh();
             return;
         }
@@ -253,17 +252,32 @@ public partial class MainWindow : UrsaWindow
         string label = _viewModel?.SelectedEncode?.Report is { } selectedReport
             ? VmafModels.DisplayName(selectedReport.Model)
             : "VMAF";
-        string mixed = _viewModel?.HasMixedModels == true ? " · MIXED MODELS" : string.Empty;
+        string mixed = _viewModel?.HasMixedModels == true ? "  ·  MIXED MODELS" : string.Empty;
 
         string title = delta
-            ? $"Δ {label} vs {baseline.Name} — {entries.Count} encode(s){mixed}"
-            : $"{label} per frame — {entries.Count} encode(s)" +
-              (backend.Length > 0 ? $" — {backend}" : string.Empty) + mixed;
+            ? $"Δ {label} vs {baseline.Name}  ·  {entries.Count} encode(s){mixed}"
+            : $"{label}  ·  {entries.Count} encode(s)" +
+              (backend.Length > 0 ? $"  ·  {backend}" : string.Empty) + mixed;
 
-        plot.Title(title);
-        plot.XLabel("frame");
-        plot.YLabel(delta ? "Δ VMAF" : "VMAF");
+        // The card header carries the title, in the app's own typography; the plot has none.
+        GraphSubtitle.Text = title;
+        StyleAxes(plot, "frame", delta ? "Δ VMAF" : "VMAF");
         PlotView.Refresh();
+    }
+
+    /// <summary>Axis labels and ticks at the app's text sizes, regular weight, muted colour.</summary>
+    private static void StyleAxes(Plot plot, string x, string y)
+    {
+        var muted = Color.FromHex("#A0A1A7");
+        foreach (var (axis, text) in new (ScottPlot.IAxis Axis, string Text)[] { (plot.Axes.Bottom, x), (plot.Axes.Left, y) })
+        {
+            axis.Label.Text = text;
+            axis.Label.FontSize = 12;
+            axis.Label.Bold = false;
+            axis.Label.ForeColor = muted;
+            axis.TickLabelStyle.FontSize = 11;
+            axis.TickLabelStyle.ForeColor = muted;
+        }
     }
 
     /// <summary>Baseline value at a frame number; frames are dense and start at zero.</summary>

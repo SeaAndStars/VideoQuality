@@ -47,7 +47,7 @@
                         AutomationProperties.Name="Drop reference here">
                     <Panel>
                         <Rectangle Classes="dash" />
-                        <StackPanel Spacing="10" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <StackPanel Spacing="10" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,8,0,0">
                             <ic:SymbolIcon Classes="zoneicon" Symbol="Video" HorizontalAlignment="Center" />
                             <TextBlock Text="Reference" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
                             <TextBlock Classes="muted" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="320"
@@ -60,7 +60,7 @@
                         AutomationProperties.Name="Drop encodes here">
                     <Panel>
                         <Rectangle Classes="dash" />
-                        <StackPanel Spacing="10" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <StackPanel Spacing="10" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,8,0,0">
                             <ic:SymbolIcon Classes="zoneicon" Symbol="Add" HorizontalAlignment="Center" />
                             <TextBlock Text="Compare" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
                             <TextBlock Classes="muted" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="320"
@@ -91,7 +91,7 @@
             </Grid.RowDefinitions>
 
             <!-- ======================================================== raised: toolbar -->
-            <Border Classes="raised" Padding="6,4">
+            <Border Classes="raised toolbar" Padding="6,4">
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                     <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
                         <!-- file -->
@@ -202,7 +202,7 @@
                         <Button Classes="tool" Click="OnActualSize" Content="1:1" FontWeight="SemiBold"
                                 ToolTip.Tip="Actual pixels" AutomationProperties.Name="Actual size" />
                         <TextBlock x:Name="ZoomLabel" Classes="mono muted" Text="fit" VerticalAlignment="Center"
-                                   MinWidth="96" TextAlignment="Center" FontSize="12" />
+                                   MinWidth="104" TextAlignment="Center" FontSize="13" />
 
                         <u:ToolBarSeparator Orientation="Vertical" Margin="6,6" />
 
@@ -234,7 +234,7 @@
                             <Button.Flyout>
                                 <Flyout Placement="BottomEdgeAlignedRight">
                                     <StackPanel Width="440" Spacing="10" Margin="4">
-                                        <TextBlock Text="Scoring" FontWeight="SemiBold" FontSize="15" />
+                                        <TextBlock Text="SCORING" Classes="section" />
                                         <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto" RowSpacing="8">
                                             <TextBlock Text="Model" Classes="muted" VerticalAlignment="Center" />
                                             <ComboBox Grid.Column="1" ItemsSource="{Binding ModelOptions}"
@@ -256,7 +256,7 @@
                                             </ComboBox>
                                         </Grid>
                                         <u:Divider />
-                                        <TextBlock Text="ffmpeg executable" FontWeight="SemiBold" />
+                                        <TextBlock Text="FFMPEG EXECUTABLE" Classes="section" />
                                         <TextBox Text="{Binding FfmpegPath, UpdateSourceTrigger=LostFocus}" />
                                         <TextBlock Text="{Binding BackendStatus}" TextWrapping="Wrap" FontSize="12" Classes="muted" />
                                         <TextBlock Text="{Binding LogPath}" TextWrapping="Wrap" FontSize="11" Classes="muted" />
@@ -286,7 +286,7 @@
 
                     <Border Classes="surface">
                         <Grid RowDefinitions="Auto,*">
-                            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8" MinHeight="40" Margin="{StaticResource VqHeaderPadding}">
+                            <Grid Classes="cardheader" ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8" Margin="{StaticResource VqHeaderPadding}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <Ellipse Width="8" Height="8" Fill="{StaticResource VqReferenceBrush}" VerticalAlignment="Center" />
                                     <TextBlock Classes="label" Text="REFERENCE" />
@@ -312,7 +312,7 @@
 
                     <Border Grid.Column="1" Classes="surface">
                         <Grid RowDefinitions="Auto,*">
-                            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8" MinHeight="40" Margin="{StaticResource VqHeaderPadding}">
+                            <Grid Classes="cardheader" ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8" Margin="{StaticResource VqHeaderPadding}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <Ellipse Width="8" Height="8" Fill="{StaticResource VqEncodeBrush}" VerticalAlignment="Center" />
                                     <TextBlock Classes="label" Text="{Binding RightPaneTitle}" />
@@ -366,7 +366,7 @@
                         </MultiBinding>
                     </Border.IsVisible>
                     <Grid RowDefinitions="Auto,*">
-                        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8" MinHeight="40" Margin="{StaticResource VqHeaderPadding}">
+                        <Grid Classes="cardheader" ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8" Margin="{StaticResource VqHeaderPadding}">
                             <TextBlock Classes="label" Text="{Binding SinglePaneTitle}" />
                             <Border Grid.Column="1" Classes="chip" IsVisible="{Binding HasEncodeBadge}">
                                 <TextBlock Text="{Binding EncodeBadge}" />
@@ -434,9 +434,12 @@
             <Grid Grid.Row="4" ColumnDefinitions="2*,1.25*" ColumnSpacing="12">
                 <Border Classes="surface">
                     <Grid RowDefinitions="Auto,*">
-                        <Grid ColumnDefinitions="*,Auto" Margin="{StaticResource VqHeaderPadding}">
+                        <Grid Classes="cardheader" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10"
+                              Margin="{StaticResource VqHeaderPadding}">
                             <TextBlock Classes="label" Text="PER-FRAME SCORE" />
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
+                            <TextBlock Grid.Column="1" x:Name="GraphSubtitle" Classes="muted" FontSize="11"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                                 <CheckBox Content="Smooth" IsChecked="{Binding ShowSmoothed}" FontSize="12"
                                           ToolTip.Tip="5-frame moving average" />
                                 <CheckBox Content="Δ baseline" IsChecked="{Binding ShowDelta}" FontSize="12"
@@ -447,9 +450,10 @@
                     </Grid>
                 </Border>
 
-                <Border Grid.Column="1" Classes="surface" Padding="8">
+                <Border Grid.Column="1" Classes="surface" Padding="8,0,8,8">
                     <DockPanel>
-                        <Grid DockPanel.Dock="Top" ColumnDefinitions="22,14,*,48,46,46,66,72" ColumnSpacing="6" Margin="6,2,6,6">
+                        <Grid DockPanel.Dock="Top" Classes="cardheader" ColumnDefinitions="22,14,*,48,46,46,70,72"
+                              ColumnSpacing="6" Margin="6,0">
                             <TextBlock Grid.Column="2" Classes="label" Text="ENCODE" />
                             <TextBlock Grid.Column="3" Classes="label" Text="MODEL" />
                             <TextBlock Grid.Column="4" Classes="label" Text="MEAN" HorizontalAlignment="Right" />
@@ -467,7 +471,7 @@
                                      Background="Transparent" BorderThickness="0" Padding="0">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="vm:EncodeEntry">
-                                        <Grid ColumnDefinitions="22,14,*,48,46,46,66,72" ColumnSpacing="6" Margin="6,6"
+                                        <Grid ColumnDefinitions="22,14,*,48,46,46,70,72" ColumnSpacing="6" Margin="6,6"
                                               ToolTip.Tip="{Binding StatusText}">
                                             <!-- status: drawn circles with a small centred glyph; a filled
                                                  font glyph alone sits off-centre because of its font metrics -->
@@ -513,7 +517,7 @@
                                                        HorizontalAlignment="Right" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="5" Text="{Binding P1Text}" FontSize="12" Classes="mono muted"
                                                        HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="6" Text="{Binding BitrateText}" FontSize="11" Classes="mono muted"
+                                            <TextBlock Grid.Column="6" Text="{Binding BitrateText}" FontSize="12" Classes="mono muted"
                                                        HorizontalAlignment="Right" VerticalAlignment="Center"
                                                        ToolTip.Tip="{Binding SizeText, StringFormat='Video stream bitrate from the packet index; file {0}'}" />
 
@@ -548,6 +552,7 @@
                     <TextBlock Classes="mono" Text="{Binding FrameText}" VerticalAlignment="Center"
                                FontSize="13" MinWidth="330" />
                     <Slider Grid.Column="1" Minimum="0" Maximum="{Binding MaxFrame}"
+                            IsEnabled="{Binding HasFrames}"
                             Value="{Binding CurrentFrameValue, Mode=TwoWay}"
                             TickFrequency="1" IsSnapToTickEnabled="True"
                             VerticalAlignment="Center" AutomationProperties.Name="Frame" />
