@@ -26,4 +26,15 @@ public class VmafModelsTests
         Assert.Equal("custom.json", VmafModels.DisplayName("custom.json"));
         Assert.Equal("custom.json", VmafModels.ShortName("custom.json"));
     }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void Missing_models_read_as_plain_vmaf(string? model)
+    {
+        Assert.Equal("VMAF", VmafModels.DisplayName(model));
+        Assert.Equal("VMAF", VmafModels.ShortName(model));
+        Assert.Equal("STD", VmafModels.ShortName(VmafModels.Standard));
+        Assert.Equal("4K", VmafModels.ShortName(VmafModels.Uhd));
+    }
 }

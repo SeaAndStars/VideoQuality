@@ -61,6 +61,15 @@ public static class VqLog
         Info("log", $"writing to {_file.Path}");
     }
 
+    /// <summary>Closes the log so the next write (or <see cref="Initialize"/>) opens it again.</summary>
+    internal static void Reset()
+    {
+        lock (Gate)
+        {
+            _file = null;
+        }
+    }
+
     public static void Info(string source, string message) => File.Write("INF", source, message, null);
 
     public static void Warn(string source, string message, Exception? exception = null) =>

@@ -84,8 +84,9 @@ public static partial class ChapterList
                     new XElement("ChapterLanguage", language))));
         }
 
-        var document = new XDocument(new XDeclaration("1.0", "utf-8", null), new XDocumentType("Chapters", null, "matroskachapters.dtd", null), new XElement("Chapters", edition));
-        return document.Declaration + Environment.NewLine + document;
+        var declaration = new XDeclaration("1.0", "utf-8", null);
+        var document = new XDocument(declaration, new XDocumentType("Chapters", null, "matroskachapters.dtd", null), new XElement("Chapters", edition));
+        return declaration.ToString() + Environment.NewLine + document.ToString();
     }
 
     /// <summary>

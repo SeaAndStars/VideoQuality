@@ -144,13 +144,20 @@ public sealed class LogTests : IDisposable
     [Fact]
     public void The_shared_log_writes_session_headers()
     {
+        VqLog.Reset();
+        VqLog.Info("test", "opens the default log");
+        VqLog.Reset();
         VqLog.Initialize();
-        VqLog.Initialize(_work); // already open: ignored
+        VqLog.Reset();
+        VqLog.Initialize(_work);
+        VqLog.Initialize(); // already open: ignored
+        Assert.StartsWith(_work, VqLog.CurrentPath, StringComparison.Ordinal);
         VqLog.SessionHeader("test session", new Dictionary<string, string> { ["key"] = "value" });
         VqLog.Warn("test", "warning");
         VqLog.Error("test", "error", new InvalidOperationException("x"));
         Assert.NotNull(VqLog.CurrentPath);
         Assert.Contains("key: value", File.ReadAllText(VqLog.CurrentPath!), StringComparison.Ordinal);
+        VqLog.Reset();
     }
 }
 

@@ -60,4 +60,13 @@ public class FfmpegProgressParserTests
         parser.Consume("frame=0");
         Assert.Equal(0, parser.Frame);
     }
+
+    [Fact]
+    public void Unparsable_fps_keeps_the_last_value()
+    {
+        var parser = new FfmpegProgressParser();
+        parser.Consume("fps=24");
+        parser.Consume("fps=N/A");
+        Assert.Equal(24, parser.Fps);
+    }
 }

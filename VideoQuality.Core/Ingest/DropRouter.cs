@@ -1,4 +1,6 @@
 using VideoQuality.Core.Localization;
+using VideoQuality.Core.Tools;
+
 namespace VideoQuality.Core.Ingest;
 
 /// <summary>Where files arrived: a drop zone, or anywhere else (startup args, Open With, paste).</summary>
@@ -176,18 +178,6 @@ public static class DropRouter
     public static bool IsVideo(string path) => VideoExtensions.Contains(Path.GetExtension(path));
 
     /// <summary>Video files directly inside a folder, sorted by name. Subfolders are not walked.</summary>
-    private static IEnumerable<string> ScanFolder(string folder)
-    {
-        try
-        {
-            return Directory.EnumerateFiles(folder)
-                .Where(IsVideo)
-                .Order(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return [];
-        }
-    }
+    private static IEnumerable<string> ScanFolder(string folder) =>
+        FileSystem.SafeEnumerateFiles(folder, "*").Where(IsVideo).Order(StringComparer.OrdinalIgnoreCase).ToList();
 }

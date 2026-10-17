@@ -272,6 +272,9 @@ public class EncodeCommandTests
         Assert.True(args.ToList().IndexOf("-ss") < args.ToList().IndexOf("-i"));
         Assert.Equal(TimeSpan.FromSeconds(29.5), command.Duration);
 
+        // An end before the start means "to the end".
+        Assert.Equal("1430", After(Single(new EncodePreset { Streams = new StreamSettings { Start = 10, End = 5 } }), "-t"));
+
         args = Single(new EncodePreset { Streams = new StreamSettings { End = 10 } });
         Assert.DoesNotContain("-ss", args);
         Assert.Equal("10", After(args, "-t"));
@@ -353,6 +356,23 @@ public class EncodeCommandTests
         Assert.Equal("copy", After(args, "-c:a:1"));
     }
 
+    [Theory]
+    [InlineData(192, 0, 0, 1, "copy")] // any rate and layout
+    [InlineData(96, 48000, 2, 1, "aac")] // too high a bitrate
+    [InlineData(192, 44100, 2, 1, "aac")] // another sample rate
+    [InlineData(192, 48000, 6, 1, "aac")] // another channel count
+    [InlineData(192, 48000, 2, 0, "aac")] // unknown bitrate
+    public void Audio_is_copied_only_when_it_matches(int kbps, int rate, int channels, int knownBitrate, string expected)
+    {
+        MediaInfo aac = Source with
+        {
+            Streams = [.. Source.Streams.Where(s => s.Kind != StreamKind.Audio),
+                new MediaStream { Index = 1, Kind = StreamKind.Audio, Codec = "aac", BitRate = 128_000 * knownBitrate, SampleRate = 48000, Channels = 2 }],
+        };
+        IReadOnlyList<string> args = Single(new EncodePreset { Audio = new AudioSettings { BitrateKbps = kbps, SampleRate = rate, Channels = channels } }, aac);
+        Assert.Equal(expected, After(args, "-c:a:0"));
+    }
+
     [Fact]
     public void Burn_in_uses_the_named_file_with_escaped_options()
     {
@@ -416,6 +436,7 @@ public class EncodeCommandTests
     [InlineData("-vf \"scale=1:2,eq\" 'single q' x\"y z\"w", new[] { "-vf", "scale=1:2,eq", "single q", "xy zw" })]
     [InlineData("\"esc \\\" and \\\\ and \\n\" ''", new[] { "esc \" and \\ and \\n", "" })]
     [InlineData("\"tail\\", new[] { "tail\\" })]
+    [InlineData("-a ", new[] { "-a" })]
     public void Tokenizer_splits_like_a_shell(string? text, string[] expected) =>
         Assert.Equal(expected, ArgumentTokenizer.Split(text));
 }

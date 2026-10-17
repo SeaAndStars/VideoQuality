@@ -192,7 +192,7 @@ public class MkvCoverageTests
         }), token))!;
 
         var progress = new List<double>();
-        MkvRunResult mux = await tools.MuxAsync(["--output", "x.mkv"], new SyncProgress(progress.Add), token);
+        MkvRunResult mux = await tools.MuxAsync(["--output", "x.mkv"], new SyncProgress<double>(progress.Add), token);
         Assert.Equal([0.5], progress);
         Assert.Equal(["odd"], mux.Warnings);
         Assert.Equal(["bad", "stderr text"], mux.Errors);
@@ -201,10 +201,5 @@ public class MkvCoverageTests
         MkvRunResult extract = await tools.ExtractAsync(["in.mkv", "tracks", "0:x.h264"], null, token);
         Assert.Equal(2, extract.ExitCode);
         Directory.Delete(folder);
-    }
-
-    private sealed class SyncProgress(Action<double> report) : IProgress<double>
-    {
-        public void Report(double value) => report(value);
     }
 }

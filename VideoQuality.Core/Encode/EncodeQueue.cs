@@ -66,7 +66,7 @@ public sealed class EncodeJob
 
     internal IProcessControl? Control { get; set; }
 
-    internal CancellationTokenSource? Cancellation { get; set; }
+    internal CancellationTokenSource Cancellation { get; set; } = new();
 
     /// <summary>The last lines ffmpeg printed (stderr), newest last.</summary>
     public IReadOnlyList<string> Log
@@ -135,7 +135,7 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
             _jobs.Add(job);
         }
 
-        JobChanged?.Invoke(job);
+        Changed(job);
         Pump();
     }
 
@@ -159,7 +159,7 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
         {
             control.Suspend();
             job.State = EncodeJobState.Paused;
-            JobChanged?.Invoke(job);
+            Changed(job);
         }
     }
 
@@ -169,7 +169,7 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
         {
             control.Resume();
             job.State = EncodeJobState.Running;
-            JobChanged?.Invoke(job);
+            Changed(job);
         }
     }
 
@@ -180,11 +180,11 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
         {
             case EncodeJobState.Queued:
                 job.State = EncodeJobState.Cancelled;
-                JobChanged?.Invoke(job);
+                Changed(job);
                 break;
             case EncodeJobState.Running or EncodeJobState.Paused:
                 job.Control?.Resume(); // a frozen process cannot be killed cleanly on every platform
-                job.Cancellation?.Cancel();
+                job.Cancellation.Cancel();
                 break;
         }
     }
@@ -198,7 +198,7 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
             job.Progress = 0;
             job.Error = null;
             job.ClearLog();
-            JobChanged?.Invoke(job);
+            Changed(job);
             Pump();
         }
     }
@@ -231,6 +231,7 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
                 }
 
                 next.State = EncodeJobState.Running;
+                next.Cancellation = new CancellationTokenSource();
                 _running++;
             }
 
@@ -250,14 +251,13 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
 
     private async Task RunAsync(EncodeJob job)
     {
-        using var cancellation = new CancellationTokenSource();
-        job.Cancellation = cancellation;
+        CancellationTokenSource cancellation = job.Cancellation;
         var started = DateTime.UtcNow;
         int passes = job.Command.Passes.Count;
         double duration = Math.Max(job.Command.Duration.TotalSeconds, 0.001);
         string executable = ffmpegPath();
         VqLog.Info("encode", $"start {job.Name} -> {job.Output} ({passes} pass(es))");
-        JobChanged?.Invoke(job);
+        Changed(job);
         try
         {
             for (int pass = 0; pass < passes; pass++)
@@ -294,7 +294,7 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
                                 job.EstimatedSize = inPass > 0.02 ? (long)(parser.TotalSize / inPass) : 0;
                             }
 
-                            JobChanged?.Invoke(job);
+                            Changed(job);
                         },
                     },
                     cancellation.Token).ConfigureAwait(false);
@@ -328,7 +328,6 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
         finally
         {
             job.Control = null;
-            job.Cancellation = null;
             job.Elapsed = DateTime.UtcNow - started;
             foreach (string prefix in job.Command.TemporaryFiles)
             {
@@ -336,8 +335,10 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
             }
         }
 
-        JobChanged?.Invoke(job);
+        Changed(job);
     }
+
+    private void Changed(EncodeJob job) => JobChanged?.Invoke(job);
 
     private static string Tail(IReadOnlyList<string> log) =>
         string.Join(Environment.NewLine, log.Where(l => !l.StartsWith("frame=", StringComparison.Ordinal)).TakeLast(8));

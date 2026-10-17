@@ -16,6 +16,9 @@ public sealed class FontSubsetOptions
 
     /// <summary>Renamed scripts go here, subset fonts into its <c>fonts</c> subfolder.</summary>
     public required string OutputDirectory { get; init; }
+
+    /// <summary>The subsetting engine (HarfBuzz); replaceable so tests can check the glyph verification.</summary>
+    internal Func<byte[], int, IEnumerable<int>, byte[]> Subsetter { get; init; } = HarfBuzzSubset.Subset;
 }
 
 /// <summary>One subset font that was written.</summary>
@@ -160,7 +163,7 @@ public static class FontSubsetter
             {
                 progress?.Report(Loc.T("subset.progress.subsetting", face, chars.Count));
                 byte[] source = Bytes(face.Path);
-                byte[] subset = HarfBuzzSubset.Subset(source, face.Index, chars);
+                byte[] subset = options.Subsetter(source, face.Index, chars);
 
                 // Rename: family, full, PostScript and unique-ID names; style names and the
                 // copyright/license records stay as they are.

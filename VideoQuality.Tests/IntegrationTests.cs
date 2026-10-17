@@ -117,6 +117,23 @@ public class IntegrationTests
 public class FrameDecoderTests
 {
     [Fact]
+    public async Task Variable_frame_rate_numbers_frames_in_decode_order()
+    {
+        using FrameDecoder vfr = FrameDecoder.Open(await TestMedia.VfrAsync());
+        int count = vfr.Info.FrameCount;
+
+        // Timestamps collide in the burst (frames keep advancing) and skip numbers later (a gap
+        // shows the next frame), so walking either way only ever moves forward in time.
+        long[] forward = [.. Enumerable.Range(0, count).Select(i => vfr.DecodeFrame(i).Pts)];
+        Assert.Equal(forward.Order(), forward);
+        Assert.Equal([0, 0, 0, 0, 42], forward.Take(5));
+        Assert.True(forward.Distinct().Count() < count); // gaps repeat the next frame
+
+        long[] backward = [.. Enumerable.Range(0, count).Reverse().Select(i => vfr.DecodeFrame(i).Pts)];
+        Assert.Equal(backward.Order().Reverse(), backward);
+    }
+
+    [Fact]
     public async Task Reads_the_properties_of_each_kind_of_clip()
     {
         using (FrameDecoder hevc = FrameDecoder.Open(await TestMedia.Hevc10Async()))

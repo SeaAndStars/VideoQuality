@@ -74,7 +74,8 @@ public sealed unsafe class FrameDecoder : IDisposable
 
             _frame = ffmpeg.av_frame_alloc();
             _packet = ffmpeg.av_packet_alloc();
-            Ensure(_frame != null && _packet != null, "decoder.error.native", "av_frame_alloc");
+            Ensure(_frame != null, "decoder.error.native", "av_frame_alloc");
+            Ensure(_packet != null, "decoder.error.native", "av_packet_alloc");
 
             _timeBase = stream->time_base;
             _timeBaseSeconds = ffmpeg.av_q2d(_timeBase);
@@ -87,8 +88,8 @@ public sealed unsafe class FrameDecoder : IDisposable
                 ? (int)stream->nb_frames
                 : (int)Math.Round(durationSeconds * _fps);
 
-            // Interpolation turns an unknown format's null name into an empty string.
-            string pixelFormat = $"{ffmpeg.av_get_pix_fmt_name((AVPixelFormat)codecParameters->format)}";
+            // Concat turns an unknown format's null name into an empty string.
+            string pixelFormat = string.Concat(ffmpeg.av_get_pix_fmt_name((AVPixelFormat)codecParameters->format), string.Empty);
 
             Info = new VideoInfo(
                 codecParameters->width,
@@ -417,7 +418,7 @@ public sealed unsafe class FrameDecoder : IDisposable
             sourceStride[i] = frame->linesize[(uint)i];
         }
 
-        fixed (byte* destination = pixels)
+        fixed (byte* destination = &pixels[0])
         {
             var destinationData = new byte*[4] { destination, null, null, null };
             var destinationStride = new int[4] { stride, 0, 0, 0 };

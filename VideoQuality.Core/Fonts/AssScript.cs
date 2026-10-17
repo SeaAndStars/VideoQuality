@@ -312,9 +312,8 @@ public sealed class AssScript
                 continue;
             }
 
-            int codepoint = char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1])
-                ? char.ConvertToUtf32(c, text[i + 1])
-                : c;
+            // Decoding replaced any unpaired surrogate, so a high surrogate always has its pair.
+            int codepoint = char.ConvertToUtf32(text, i);
             Add(result, family, weight, italic, codepoint);
             i += codepoint > 0xFFFF ? 2 : 1;
         }

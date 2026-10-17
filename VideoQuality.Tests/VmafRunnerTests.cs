@@ -206,6 +206,10 @@ public sealed class VmafRunnerTests : IDisposable
         Assert.Contains("libvmaf_cuda", both, StringComparison.Ordinal);
         Assert.Contains("nvidia-smi", both, StringComparison.Ordinal);
 
+        var gpuOnly = new VmafOptions { FfmpegPath = Ffmpeg(), ProcessRunner = Tools(filters: " ... libvmaf  VV->V x\n"), Backend = VmafBackend.Cuda };
+        string filterOnly = (await Assert.ThrowsAsync<InvalidOperationException>(() => VmafRunner.RunAsync(r, d, gpuOnly, cancellationToken: token))).Message;
+        Assert.DoesNotContain("nvidia-smi", filterOnly, StringComparison.Ordinal);
+
         var noGpu = new VmafOptions { FfmpegPath = Ffmpeg(), ProcessRunner = Tools(gpu: false), Backend = VmafBackend.Cuda };
         Assert.DoesNotContain("libvmaf_cuda filter", (await Assert.ThrowsAsync<InvalidOperationException>(() => VmafRunner.RunAsync(r, d, noGpu, cancellationToken: token))).Message, StringComparison.Ordinal);
 
@@ -326,12 +330,6 @@ public sealed class VmafRunnerTests : IDisposable
     [InlineData("/a/it's [1],b;c.json", @"/a/it\\\'s \[1\]\,b\;c.json")]
     public void Filter_values_are_escaped_for_both_parser_levels(string value, string expected) =>
         Assert.Equal(expected, VmafRunner.EscapeFilterValue(value));
-
-    /// <summary>Reports synchronously (Progress&lt;T&gt; posts to the thread pool).</summary>
-    private sealed class SyncProgress<T>(Action<T> report) : IProgress<T>
-    {
-        public void Report(T value) => report(value);
-    }
 }
 
 public class FileSystemTests

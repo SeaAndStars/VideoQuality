@@ -309,7 +309,6 @@
   "encode.warning.mp4Subtitles": "MP4 无法封装 ASS 字幕，未复制字幕（请内嵌或改用 MKV）。",
   "encode.warning.noSubtitleFile": "输入旁边没有同名的 .ass/.ssa/.srt，未内嵌字幕。",
   "encode.warning.noSubtitleStream": "输入没有字幕流 #{0}，未内嵌字幕。",
-  "encode.warning.onePass": "{0} 不支持二次编码，将以单次编码使用该码率。",
   "extract.all": "全选",
   "extract.attachment": "附件 {0}",
   "extract.chapters": "章节",

@@ -279,7 +279,8 @@ public sealed partial class MkvToolNix
     /// <summary>Parses one line of --gui-mode output.</summary>
     public static (double? Progress, string? Warning, string? Error) ParseGuiLine(string line)
     {
-        if (ProgressPattern().Match(line) is { Success: true } progress)
+        Match progress = ProgressPattern().Match(line);
+        if (progress.Success)
         {
             return (int.Parse(progress.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) / 100.0, null, null);
         }

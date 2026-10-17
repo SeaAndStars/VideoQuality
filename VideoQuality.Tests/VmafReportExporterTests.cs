@@ -71,4 +71,16 @@ public class VmafReportExporterTests
         Assert.Equal("CPU", native.PrecisionLabel);
         Assert.Equal("CPU", native.PrecisionShort);
     }
+
+    [Fact]
+    public void Files_are_written_and_fallbacks_recorded()
+    {
+        string folder = Directory.CreateTempSubdirectory("vq-export-").FullName;
+        VmafReport report = CreateReport() with { FallbackReason = "no CUDA" };
+        VmafReportExporter.WriteCsv(Path.Combine(folder, "r.csv"), report);
+        VmafReportExporter.WriteJson(Path.Combine(folder, "r.json"), report);
+        Assert.StartsWith("frame,vmaf", File.ReadAllText(Path.Combine(folder, "r.csv")), StringComparison.Ordinal);
+        Assert.Contains("\"fallbackReason\": \"no CUDA\"", File.ReadAllText(Path.Combine(folder, "r.json")), StringComparison.Ordinal);
+        Directory.Delete(folder, true);
+    }
 }

@@ -177,4 +177,43 @@ public class EncodeQueueTests
         Assert.Equal(EncodeJobState.Failed, job.State);
         Assert.Contains("no-ffmpeg", job.Error, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Stopping_before_the_process_starts_cancels_without_listeners()
+    {
+        EncodeQueue queue = null!;
+        EncodeJob job = Job(Temp("early.mkv"));
+        var runner = new ScriptedRunner(_ => ScriptedRunner.Ok());
+        queue = new EncodeQueue(runner, () =>
+        {
+            queue.Stop(job); // running, but no process yet
+            return "ffmpeg";
+        });
+
+        queue.Add(job);
+        await queue.WhenIdleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(EncodeJobState.Cancelled, job.State);
+
+        queue.Pause(job);
+        queue.Resume(job);
+        queue.Retry(job);
+        await queue.WhenIdleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(EncodeJobState.Cancelled, job.State); // stopped again by the callback
+    }
+
+    [Fact]
+    public async Task A_queued_job_is_dropped_without_listeners()
+    {
+        var release = new TaskCompletionSource<ProcessResult>();
+        var queue = new EncodeQueue(new ScriptedRunner((_, _) => release.Task), () => "ffmpeg");
+        EncodeJob running = Job(Temp("a.mkv"));
+        EncodeJob waiting = Job(Temp("b.mkv"));
+        queue.Add(running);
+        queue.Add(waiting);
+        queue.Stop(waiting);
+        Assert.Equal(EncodeJobState.Cancelled, waiting.State);
+        release.SetResult(ScriptedRunner.Ok());
+        await queue.WhenIdleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(EncodeJobState.Done, running.State);
+    }
 }

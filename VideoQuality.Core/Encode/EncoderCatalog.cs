@@ -30,10 +30,7 @@ public sealed record VideoEncoderInfo(
     IReadOnlyList<string> Tunes,
     IReadOnlyList<string> Profiles,
     IReadOnlyList<int> BitDepths,
-    string? ParamsOption)
-{
-    public bool IsHardware => Family is EncoderFamily.Nvenc or EncoderFamily.Qsv or EncoderFamily.Amf;
-}
+    string? ParamsOption);
 
 /// <summary>What the Encode page offers for one audio encoder.</summary>
 public sealed record AudioEncoderInfo(string Name, string Codec, bool HasBitrate, int DefaultBitrateKbps, IReadOnlyList<int> SampleRates);

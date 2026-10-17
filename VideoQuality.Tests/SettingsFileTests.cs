@@ -57,4 +57,26 @@ public sealed class SettingsFileTests : IDisposable
         File.WriteAllText(path, "{ not json");
         Assert.Equal("default", SettingsFile.Load<Sample>([path]).Model);
     }
+
+    [Fact]
+    public void A_null_document_gives_defaults_and_nowhere_writable_saves_nothing()
+    {
+        string path = Path.Combine(_root, "null.json");
+        File.WriteAllText(path, "null");
+        Assert.Equal("default", SettingsFile.Load<Sample>([path]).Model);
+
+        string blocker = Path.Combine(_root, "file");
+        File.WriteAllText(blocker, string.Empty);
+        Assert.Null(SettingsFile.Save(new Sample(), [Path.Combine(blocker, "settings.json")]));
+        Assert.Null(SettingsFile.Save(new Sample(), []));
+    }
+
+    [Fact]
+    public void User_folder_follows_the_platform()
+    {
+        Assert.EndsWith(Path.Combine("VideoQuality", "settings.json"), SettingsFile.UserPathFor(true, null), StringComparison.Ordinal);
+        Assert.Equal(Path.Combine("/cfg", "videoquality", "settings.json"), SettingsFile.UserPathFor(false, "/cfg"));
+        Assert.EndsWith(Path.Combine(".config", "videoquality", "settings.json"), SettingsFile.UserPathFor(false, " "), StringComparison.Ordinal);
+        Assert.False(string.IsNullOrEmpty(SettingsFile.UserPath));
+    }
 }

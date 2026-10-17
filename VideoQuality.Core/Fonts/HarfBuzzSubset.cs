@@ -29,11 +29,7 @@ public static partial class HarfBuzzSubset
             // DUPLICATE: HarfBuzz copies the bytes, so the pin can end with this call.
             blob = hb_blob_create(pin.AddrOfPinnedObject(), (uint)fontFile.Length, 0, IntPtr.Zero, IntPtr.Zero);
             face = hb_face_create(blob, (uint)faceIndex);
-            input = hb_subset_input_create_or_fail();
-            if (input == IntPtr.Zero)
-            {
-                throw new InvalidOperationException("hb_subset_input_create_or_fail failed.");
-            }
+            input = Require(hb_subset_input_create_or_fail(), "hb_subset_input_create_or_fail failed.");
 
             IntPtr unicodes = hb_subset_input_unicode_set(input);
             foreach (int codepoint in codepoints)
@@ -48,18 +44,11 @@ public static partial class HarfBuzzSubset
                 hb_set_invert(handle); // empty → everything
             }
 
-            subset = hb_subset_or_fail(face, input);
-            if (subset == IntPtr.Zero)
-            {
-                throw new InvalidOperationException("HarfBuzz could not subset this font.");
-            }
-
+            subset = Require(hb_subset_or_fail(face, input), "HarfBuzz could not subset this font.");
             result = hb_face_reference_blob(subset);
-            IntPtr data = hb_blob_get_data(result, out uint length);
-            if (data == IntPtr.Zero || length == 0)
-            {
-                throw new InvalidOperationException("HarfBuzz produced an empty font.");
-            }
+
+            // An empty blob has no data pointer.
+            IntPtr data = Require(hb_blob_get_data(result, out uint length), "HarfBuzz produced an empty font.");
 
             var bytes = new byte[length];
             Marshal.Copy(data, bytes, 0, (int)length);
@@ -75,6 +64,9 @@ public static partial class HarfBuzzSubset
             pin.Free();
         }
     }
+
+    internal static IntPtr Require(IntPtr handle, string error) =>
+        handle != IntPtr.Zero ? handle : throw new InvalidOperationException(error);
 
     /// <summary>Code points the face has no glyph for (cmap), used to verify a subset.</summary>
     public static HashSet<int> MissingGlyphs(byte[] fontFile, int faceIndex, IEnumerable<int> codepoints)
@@ -106,7 +98,7 @@ public static partial class HarfBuzzSubset
         }
     }
 
-    public static string Version => Marshal.PtrToStringAnsi(hb_version_string()) ?? "unknown";
+    public static string Version => string.Concat(Marshal.PtrToStringAnsi(hb_version_string()), string.Empty);
 
     [LibraryImport(Library)] private static partial IntPtr hb_version_string();
     [LibraryImport(Library)] private static partial IntPtr hb_blob_create(IntPtr data, uint length, int mode, IntPtr userData, IntPtr destroy);

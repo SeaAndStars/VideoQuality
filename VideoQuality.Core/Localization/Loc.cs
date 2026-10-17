@@ -32,11 +32,14 @@ public static class Loc
     /// Switches catalogs. <c>null</c> or empty follows the system: the UI culture, or on Linux
     /// (invariant globalization) LC_ALL / LC_MESSAGES / LANG.
     /// </summary>
-    public static void SetLanguage(string? code)
+    public static void SetLanguage(string? code) =>
+        (Language, _strings) = Catalog(code, SystemLanguageTag);
+
+    /// <summary>The catalog <paramref name="code"/> selects; empty asks <paramref name="systemTag"/>.</summary>
+    internal static (string Code, Dictionary<string, string> Strings) Catalog(string? code, Func<string?> systemTag)
     {
-        string resolved = Resolve(string.IsNullOrWhiteSpace(code) ? SystemLanguageTag() : code);
-        Language = resolved;
-        _strings = resolved == English ? Fallback : LoadCatalog(resolved);
+        string resolved = Resolve(string.IsNullOrWhiteSpace(code) ? systemTag() : code);
+        return (resolved, resolved == English ? Fallback : LoadCatalog(resolved));
     }
 
     /// <summary>The catalog code a language tag maps to (<c>zh-CN</c>, <c>zh_TW.UTF-8</c> → <c>zh-Hans</c>).</summary>
@@ -84,21 +87,23 @@ public static class Loc
             return new Dictionary<string, string>(StringComparer.Ordinal);
         }
 
-        return JsonSerializer.Deserialize(stream, LocJsonContext.Default.DictionaryStringString)
-               ?? new Dictionary<string, string>(StringComparer.Ordinal);
+        // The catalogs are embedded objects, never a JSON null.
+        return JsonSerializer.Deserialize(stream, LocJsonContext.Default.DictionaryStringString)!;
     }
 
-    private static string? SystemLanguageTag()
+    private static string? SystemLanguageTag() =>
+        SystemLanguageTag(CultureInfo.CurrentUICulture.Name, Environment.GetEnvironmentVariable);
+
+    internal static string? SystemLanguageTag(string cultureName, Func<string, string?> environment)
     {
-        string name = CultureInfo.CurrentUICulture.Name;
-        if (name.Length > 0)
+        if (cultureName.Length > 0)
         {
-            return name;
+            return cultureName;
         }
 
         foreach (string variable in new[] { "LC_ALL", "LC_MESSAGES", "LANG" })
         {
-            if (Environment.GetEnvironmentVariable(variable) is { Length: > 0 } value && value is not "C" and not "POSIX")
+            if (environment(variable) is { Length: > 0 } value && value is not "C" and not "POSIX")
             {
                 return value;
             }

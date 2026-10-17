@@ -309,7 +309,6 @@
   "encode.warning.mp4Subtitles": "MP4 cannot carry ASS subtitles; they were not copied (burn them in, or use MKV).",
   "encode.warning.noSubtitleFile": "No .ass/.ssa/.srt beside the input with the same name; nothing was burned in.",
   "encode.warning.noSubtitleStream": "The input has no subtitle stream #{0}; nothing was burned in.",
-  "encode.warning.onePass": "{0} has no two-pass mode; the bitrate is used in one pass.",
   "extract.all": "All",
   "extract.attachment": "attachment {0}",
   "extract.chapters": "chapters",

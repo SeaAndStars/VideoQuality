@@ -30,7 +30,7 @@ public static unsafe class MediaProbe
 
             AVStream* stream = format->streams[streamIndex];
             AVCodecParameters* parameters = stream->codecpar;
-            string pixelFormat = $"{ffmpeg.av_get_pix_fmt_name((AVPixelFormat)parameters->format)}";
+            string pixelFormat = string.Concat(ffmpeg.av_get_pix_fmt_name((AVPixelFormat)parameters->format), string.Empty);
 
             return new MediaProbeResult(
                 parameters->width,

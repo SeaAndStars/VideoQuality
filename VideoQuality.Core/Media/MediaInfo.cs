@@ -256,7 +256,8 @@ public static unsafe class MediaInfoReader
         };
 
         string pixelFormat = kind == StreamKind.Video ? Text(ffmpeg.av_get_pix_fmt_name((AVPixelFormat)p->format)) : string.Empty;
-        AVRational rate = stream->avg_frame_rate.num != 0 && stream->avg_frame_rate.den != 0 ? stream->avg_frame_rate : stream->r_frame_rate;
+        // libav reports an unknown average rate as 0/0 or 0/1; the real base rate stands in.
+        AVRational rate = stream->avg_frame_rate.num != 0 ? stream->avg_frame_rate : stream->r_frame_rate;
         byte* layout = stackalloc byte[64];
         string channelLayout = string.Empty;
         if (kind == StreamKind.Audio && ffmpeg.av_channel_layout_describe(&p->ch_layout, layout, 64) > 0)
@@ -279,8 +280,8 @@ public static unsafe class MediaInfoReader
             Height = p->height,
             PixelFormat = pixelFormat,
             BitDepth = kind == StreamKind.Video ? FrameDecoder.ResolveBitDepth(p->bits_per_raw_sample, pixelFormat) : 0,
-            FrameRate = kind == StreamKind.Video && rate.den != 0 ? ffmpeg.av_q2d(rate) : 0,
-            FrameRateText = kind == StreamKind.Video && rate.den != 0 ? $"{rate.num}/{rate.den}" : string.Empty,
+            FrameRate = kind == StreamKind.Video ? FrameRate(rate) : 0,
+            FrameRateText = kind == StreamKind.Video ? FrameRateText(rate) : string.Empty,
             ColorPrimaries = kind == StreamKind.Video ? Text(ffmpeg.av_color_primaries_name(p->color_primaries)) : string.Empty,
             ColorTransfer = kind == StreamKind.Video ? Text(ffmpeg.av_color_transfer_name(p->color_trc)) : string.Empty,
             ColorMatrix = kind == StreamKind.Video ? Text(ffmpeg.av_color_space_name(p->color_space)) : string.Empty,
@@ -293,6 +294,10 @@ public static unsafe class MediaInfoReader
             MimeType = tags.GetValueOrDefault("mimetype", string.Empty),
         };
     }
+
+    internal static double FrameRate(AVRational rate) => rate.den != 0 ? ffmpeg.av_q2d(rate) : 0;
+
+    internal static string FrameRateText(AVRational rate) => rate.den != 0 ? $"{rate.num}/{rate.den}" : string.Empty;
 
     /// <summary>Matroska muxers write the real bitrate as a <c>BPS</c> statistics tag.</summary>
     internal static long StatisticsBitRate(IReadOnlyDictionary<string, string> tags) =>
@@ -312,8 +317,8 @@ public static unsafe class MediaInfoReader
 
     private static string Tag(AVDictionary* dictionary, string key) => Tags(dictionary).GetValueOrDefault(key, string.Empty);
 
-    // Interpolation turns a null native string into an empty one.
-    private static string Text(byte* value) => $"{System.Runtime.InteropServices.Marshal.PtrToStringUTF8((IntPtr)value)}";
+    // Concat turns a null native string into an empty one.
+    private static string Text(byte* value) => string.Concat(System.Runtime.InteropServices.Marshal.PtrToStringUTF8((IntPtr)value), string.Empty);
 
     private static string Text(string? value) => $"{value}";
 }

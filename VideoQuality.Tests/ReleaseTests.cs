@@ -134,6 +134,9 @@ public class GreenTeaSpecTests
         IReadOnlyList<SpecFinding> findings = GreenTeaSpec.Check(burned, ReleaseProfile.WebEpisode, SubtitleDelivery.Burned);
         Assert.Single(findings, f => f.Level == FindingLevel.Warning); // still carries subtitle tracks
         Assert.Contains(findings, f => f.Message.Contains("JPSC", StringComparison.Ordinal) && f.Level == FindingLevel.Pass);
+
+        MediaInfo clean = burned with { Streams = [.. burned.Streams.Where(st => st.Kind != StreamKind.Subtitle)] };
+        Assert.DoesNotContain(GreenTeaSpec.Check(clean, ReleaseProfile.WebEpisode, SubtitleDelivery.Burned), f => f.Level == FindingLevel.Warning);
     }
 
     [Fact]

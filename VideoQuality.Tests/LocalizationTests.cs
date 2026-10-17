@@ -10,6 +10,31 @@ public partial class LocalizationTests
 {
     public static TheoryData<string> Languages => [.. Loc.Languages.Select(l => l.Code)];
 
+    [Fact]
+    public void Language_selection_follows_the_code_or_the_system()
+    {
+        Assert.Equal("zh-Hans", Loc.Catalog(null, () => "zh-CN").Code);
+        Assert.Equal("zh-Hans", Loc.Catalog(" ", () => "zh_TW.UTF-8").Code);
+        (string code, Dictionary<string, string> strings) = Loc.Catalog("en", () => throw new InvalidOperationException());
+        Assert.Equal("en", code);
+        Assert.Equal(Loc.Keys.Count, strings.Count);
+        Assert.NotEmpty(Loc.Catalog("zh-Hans", () => null).Strings);
+        Assert.Equal("en", Loc.Catalog(null, () => null).Code);
+        Assert.Empty(Loc.LoadCatalog("xx"));
+
+        Assert.Equal("de-DE", Loc.SystemLanguageTag("de-DE", _ => throw new InvalidOperationException()));
+        var env = new Dictionary<string, string?> { ["LC_ALL"] = "C", ["LC_MESSAGES"] = "", ["LANG"] = "zh_CN.UTF-8" };
+        Assert.Equal("zh_CN.UTF-8", Loc.SystemLanguageTag("", n => env[n]));
+        env["LANG"] = "POSIX";
+        Assert.Null(Loc.SystemLanguageTag("", n => env[n]));
+        Assert.Null(Loc.SystemLanguageTag("", _ => null));
+        Assert.False(string.IsNullOrEmpty(Loc.SystemLanguage));
+
+        Assert.True(Loc.Has(Loc.Keys.First()));
+        Assert.False(Loc.Has("no.such.key"));
+        Loc.SetLanguage(Loc.Language); // re-selecting the active catalog changes nothing
+    }
+
     [Theory]
     [MemberData(nameof(Languages))]
     public void Every_catalog_has_exactly_the_english_keys(string code)

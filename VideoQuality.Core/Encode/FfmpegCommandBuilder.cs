@@ -95,7 +95,8 @@ public static class FfmpegCommandBuilder
         else
         {
             videoArgs.AddRange(["-c:v", encoder.Name]);
-            if (Filters(preset, source, info, warnings) is { Length: > 0 } filters)
+            string filters = Filters(preset, source, info, warnings);
+            if (filters.Length > 0)
             {
                 videoArgs.AddRange(["-vf", filters]);
             }
@@ -182,11 +183,6 @@ public static class FfmpegCommandBuilder
             if (encoder.Family != EncoderFamily.Copy)
             {
                 MergeParams(encoder, video.EncoderParams, null, videoArgs);
-            }
-
-            if (twoPass && encoder.Family is not EncoderFamily.Nvenc)
-            {
-                warnings.Add(Loc.T("encode.warning.onePass", encoder.Name));
             }
 
             passes.Add([.. head, .. videoArgs, .. audioArgs, .. streamArgs, .. tail, output]);
@@ -584,7 +580,7 @@ public static class FfmpegCommandBuilder
 
     private static void Option(List<string> args, string option, string? value)
     {
-        if (option.Length > 0 && !string.IsNullOrWhiteSpace(value))
+        if (!string.IsNullOrWhiteSpace(value))
         {
             args.AddRange([option, value.Trim()]);
         }

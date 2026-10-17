@@ -28,20 +28,18 @@ public static class SettingsFile
 
     public static string PortablePath => Path.Combine(AppPaths.Root, FileName);
 
-    public static string UserPath
+    public static string UserPath => UserPathFor(OperatingSystem.IsWindows(), Environment.GetEnvironmentVariable("XDG_CONFIG_HOME"));
+
+    internal static string UserPathFor(bool windows, string? xdgConfigHome)
     {
-        get
-        {
-            string? xdg = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
-            string directory = OperatingSystem.IsWindows()
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "VideoQuality")
-                : Path.Combine(
-                    string.IsNullOrWhiteSpace(xdg)
-                        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config")
-                        : xdg,
-                    "videoquality");
-            return Path.Combine(directory, FileName);
-        }
+        string directory = windows
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "VideoQuality")
+            : Path.Combine(
+                string.IsNullOrWhiteSpace(xdgConfigHome)
+                    ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config")
+                    : xdgConfigHome,
+                "videoquality");
+        return Path.Combine(directory, FileName);
     }
 
     /// <summary>Where the last <see cref="Load{T}()"/> or <see cref="Save{T}(T)"/> found the file.</summary>

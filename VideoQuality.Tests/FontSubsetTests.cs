@@ -130,3 +130,116 @@ public sealed class FontSubsetTests : IDisposable
         return sum;
     }
 }
+
+/// <summary>Reporting paths of the subsetter: missing, synthetic, CFF, exact-face and broken fonts.</summary>
+public sealed class FontSubsetReportTests : IDisposable
+{
+    private static readonly string Fixtures = Path.Combine(AppContext.BaseDirectory, "Fixtures", "fonts");
+    private readonly string _root = Directory.CreateTempSubdirectory("vq-subset-").FullName;
+
+    public void Dispose() => Directory.Delete(_root, recursive: true);
+
+    private string Fonts()
+    {
+        string fonts = Directory.CreateDirectory(Path.Combine(_root, "fonts")).FullName;
+        File.Copy(Path.Combine(Fixtures, "DejaVuSans.ttf"), Path.Combine(fonts, "DejaVuSans.ttf"));
+        File.Copy(Path.Combine(Fixtures, "VQTestCff.otf"), Path.Combine(fonts, "VQTestCff.otf"));
+        File.WriteAllText(Path.Combine(fonts, "broken.ttf"), "not a font");
+        File.WriteAllText(Path.Combine(fonts, "notes.txt"), "ignored");
+        return fonts;
+    }
+
+    private string Script(string dialogue)
+    {
+        string script = Path.Combine(_root, "ep.ass");
+        File.WriteAllText(script, $"""
+            [V4+ Styles]
+            Format: Name, Fontname, Bold, Italic
+            Style: Default,DejaVu Sans,0,0
+
+            [Events]
+            Format: Style, Text
+            {dialogue}
+            """);
+        return script;
+    }
+
+    [Fact]
+    public void Report_lists_missing_synthetic_unreadable_and_uncovered_characters()
+    {
+        string script = Script("""
+            Dialogue: Default,Hi 世{\fnVQ Test CFF}Box{\b1}B{\b0\fnDejaVuSans}ps{\fn\i1}it{\fnNope}x
+            """);
+        var progress = new List<string>();
+        FontSubsetReport report = FontSubsetter.Run(
+            new FontSubsetOptions { Scripts = [script], FontDirectories = [Fonts(), Path.Combine(_root, "absent")], OutputDirectory = Path.Combine(_root, "out") },
+            new SyncProgress<string>(progress.Add));
+
+        Assert.False(report.Succeeded);
+        Assert.Equal("Nope", Assert.Single(report.MissingFonts).Family);
+        Assert.Equal(2, report.Synthesized.Count);
+        Assert.Contains(report.Synthesized, s => s.Match.FauxBold && !s.Match.FauxItalic);
+        Assert.Contains(report.Synthesized, s => s.Match.FauxItalic && !s.Match.FauxBold);
+        Assert.Equal("broken.ttf", Path.GetFileName(Assert.Single(report.UnreadableFonts).Path));
+        Assert.Equal([0x4E16], Assert.Single(report.MissingGlyphs).Codepoints);
+        Assert.Contains(report.Fonts, f => f.OutputPath.EndsWith(".otf", StringComparison.Ordinal));
+        Assert.Equal(3, report.Fonts.Select(f => f.NewFamily).Distinct().Count()); // DejaVu family, its PostScript face, the CFF font
+        Assert.NotEmpty(progress);
+    }
+
+    [Fact]
+    public void A_subset_that_loses_glyphs_is_an_error()
+    {
+        string script = Script("Dialogue: Default,abc");
+        var options = new FontSubsetOptions
+        {
+            Scripts = [script],
+            FontDirectories = [Fonts()],
+            OutputDirectory = Path.Combine(_root, "out"),
+            Subsetter = (font, face, chars) => HarfBuzzSubset.Subset(font, face, chars.Where(c => c != 'b')),
+        };
+        Assert.Contains("0062", Assert.Throws<InvalidOperationException>(() => FontSubsetter.Run(options)).Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Output_must_not_be_the_scripts_folder()
+    {
+        string script = Script("Dialogue: Default,a");
+        Assert.Throws<InvalidOperationException>(() => FontSubsetter.Run(new FontSubsetOptions { Scripts = [script], FontDirectories = [], OutputDirectory = _root }));
+    }
+
+    [Fact]
+    public void Garbage_subsets_to_an_empty_font()
+    {
+        // HarfBuzz turns unreadable input into an empty font rather than failing; the null checks
+        // guard allocation failures.
+        Assert.Equal(12, HarfBuzzSubset.Subset("not a font"u8.ToArray(), 0, [65]).Length);
+        Assert.Throws<InvalidOperationException>(() => HarfBuzzSubset.Require(IntPtr.Zero, "failed"));
+        Assert.Equal(1, HarfBuzzSubset.Require(1, "unused"));
+        Assert.False(string.IsNullOrEmpty(HarfBuzzSubset.Version));
+    }
+
+    [Fact]
+    public void New_family_names_always_start_with_a_letter()
+    {
+        for (int i = 0; i < 200; i++)
+        {
+            string name = FontSubsetter.NewFamilyName("family:" + i, []);
+            Assert.Equal(8, name.Length);
+            Assert.True(char.IsLetter(name[0]), name);
+        }
+    }
+
+    [Fact]
+    public void Faces_without_names_fall_back_to_defaults()
+    {
+        SfntFont font = SfntFont.Load(File.ReadAllBytes(Path.Combine(Fixtures, "DejaVuSans.ttf")));
+        font.Tables.Remove("name");
+        string folder = Directory.CreateDirectory(Path.Combine(_root, "nameless")).FullName;
+        File.WriteAllBytes(Path.Combine(folder, "x.ttf"), font.ToBytes());
+
+        FontFace face = Assert.Single(FontCatalog.Scan([folder]).Faces);
+        Assert.Equal((string.Empty, "Regular", string.Empty), (face.PostScriptName, face.Subfamily, face.PrimaryFamily));
+        Assert.Equal(" Regular (x.ttf#0)", face.ToString());
+    }
+}

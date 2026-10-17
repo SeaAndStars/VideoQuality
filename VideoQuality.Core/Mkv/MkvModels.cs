@@ -75,7 +75,7 @@ public sealed record MkvFileInfo(
                     "subtitles" => MkvTrackType.Subtitles,
                     _ => MkvTrackType.Other,
                 },
-                t.GetProperty("codec").GetString() ?? string.Empty,
+                Text(t, "codec"),
                 Text(p, "codec_id"),
                 Text(p, "language_ietf") is { Length: > 0 } ietf ? ietf : Text(p, "language"),
                 Text(p, "track_name"),
@@ -104,7 +104,7 @@ public sealed record MkvFileInfo(
 
         return new MkvFileInfo(
             Text(root, "file_name"),
-            container.TryGetProperty("type", out JsonElement type) ? type.GetString() ?? string.Empty : string.Empty,
+            Text(container, "type"),
             duration,
             containerProps.ValueKind == JsonValueKind.Object ? Text(containerProps, "title") : string.Empty,
             tracks,
@@ -114,7 +114,7 @@ public sealed record MkvFileInfo(
 
     private static string Text(JsonElement element, string name) =>
         element.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.String
-            ? value.GetString() ?? string.Empty
+            ? value.GetString()!
             : string.Empty;
 
     /// <summary>An integer property; null when it is missing or not a number.</summary>

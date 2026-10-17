@@ -205,7 +205,7 @@ public sealed class SfntFont
     {
         var records = Names
             .Select(n => replacements.TryGetValue(n.NameId, out string? value)
-                ? n with { Raw = EncodeName(n.PlatformId, n.EncodingId, value) }
+                ? n with { Raw = EncodeName(n.PlatformId, value) }
                 : n)
             .ToList();
 
@@ -215,12 +215,10 @@ public sealed class SfntFont
         Tables["name"] = WriteNameTable(records);
     }
 
-    private static byte[] EncodeName(ushort platform, ushort encoding, string value) =>
-        platform == 0 || (platform == 3 && encoding is 0 or 1 or 10)
-            ? Encoding.BigEndianUnicode.GetBytes(value)
-            : platform == 3
-                ? Encoding.BigEndianUnicode.GetBytes(value).ToArray() // legacy CJK records: ASCII in 16-bit units
-                : Encoding.ASCII.GetBytes(value);
+    // Unicode and every Windows record (legacy CJK ones read ASCII in 16-bit units) take UTF-16BE;
+    // Mac records take ASCII. Replacement names are always ASCII.
+    private static byte[] EncodeName(ushort platform, string value) =>
+        platform is 0 or 3 ? Encoding.BigEndianUnicode.GetBytes(value) : Encoding.ASCII.GetBytes(value);
 
     private static byte[] WriteNameTable(List<NameRecord> records)
     {
@@ -289,9 +287,9 @@ public sealed class SfntFont
             BinaryPrimitives.WriteUInt32BigEndian(output.AsSpan(record + 8), (uint)offset);
             BinaryPrimitives.WriteUInt32BigEndian(output.AsSpan(record + 12), (uint)data.Length);
             data.CopyTo(output, offset);
-            if (tag == "head")
+            if (tag == "head" && data.Length >= 12)
             {
-                headOffset = offset;
+                headOffset = offset; // a truncated head has no checksum field to adjust
             }
 
             offset += Align4(data.Length);
