@@ -90,6 +90,18 @@ raises a warning. `FrameDecoder` still converts YUV→RGB with swscale's default
 one known correctness gap: the warning tells you when it matters, but the conversion is not yet
 matrix-aware.
 
+## Jobs
+
+`VideoQuality.Core/Jobs` holds the UI-independent job model. A `Job` has a title, kind, optional
+subject, a work factory (`(job, progress, token) => Task`), a `CancellationTokenSource`, and
+observable state/progress/detail/error/elapsed. `JobService` enqueues jobs into per-kind lanes:
+scoring is serialised (one ffmpeg/GPU run at a time), indexing may run two at a time alongside a
+score, exports are serialised. `Cancel` works both queued and running; `Retry` creates a fresh job
+from the same factory.
+
+The UI does not consume it yet — scoring still runs inline in `MainViewModel` — but the state machine
+and lane behaviour are covered by tests and are the intended replacement for the ad-hoc busy flag.
+
 ## Where to extend
 
 - A second metric (PSNR/SSIM/CAMBI) can be added to the same filter graph and parsed from the same

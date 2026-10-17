@@ -58,6 +58,13 @@ public partial class EncodeEntry : ObservableObject
 
     public string BadgeText => BitDepth > 8 ? $"{BitDepth}-bit" : string.Empty;
 
+    /// <summary>Curve visibility; toggled by clicking the colour swatch.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SwatchOpacity))]
+    public partial bool IsVisible { get; set; } = true;
+
+    public double SwatchOpacity => IsVisible ? 1.0 : 0.25;
+
     public bool HasReport => Report is not null;
 
     public string MeanText => Report is null

@@ -23,10 +23,21 @@ public partial class App : Application
 
             _ = viewModel.InitializeAsync();
 
-            // VideoQuality.App <reference> <encode> [<encode> …]
-            if (desktop.Args is { Length: >= 2 } args)
+            // VideoQuality.App <reference> <encode> [<encode> …] [--mode=sidebyside|wipe|flicker|difference]
+            if (desktop.Args is { Length: > 0 } args)
             {
-                _ = viewModel.OpenAndAnalyzeAsync(args[0], args[1..]);
+                string? modeArgument = args.FirstOrDefault(a => a.StartsWith("--mode=", StringComparison.OrdinalIgnoreCase));
+                if (modeArgument is not null &&
+                    Enum.TryParse(modeArgument["--mode=".Length..], ignoreCase: true, out CompareMode mode))
+                {
+                    viewModel.CompareMode = mode;
+                }
+
+                string[] media = args.Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
+                if (media.Length >= 2)
+                {
+                    _ = viewModel.OpenAndAnalyzeAsync(media[0], media[1..]);
+                }
             }
         }
 

@@ -84,6 +84,8 @@ public partial class MainWindow : Window
             case nameof(MainViewModel.Encodes):
             case nameof(MainViewModel.SelectedEncode):
             case nameof(MainViewModel.FixedScale):
+            case nameof(MainViewModel.ShowSmoothed):
+            case nameof(MainViewModel.ShowDelta):
                 RedrawPlot();
                 break;
 
@@ -127,29 +129,42 @@ public partial class MainWindow : Window
 
         _marker = null;
 
-        List<EncodeEntry> entries = _viewModel?.Encodes
+        List<EncodeEntry> all = _viewModel?.Encodes
             .Where(entry => entry.Report is { Frames.Count: > 0 })
             .ToList() ?? [];
+
+        List<EncodeEntry> entries = all.Where(entry => entry.IsVisible).ToList();
 
         if (entries.Count == 0)
         {
             plot.Axes.SetLimits(0, 100, 0, 100);
-            plot.Title("VMAF per frame");
+            plot.Title(all.Count == 0 ? "VMAF per frame" : "All curves hidden");
             plot.XLabel("frame");
             plot.YLabel("VMAF");
             PlotView.Refresh();
             return;
         }
 
+        bool delta = _viewModel?.ShowDelta == true && entries[0].Report is not null;
+        EncodeEntry baseline = entries[0];
+        bool smooth = _viewModel?.ShowSmoothed == true;
+
         double maxFrame = 1;
-        double low = 100;
-        double high = 0;
+        double low = double.MaxValue;
+        double high = double.MinValue;
 
         foreach (EncodeEntry entry in entries)
         {
             IReadOnlyList<Core.Models.VmafFrame> frames = entry.Report!.Frames;
             double[] xs = frames.Select(f => (double)f.FrameNum).ToArray();
-            double[] ys = frames.Select(f => f.Vmaf).ToArray();
+            double[] ys = frames
+                .Select(f => delta ? f.Vmaf - BaselineValue(baseline, f.FrameNum) : f.Vmaf)
+                .ToArray();
+
+            if (smooth)
+            {
+                ys = MovingAverage(ys, 5);
+            }
 
             Scatter line = plot.Add.ScatterLine(xs, ys, entry.PlotColor);
             bool selected = ReferenceEquals(entry, _viewModel?.SelectedEncode);
@@ -164,32 +179,102 @@ public partial class MainWindow : Window
         if (_viewModel?.SelectedEncode?.Report is { } report)
         {
             _marker = plot.Add.VerticalLine(_viewModel.CurrentFrame, 1.2f, Colors.White);
-            plot.Add.HorizontalLine(report.Stats.Mean, 1, Colors.Gray, LinePattern.Dashed);
-            plot.Add.HorizontalLine(85, 1, Color.FromHex("#e06c75"), LinePattern.Solid);
+
+            if (delta)
+            {
+                plot.Add.HorizontalLine(0, 1, Colors.Gray, LinePattern.Dashed);
+            }
+            else
+            {
+                plot.Add.HorizontalLine(report.Stats.Mean, 1, Colors.Gray, LinePattern.Dashed);
+                plot.Add.HorizontalLine(85, 1, Color.FromHex("#e06c75"), LinePattern.Solid);
+            }
         }
 
-        if (_viewModel?.FixedScale != false)
+        if (!delta && _viewModel?.FixedScale != false)
         {
             plot.Axes.SetLimits(0, maxFrame, 0, 100);
         }
         else
         {
-            double bottom = Math.Max(0, Math.Floor(low - 2));
-            double top = Math.Min(100, Math.Ceiling(high + 2));
-            if (top - bottom < 10)
+            double padding = Math.Max(1.0, (high - low) * 0.08);
+            double bottom = Math.Floor(low - padding);
+            double top = Math.Ceiling(high + padding);
+
+            if (delta)
             {
-                bottom = Math.Max(0, bottom - 5);
-                top = Math.Min(100, top + 5);
+                bottom = Math.Min(bottom, -1);
+                top = Math.Max(top, 1);
+            }
+            else
+            {
+                bottom = Math.Max(0, bottom);
+                top = Math.Min(100, top);
             }
 
             plot.Axes.SetLimits(0, maxFrame, bottom, top);
         }
 
         string backend = _viewModel?.SelectedEncode?.Report?.Backend.ToDisplayName() ?? string.Empty;
-        plot.Title($"VMAF per frame — {entries.Count} encode(s)" + (backend.Length > 0 ? $" — {backend}" : string.Empty));
+        string title = delta
+            ? $"Δ VMAF vs {baseline.Name} — {entries.Count} encode(s)"
+            : $"VMAF per frame — {entries.Count} encode(s)" + (backend.Length > 0 ? $" — {backend}" : string.Empty);
+
+        plot.Title(title);
         plot.XLabel("frame");
-        plot.YLabel("VMAF");
+        plot.YLabel(delta ? "Δ VMAF" : "VMAF");
         PlotView.Refresh();
+    }
+
+    /// <summary>Baseline value at a frame number; frames are dense and start at zero.</summary>
+    private static double BaselineValue(EncodeEntry baseline, int frameNumber)
+    {
+        IReadOnlyList<Core.Models.VmafFrame> frames = baseline.Report!.Frames;
+        if (frames.Count == 0)
+        {
+            return 0;
+        }
+
+        int index = Math.Clamp(frameNumber, 0, frames.Count - 1);
+        return frames[index].Vmaf;
+    }
+
+    private static double[] MovingAverage(double[] values, int window)
+    {
+        if (values.Length < window || window <= 1)
+        {
+            return values;
+        }
+
+        var result = new double[values.Length];
+        int half = window / 2;
+
+        for (int i = 0; i < values.Length; i++)
+        {
+            int start = Math.Max(0, i - half);
+            int end = Math.Min(values.Length - 1, i + half);
+            double sum = 0;
+
+            for (int j = start; j <= end; j++)
+            {
+                sum += values[j];
+            }
+
+            result[i] = sum / (end - start + 1);
+        }
+
+        return result;
+    }
+
+    private void OnToggleEncodeVisibility(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: EncodeEntry entry })
+        {
+            entry.IsVisible = !entry.IsVisible;
+            RedrawPlot();
+        }
+
+        e.Handled = true;
     }
 
     private void UpdateMarker()
@@ -364,6 +449,10 @@ public partial class MainWindow : Window
 
         double paneWidth = _viewModel.IsTwoPane ? (width - 8) / 2 : width;
         double height = Math.Clamp(paneWidth / aspect + 30, 200, 640);
+
+        // Wipe/flicker use the full width, which would otherwise squeeze the graph and table.
+        double windowHeight = Bounds.Height > 0 ? Bounds.Height : 900;
+        height = Math.Min(height, windowHeight * 0.55);
 
         if (double.IsNaN(ViewerHost.Height) || Math.Abs(ViewerHost.Height - height) > 1)
         {

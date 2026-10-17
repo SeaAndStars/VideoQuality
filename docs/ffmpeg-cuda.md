@@ -98,8 +98,8 @@ path. The resolved backend is recorded on every report and shown next to the sta
 ## AV1
 
 AV1 is exercised end to end: an 8-bit SVT-AV1 encode scores **92.508 on CPU (dav1d)** and
-**92.442 on CUDA (`av1_cuvid`)**, and the viewer decodes it through FFmpeg.AutoGen with an exact frame
-match against ffmpeg's own extraction. Without dav1d, CPU AV1 scoring of SVT-AV1 output fails; the GPU
+**92.49–92.51 on CUDA (`av1_cuvid`)** across repeated runs; the viewer decodes it through
+FFmpeg.AutoGen with an exact frame match against ffmpeg's own extraction. Without dav1d, CPU AV1 scoring of SVT-AV1 output fails; the GPU
 path was unaffected because NVDEC does the decoding.
 
 ## Decoding and NVDEC failures
@@ -147,6 +147,6 @@ by `score`, shown in the app's **Settings** flyout, and stored in each report.
 | `configure: failed checking for nvcc` | Add `--nvccflags` with `sm_120` (or your GPU's arch). |
 | `nvenc.c: ... has no member named 'countingType'` | nv-codec-headers is newer than ffmpeg; use tag `n13.0.19.1`. |
 | `undefined reference to __cxa_throw` at link | libvmaf is static; rebuild shared. |
-| CUDA scores differ from CPU | Expected: different implementation and, for 10-bit, an 8-bit intermediate. Do not mix backends within a comparison. |
+| CUDA scores differ from CPU | Expected: different implementation and, for 10-bit, an 8-bit intermediate. CUDA means also vary run-to-run (~0.01, occasionally more). Do not mix backends within a comparison. |
 | CUDA filter errors on 10-bit formats | Use `scale_cuda=format=yuv420p`; the filter does not accept `p010le`. |
 | AV1 CPU score fails with `Get current frame error` | Build ffmpeg with `--enable-libdav1d`; the native decoder failed on SVT-AV1 output. |

@@ -5,8 +5,12 @@ namespace VideoQuality.Core.Diagnostics;
 
 /// <summary>
 /// Minimal structured file log. One line per event, written under a lock so the UI, the scorer and
-/// background decoders can all log safely. Defaults to <c>$XDG_STATE_HOME/videoquality/logs</c> on
-/// Linux and <c>%LOCALAPPDATA%\VideoQuality\logs</c> on Windows.
+/// background decoders can all log safely.
+/// <para>
+/// Logs go to <c>logs/</c> next to the executable, which keeps them easy to find for a desktop app.
+/// <c>VQ_LOG_DIR</c> overrides the location; if the application directory is read-only the logger
+/// falls back to the user state directory.
+/// </para>
 /// </summary>
 public static class VqLog
 {
@@ -16,7 +20,23 @@ public static class VqLog
 
     public static string? CurrentPath => _path;
 
+    /// <summary>Logs beside the executable; override with <c>VQ_LOG_DIR</c>.</summary>
     public static string DefaultDirectory
+    {
+        get
+        {
+            string? configured = Environment.GetEnvironmentVariable("VQ_LOG_DIR");
+            if (!string.IsNullOrWhiteSpace(configured))
+            {
+                return configured;
+            }
+
+            return Path.Combine(AppContext.BaseDirectory, "logs");
+        }
+    }
+
+    /// <summary>Per-user fallback used when the application directory is not writable.</summary>
+    public static string StateDirectory
     {
         get
         {
@@ -74,6 +94,25 @@ public static class VqLog
         }
 
         Info("log", $"writing to {_path}");
+    }
+
+    private static string? TryPrepare(string directory)
+    {
+        try
+        {
+            Directory.CreateDirectory(directory);
+
+            // Prove the directory is writable before committing to it.
+            string probe = Path.Combine(directory, $".write-test-{Environment.ProcessId}");
+            File.WriteAllText(probe, string.Empty);
+            File.Delete(probe);
+
+            return directory;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public static void Info(string source, string message) => Write("INF", source, message, null);

@@ -199,7 +199,18 @@
         <!-- graph + encode table -->
         <Grid Grid.Row="2" ColumnDefinitions="2.2*,1*" ColumnSpacing="8">
             <Border Background="#0b0d10" CornerRadius="6" ClipToBounds="True">
-                <sp:AvaPlot x:Name="PlotView" />
+                <Grid RowDefinitions="Auto,*">
+                    <Grid ColumnDefinitions="*,Auto" Margin="10,4,10,0">
+                        <TextBlock Text="click a swatch to hide a curve" FontSize="10" Foreground="#6f7883"
+                                   VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                            <CheckBox Content="Smooth" IsChecked="{Binding ShowSmoothed}" FontSize="11" MinHeight="0" />
+                            <CheckBox Content="Δ baseline" IsChecked="{Binding ShowDelta}" FontSize="11" MinHeight="0"
+                                      ToolTip.Tip="Plot the difference from the first visible encode" />
+                        </StackPanel>
+                    </Grid>
+                    <sp:AvaPlot Grid.Row="1" x:Name="PlotView" />
+                </Grid>
             </Border>
 
             <Border Grid.Column="1" Background="#0b0d10" CornerRadius="6" Padding="8">
@@ -226,7 +237,11 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:EncodeEntry">
                                 <Grid ColumnDefinitions="8,*,62,44,44,62,50,22" ColumnSpacing="4" Margin="2,3">
-                                    <Border Grid.Column="0" Width="5" CornerRadius="2" Background="{Binding Swatch}" />
+                                    <Button Grid.Column="0" Padding="0" Background="Transparent" BorderThickness="0"
+                                            Click="OnToggleEncodeVisibility" ToolTip.Tip="Show/hide this curve">
+                                        <Border Width="5" Height="16" CornerRadius="2" Background="{Binding Swatch}"
+                                                Opacity="{Binding SwatchOpacity}" />
+                                    </Button>
                                     <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="11" TextTrimming="CharacterEllipsis"
                                                ToolTip.Tip="{Binding Path}" />
                                     <TextBlock Grid.Column="2" Text="{Binding BackendText}" FontSize="10" Foreground="#9aa3ad"

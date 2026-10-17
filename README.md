@@ -4,7 +4,7 @@ A desktop tool for comparing encoded video against a reference: per-frame VMAF, 
 viewer, and multi-encode comparison. GPU-first — every score runs through `libvmaf_cuda` when the
 ffmpeg build and machine support it, including 10-bit sources.
 
-![The app after scoring four encodes on the CUDA backend](docs/screenshot.png)
+![The app after scoring five encodes on the CUDA backend](docs/screenshot.png)
 
 ## What it does
 
@@ -18,9 +18,9 @@ ffmpeg build and machine support it, including 10-bit sources.
   cache so stepping back and forth is cheap.
 - **Reports what it is actually doing**: backend and precision (`CUDA·8b` for converted 10-bit),
   ffmpeg path, bit depth, colour metadata, true bitrate, a progress bar with Cancel, and a session
-  log under `$XDG_STATE_HOME/videoquality/logs`.
-- **Tested**: xUnit unit tests for the progress parser, stats, packet index and exports, plus
-  skippable integration tests for scoring agreement and frame-exact decoding.
+  log in a `logs/` directory beside the binary.
+- **Tested**: 19 xUnit unit tests for the progress parser, stats, packet index and exports, plus
+  3 integration tests that run when `VQ_TEST_VIDEO` is set (22 total) and skip otherwise.
 
 ## Quick start
 
@@ -60,7 +60,9 @@ The app finds a VMAF-enabled ffmpeg automatically (`$VQ_FFMPEG`, `$FFMPEG_ROOT/b
 ## Requirements
 
 - .NET 10 SDK.
-- FFmpeg 8.x built with `--enable-libvmaf` (and ideally `--enable-libvmaf-cuda`).
+- FFmpeg 8.x built with `--enable-libvmaf`; add `--enable-cuda-nvcc --enable-ffnvcodec` for GPU
+  scoring and `--enable-libdav1d` for AV1 on the CPU path. (There is no `--enable-libvmaf-cuda`
+  switch — see [ffmpeg-cuda.md](docs/ffmpeg-cuda.md).)
 - `FFmpeg.AutoGen` 8.0.0.1, which matches the installed `libavcodec.so.62`. The bindings and the
   native `libav*` major version must agree.
 - For GPU scoring: an NVIDIA GPU, a driver new enough for CUDA 12.8+ on Blackwell (`sm_120`), and an
@@ -72,7 +74,7 @@ Working and verified on Ubuntu 26.04, CUDA 13.1, RTX 5060 Ti: 8-bit and 10-bit s
 1080p playback (900 frames at 30 fps), wipe/flicker/difference, multi-encode overlays, the encode
 table, and 22 passing tests (integration tests skip without `VQ_TEST_VIDEO`).
 
-Not implemented yet: rate-distortion plots/BD-rate, worst-frames navigation, hover tooltips, export
-and score caching, resolution-mismatch scaling, frame-offset control, colour-matrix-aware RGB
+Not implemented yet: rate-distortion plots/BD-rate, worst-frames navigation, hover tooltips, score
+caching and PNG export, resolution-mismatch scaling, frame-offset control, colour-matrix-aware RGB
 conversion (the matrix is displayed and mismatches warned, but swscale's default is still used), and
-the full job/logging stack.
+the job model / log panel (file logging and crash handlers exist).

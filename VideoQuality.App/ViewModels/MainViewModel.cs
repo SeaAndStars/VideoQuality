@@ -98,6 +98,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial bool FixedScale { get; set; }
 
+    /// <summary>Draw a 5-frame moving average instead of the raw per-frame curve.</summary>
+    [ObservableProperty]
+    public partial bool ShowSmoothed { get; set; }
+
+    /// <summary>Plot VMAF relative to the first visible encode instead of absolute values.</summary>
+    [ObservableProperty]
+    public partial bool ShowDelta { get; set; }
+
     [ObservableProperty]
     public partial bool IsPlaying { get; set; }
 

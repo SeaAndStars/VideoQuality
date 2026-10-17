@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using VideoQuality.Core.Diagnostics;
 using FFmpeg.AutoGen;
 
 namespace VideoQuality.Core.Decoding;
@@ -11,6 +12,7 @@ public static class FfmpegRuntime
 {
     private static readonly object Gate = new();
     private static bool _initialized;
+    private static av_log_set_callback_callback? _avLogCallback;
 
     /// <summary>The directory the bindings were pointed at, if one was found.</summary>
     public static string? LibraryDirectory { get; private set; }
@@ -36,8 +38,61 @@ public static class FfmpegRuntime
                 LibraryDirectory = directory;
             }
 
-            ffmpeg.av_log_set_level(ffmpeg.AV_LOG_ERROR);
+            // Route libav's own warnings/errors into the application log; the viewer decodes
+            // in-process, where stderr would otherwise be invisible.
+            ffmpeg.av_log_set_level(ffmpeg.AV_LOG_WARNING);
+            InstallAvLogCallback();
             _initialized = true;
+        }
+    }
+
+    /// <summary>Installs the libav log bridge. Safe to call more than once.</summary>
+    public static unsafe void InstallAvLogCallback()
+    {
+        if (_avLogCallback is not null)
+        {
+            return;
+        }
+
+        _avLogCallback = OnAvLog;
+        ffmpeg.av_log_set_callback(_avLogCallback);
+        VqLog.Info("libav", "log bridge installed");
+    }
+
+    private static unsafe void OnAvLog(void* avcl, int level, string format, byte* vl)
+    {
+        try
+        {
+            // Levels are multiples of 8 plus optional print flags; mask the flags off.
+            int severity = level & 0xF8;
+            if (severity > ffmpeg.AV_LOG_WARNING)
+            {
+                return;
+            }
+
+            const int BufferSize = 1024;
+            byte* buffer = stackalloc byte[BufferSize];
+            int printPrefix = 1;
+            ffmpeg.av_log_format_line(avcl, level, format, vl, buffer, BufferSize, &printPrefix);
+
+            string message = Marshal.PtrToStringAnsi((IntPtr)buffer)?.Trim() ?? string.Empty;
+            if (message.Length == 0)
+            {
+                return;
+            }
+
+            if (severity <= ffmpeg.AV_LOG_ERROR)
+            {
+                VqLog.Error("libav", message);
+            }
+            else
+            {
+                VqLog.Warn("libav", message);
+            }
+        }
+        catch
+        {
+            // A logger must never break decoding.
         }
     }
 

@@ -7,7 +7,7 @@ Three ways to get media in:
 1. **Reference…** then **Encodes…** — the second picker accepts multiple files and scores each one.
 2. Drag files onto the window: the first file becomes the reference if none is set, the rest are
    added as encodes.
-3. Startup arguments: `VideoQuality.App <reference> <encode> [<encode> …]`.
+3. Startup arguments: `VideoQuality.App <reference> <encode> [<encode> …] [--mode=wipe|flicker|difference]`.
 
 Adding an encode opens it, builds a packet index for its true bitrate, and scores it against the
 reference. Re-scoring an existing row uses **Re-score**.
@@ -30,8 +30,10 @@ reference. Re-scoring an existing row uses **Re-score**.
   Selecting a row swaps the viewer to that encode and thickens its curve.
 - **Graph**: per-frame VMAF for every scored encode. Autoscales by default; `0–100` pins the axis for
   cross-clip comparison. The dashed line is the selected encode's mean, the red line is VMAF 85.
+  Click a colour swatch to hide that curve; **Smooth** applies a 5-frame moving average; **Δ baseline**
+  plots the difference from the first visible encode (useful when five curves overlap).
 - **Status bar**: current operation, progress bar and Cancel while scoring, capability summary, and
-  **Settings** (ffmpeg path, what was detected, log file location).
+  **Settings** (ffmpeg path, what was detected, log file location — `logs/` beside the app binary).
 
 ## Compare modes
 

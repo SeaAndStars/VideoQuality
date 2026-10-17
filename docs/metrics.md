@@ -97,5 +97,6 @@ Keep at least one real, camera-captured clip in any test set.
 ## CPU versus GPU
 
 The two backends are different implementations. On 8-bit content they agreed to within 0.01 in
-testing (91.90 both); expect small differences elsewhere. GPU results are also affected by the 8-bit
-conversion described above when the source is 10-bit.
+testing (91.90 both); expect small differences elsewhere. Repeated CUDA runs of the same file vary by
+about 0.01 (an AV1 run differed by 0.06 once). GPU results are also affected by the 8-bit conversion
+described above when the source is 10-bit.

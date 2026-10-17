@@ -40,6 +40,19 @@ ffmpeg -i ref.mkv -c:v libx264 -crf 24 -preset medium -pix_fmt yuv420p dist2.mp4
 ffmpeg -i ref.mkv -c:v libx265 -crf 28 -preset faster -pix_fmt yuv420p10le dist10.mp4
 ```
 
+## Scripts
+
+```bash
+./scripts/verify.sh            # clean build, project check, tests, ffmpeg probe
+
+VQ_MEDIA_DIR=/tmp/vqtest \
+VQ_PROGRESS_REF=/tmp/vqtest/ref1080.mkv VQ_PROGRESS_ENCODE=/tmp/vqtest/dist1080.mp4 \
+    ./scripts/capture-docs.sh  # regenerate docs/screenshot*.png
+```
+
+`verify.sh` fails if a project is missing from the solution, which is how the missing
+`VideoQuality.App` entry was caught. CI can run it unchanged.
+
 ## Tests
 
 ```bash
@@ -60,8 +73,11 @@ to use is not the auto-resolved one.
 
 ## Logging and diagnostics
 
-Every build writes a session log to `$XDG_STATE_HOME/videoquality/logs/vq-YYYYMMDD.log`
-(`~/.local/state/...` by default, `%LOCALAPPDATA%\VideoQuality\logs` on Windows):
+Every build writes a session log to `logs/vq-YYYYMMDD.log` beside the executable
+(`VideoQuality.App/bin/<config>/net10.0/logs/`), which keeps it easy to find. `VQ_LOG_DIR` overrides
+the location; if the directory is read-only the logger falls back to
+`$XDG_STATE_HOME/videoquality/logs`. In-process libav warnings and decode errors are bridged into the
+same file.
 
 - startup session header: core version, .NET, OS, ffmpeg path and capabilities, libav path;
 - every score: backend, model, source bit depth, exact command line, result and duration;
@@ -93,10 +109,12 @@ Every build writes a session log to `$XDG_STATE_HOME/videoquality/logs/vq-YYYYMM
 
 ```
 VideoQuality.slnx          solution
-VideoQuality.Core/         scoring, decoding, models (no UI)
+VideoQuality.Core/         scoring, decoding, models, jobs (no UI)
 VideoQuality.App/          Avalonia UI
 VideoQuality.Cli/          headless commands
 VideoQuality.Tests/        xUnit unit tests + skippable integration tests
+scripts/verify.sh          clean build, solution-membership check, tests, probe
+scripts/capture-docs.sh    regenerates the documentation screenshots
 docs/                      user and developer documentation
   usage.md                 UI and CLI
   ffmpeg-cuda.md           build recipe, GPU policy, troubleshooting
@@ -133,11 +151,12 @@ Why this change, what behaviour it changes, and how it was verified."
 
 Short term, in rough priority:
 
-1. **Job model and structured logging.** A shared `Job` (queued/running/succeeded/failed/cancelled,
-   progress, cancel, retry) covering scoring, indexing and export; per-row job state; a log panel and
-   a diagnostic bundle. The file log, session header and crash handlers are in place; the job runner
-   and UI surfaces are not. This comes before new metrics because it is what makes the rest
-   debuggable.
+1. **Job model and structured logging.** The `Job`/`JobService` core is in place and tested
+   (queued/running/succeeded/failed/cancelled, per-kind lanes, cancel, retry, progress). Next: wire
+   scoring/indexing through it, per-row state, the status-bar job summary, a failure banner and a
+   retry action. The file log, session header, libav bridge and crash handlers are already in place;
+   the in-app log panel and diagnostic bundle remain. This comes before new metrics because it is
+   what makes the rest debuggable.
 2. Colour-matrix-aware YUV→RGB conversion (currently metadata-only).
 3. Rate-distortion plot and BD-rate, with ΔVMAF/Δbitrate against a chosen baseline.
 4. Worst-frames navigation and a graph hover tooltip.
