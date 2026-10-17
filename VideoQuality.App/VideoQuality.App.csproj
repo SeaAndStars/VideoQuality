@@ -33,4 +33,8 @@
     <PackageReference Include="ScottPlot.Avalonia" Version="5.1.59" />
     <PackageReference Include="Semi.Avalonia" Version="12.1.0.1" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="VideoQuality.App.Tests" />
+  </ItemGroup>
+
 </Project>

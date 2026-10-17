@@ -13,29 +13,29 @@ public partial class ChaptersView : UserControl
         InitializeComponent();
         PageIo.AcceptDrops(this, async paths =>
         {
-            if (paths.FirstOrDefault(p => !string.IsNullOrEmpty(p)) is { } path && ViewModel is { } vm)
+            if (paths.FirstOrDefault(p => !string.IsNullOrEmpty(p)) is { } path)
             {
-                await vm.ImportAsync(path);
+                await ViewModel.ImportAsync(path);
             }
         });
     }
 
-    private ChaptersViewModel? ViewModel => DataContext as ChaptersViewModel;
+    private ChaptersViewModel ViewModel => (ChaptersViewModel)DataContext!;
 
     private async void OnImport(object? sender, RoutedEventArgs e)
     {
         IReadOnlyList<string> files = await PageIo.PickFilesAsync(this, Loc.T("chapters.picker.import"), false);
-        if (files.Count > 0 && ViewModel is { } vm)
+        if (files.Count > 0)
         {
-            await vm.ImportAsync(files[0]);
+            await ViewModel.ImportAsync(files[0]);
         }
     }
 
     private async void OnSave(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel is { } vm && await PageIo.PickSaveFileAsync(this, Loc.T("chapters.picker.save"), "chapters.xml", "xml") is { } file)
+        if (await PageIo.PickSaveFileAsync(this, Loc.T("chapters.picker.save"), "chapters.xml", "xml") is { } file)
         {
-            vm.Save(file);
+            ViewModel.Save(file);
         }
     }
 }

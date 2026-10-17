@@ -80,7 +80,7 @@ public partial class ChaptersViewModel : ObservableObject
             Load(marks);
             Status = Loc.T("chapters.status.imported", marks.Count, Path.GetFileName(path));
         }
-        catch (Exception ex) when (ex is InvalidOperationException or FormatException or System.Xml.XmlException or IOException)
+        catch (Exception ex) // any unreadable file: say why, keep the page usable
         {
             Status = ex.Message;
         }

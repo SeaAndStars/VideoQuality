@@ -73,15 +73,16 @@ public static class ToastHost
         _manager.Show(content, type, expiration, showIcon: true, showClose: true, onClick: null, onClose: null, classes: []);
     }
 
-    /// <summary>Yes/No question; closing the box without choosing counts as yes (the default).</summary>
-    public static async Task<bool> ConfirmAsync(string title, string message)
-    {
-        if (_owner is null)
-        {
-            return true;
-        }
+    /// <summary>How a question is put to the user; tests answer it themselves.</summary>
+    public static Func<Window, string, string, Task<bool>> Ask { get; set; } = AskWithMessageBoxAsync;
 
-        MessageBoxResult result = await MessageBox.ShowAsync(_owner, message, title, MessageBoxIcon.Question, MessageBoxButton.YesNo);
+    /// <summary>Yes/No question; closing the box without choosing counts as yes (the default).</summary>
+    public static Task<bool> ConfirmAsync(string title, string message) =>
+        _owner is null ? Task.FromResult(true) : Ask(_owner, title, message);
+
+    internal static async Task<bool> AskWithMessageBoxAsync(Window owner, string title, string message)
+    {
+        MessageBoxResult result = await MessageBox.ShowAsync(owner, message, title, MessageBoxIcon.Question, MessageBoxButton.YesNo);
         return result != MessageBoxResult.No;
     }
 }

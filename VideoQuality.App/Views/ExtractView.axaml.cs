@@ -13,37 +13,37 @@ public partial class ExtractView : UserControl
         InitializeComponent();
         PageIo.AcceptDrops(this, async paths =>
         {
-            if (paths.OfType<string>().FirstOrDefault(File.Exists) is { } file && ViewModel is { } vm)
+            if (paths.OfType<string>().FirstOrDefault(File.Exists) is { } file)
             {
-                await vm.OpenAsync(file);
+                await ViewModel.OpenAsync(file);
             }
         });
     }
 
-    private ExtractViewModel? ViewModel => DataContext as ExtractViewModel;
+    private ExtractViewModel ViewModel => (ExtractViewModel)DataContext!;
 
     private async void OnOpen(object? sender, RoutedEventArgs e)
     {
         IReadOnlyList<string> files = await PageIo.PickFilesAsync(this, Loc.T("extract.picker.open"), false);
-        if (files.Count > 0 && ViewModel is { } vm)
+        if (files.Count > 0)
         {
-            await vm.OpenAsync(files[0]);
+            await ViewModel.OpenAsync(files[0]);
         }
     }
 
     private async void OnPickOutput(object? sender, RoutedEventArgs e)
     {
-        if (await PageIo.PickFolderAsync(this, Loc.T("extract.picker.output")) is { } folder && ViewModel is { } vm)
+        if (await PageIo.PickFolderAsync(this, Loc.T("extract.picker.output")) is { } folder)
         {
-            vm.OutputDirectory = folder;
+            ViewModel.OutputDirectory = folder;
         }
     }
 
     private async void OnOpenOutput(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel is { OutputDirectory.Length: > 0 } vm)
+        if (ViewModel.OutputDirectory.Length > 0)
         {
-            await PageIo.RevealAsync(this, vm.OutputDirectory);
+            await PageIo.RevealAsync(this, ViewModel.OutputDirectory);
         }
     }
 }

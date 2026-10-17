@@ -11,30 +11,19 @@ public partial class EncodeView : UserControl
     public EncodeView()
     {
         InitializeComponent();
-        PageIo.AcceptDrops(this, async paths =>
-        {
-            if (ViewModel is { } vm)
-            {
-                await vm.AddPathsAsync(paths);
-            }
-        });
+        PageIo.AcceptDrops(this, paths => ViewModel.AddPathsAsync(paths));
     }
 
-    private EncodeViewModel? ViewModel => DataContext as EncodeViewModel;
+    private EncodeViewModel ViewModel => (EncodeViewModel)DataContext!;
 
-    private async void OnAddFiles(object? sender, RoutedEventArgs e)
-    {
-        if (ViewModel is { } vm)
-        {
-            await vm.AddPathsAsync(await PageIo.PickFilesAsync(this, Loc.T("encode.picker.add"), true));
-        }
-    }
+    private async void OnAddFiles(object? sender, RoutedEventArgs e) =>
+        await ViewModel.AddPathsAsync(await PageIo.PickFilesAsync(this, Loc.T("encode.picker.add"), true));
 
     private async void OnPickOutput(object? sender, RoutedEventArgs e)
     {
-        if (await PageIo.PickFolderAsync(this, Loc.T("picker.outputFolder")) is { } folder && ViewModel is { } vm)
+        if (await PageIo.PickFolderAsync(this, Loc.T("picker.outputFolder")) is { } folder)
         {
-            vm.OutputDirectory = folder;
+            ViewModel.OutputDirectory = folder;
         }
     }
 }

@@ -14,14 +14,14 @@ public partial class MediaInfoView : UserControl
         InitializeComponent();
         PageIo.AcceptDrops(this, async paths =>
         {
-            if (paths.FirstOrDefault(p => !string.IsNullOrEmpty(p)) is { } path && ViewModel is { } vm)
+            if (paths.FirstOrDefault(p => !string.IsNullOrEmpty(p)) is { } path)
             {
-                await vm.OpenAsync(path);
+                await ViewModel.OpenAsync(path);
             }
         });
         DataContextChanged += (_, _) =>
         {
-            if (ViewModel is { } vm)
+            if (DataContext is MediaInfoViewModel vm)
             {
                 vm.CopyRequested -= OnCopyRequested;
                 vm.CopyRequested += OnCopyRequested;
@@ -29,23 +29,21 @@ public partial class MediaInfoView : UserControl
         };
     }
 
-    private MediaInfoViewModel? ViewModel => DataContext as MediaInfoViewModel;
+    private MediaInfoViewModel ViewModel => (MediaInfoViewModel)DataContext!;
 
+    // Copy is only offered on the visible page, so the window and its clipboard exist.
     private async void OnCopyRequested(object? sender, string text)
     {
-        if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
-        {
-            await clipboard.SetTextAsync(text);
-            ToastHost.Show(new ToastRequest(ToastKind.Success, Loc.T("mediainfo.copied")));
-        }
+        await TopLevel.GetTopLevel(this)!.Clipboard!.SetTextAsync(text);
+        ToastHost.Show(new ToastRequest(ToastKind.Success, Loc.T("mediainfo.copied")));
     }
 
     private async void OnOpen(object? sender, RoutedEventArgs e)
     {
         IReadOnlyList<string> files = await PageIo.PickFilesAsync(this, Loc.T("extract.picker.open"), false);
-        if (files.Count > 0 && ViewModel is { } vm)
+        if (files.Count > 0)
         {
-            await vm.OpenAsync(files[0]);
+            await ViewModel.OpenAsync(files[0]);
         }
     }
 }

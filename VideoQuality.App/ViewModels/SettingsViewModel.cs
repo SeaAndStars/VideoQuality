@@ -1,3 +1,4 @@
+using System.Reflection;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VideoQuality.Core;
@@ -60,25 +61,24 @@ public partial class SettingsViewModel : ObservableObject
 
     public string AppFolder => AppPaths.Root;
 
-    public string HarfBuzzVersion
+    public string HarfBuzzVersion => NativeVersion(() => HarfBuzzSubset.Version);
+
+    /// <summary>A native library's version, or "not available" when it cannot be loaded.</summary>
+    internal static string NativeVersion(Func<string> version)
     {
-        get
+        try
         {
-            try
-            {
-                return HarfBuzzSubset.Version;
-            }
-            catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
-            {
-                return Loc.T("settings.notAvailable");
-            }
+            return version();
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
+        {
+            return Loc.T("settings.notAvailable");
         }
     }
 
-    public string Version { get; } = "v" + (typeof(SettingsViewModel).Assembly
-        .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
-        .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion
-        .Split('+')[0] ?? "dev");
+    /// <summary>The build's version without the commit suffix (the SDK always stamps one).</summary>
+    public string Version { get; } = "v" + typeof(SettingsViewModel).Assembly
+        .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()!.InformationalVersion.Split('+')[0];
 
     public IReadOnlyList<LanguageOption> LanguageOptions { get; }
 
@@ -87,8 +87,7 @@ public partial class SettingsViewModel : ObservableObject
     public partial LanguageOption SelectedLanguage { get; set; }
 
     /// <summary>The chosen language differs from the one this process is showing.</summary>
-    public bool NeedsRestart => SelectedLanguage is { } option &&
-                                (option.Code.Length > 0 ? option.Code : Loc.SystemLanguage) != Loc.Language;
+    public bool NeedsRestart => (SelectedLanguage.Code.Length > 0 ? SelectedLanguage.Code : Loc.SystemLanguage) != Loc.Language;
 
     partial void OnSelectedLanguageChanged(LanguageOption value)
     {

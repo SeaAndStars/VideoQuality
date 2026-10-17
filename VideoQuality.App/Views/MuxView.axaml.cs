@@ -11,48 +11,37 @@ public partial class MuxView : UserControl
     public MuxView()
     {
         InitializeComponent();
-        PageIo.AcceptDrops(this, async paths =>
-        {
-            if (ViewModel is { } vm)
-            {
-                await vm.AddPathsAsync(paths);
-            }
-        });
+        PageIo.AcceptDrops(this, paths => ViewModel.AddPathsAsync(paths));
     }
 
-    private MuxViewModel? ViewModel => DataContext as MuxViewModel;
+    private MuxViewModel ViewModel => (MuxViewModel)DataContext!;
 
-    private async void OnAddFiles(object? sender, RoutedEventArgs e)
-    {
-        if (ViewModel is { } vm)
-        {
-            await vm.AddPathsAsync(await PageIo.PickFilesAsync(this, Loc.T("mux.picker.add"), true));
-        }
-    }
+    private async void OnAddFiles(object? sender, RoutedEventArgs e) =>
+        await ViewModel.AddPathsAsync(await PageIo.PickFilesAsync(this, Loc.T("mux.picker.add"), true));
 
     private async void OnAddFonts(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel is { } vm && await PageIo.PickFolderAsync(this, Loc.T("mux.picker.fonts")) is { } folder)
+        if (await PageIo.PickFolderAsync(this, Loc.T("mux.picker.fonts")) is { } folder)
         {
-            await vm.AddPathsAsync([folder]);
+            await ViewModel.AddPathsAsync([folder]);
         }
     }
 
     private async void OnPickOutput(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel is { } vm &&
-            await PageIo.PickSaveFileAsync(this, Loc.T("mux.picker.output"), Path.GetFileName(vm.Output) is { Length: > 0 } n ? n : "release.mkv", "mkv") is { } file)
+        string suggested = Path.GetFileName(ViewModel.Output) is { Length: > 0 } name ? name : "release.mkv";
+        if (await PageIo.PickSaveFileAsync(this, Loc.T("mux.picker.output"), suggested, "mkv") is { } file)
         {
-            vm.Output = file;
+            ViewModel.Output = file;
         }
     }
 
     private async void OnPickChapters(object? sender, RoutedEventArgs e)
     {
         IReadOnlyList<string> files = await PageIo.PickFilesAsync(this, Loc.T("mux.picker.chapters"), false, (Loc.T("picker.type.chapters"), ["*.xml", "*.txt"]));
-        if (files.Count > 0 && ViewModel is { } vm)
+        if (files.Count > 0)
         {
-            vm.Chapters = files[0];
+            ViewModel.Chapters = files[0];
         }
     }
 }

@@ -13,56 +13,56 @@ public partial class PipelineView : UserControl
         InitializeComponent();
         PageIo.AcceptDrops(this, paths =>
         {
-            ViewModel?.AddPaths(paths);
+            ViewModel.AddPaths(paths);
             return Task.CompletedTask;
         });
     }
 
-    private PipelineViewModel? ViewModel => DataContext as PipelineViewModel;
+    private PipelineViewModel ViewModel => (PipelineViewModel)DataContext!;
 
     private async void OnPickVideo(object? sender, RoutedEventArgs e)
     {
         IReadOnlyList<string> files = await PageIo.PickFilesAsync(this, Loc.T("pipeline.picker.video"), false);
-        if (files.Count > 0 && ViewModel is { } vm)
+        if (files.Count > 0)
         {
-            vm.SetVideo(files[0]);
+            ViewModel.SetVideo(files[0]);
         }
     }
 
     private async void OnPickReference(object? sender, RoutedEventArgs e)
     {
         IReadOnlyList<string> files = await PageIo.PickFilesAsync(this, Loc.T("pipeline.picker.reference"), false);
-        if (files.Count > 0 && ViewModel is { } vm)
+        if (files.Count > 0)
         {
-            vm.Reference = files[0];
+            ViewModel.Reference = files[0];
         }
     }
 
     private async void OnAddScripts(object? sender, RoutedEventArgs e) =>
-        ViewModel?.AddPaths(await PageIo.PickFilesAsync(this, Loc.T("picker.addScripts"), true, (Loc.T("picker.type.scripts"), ["*.ass", "*.ssa"])));
+        ViewModel.AddPaths(await PageIo.PickFilesAsync(this, Loc.T("picker.addScripts"), true, (Loc.T("picker.type.scripts"), ["*.ass", "*.ssa"])));
 
     private async void OnPickFonts(object? sender, RoutedEventArgs e)
     {
-        if (await PageIo.PickFolderAsync(this, Loc.T("picker.fontFolder")) is { } folder && ViewModel is { } vm)
+        if (await PageIo.PickFolderAsync(this, Loc.T("picker.fontFolder")) is { } folder)
         {
-            vm.FontDirectory = folder;
+            ViewModel.FontDirectory = folder;
         }
     }
 
     private async void OnPickOutput(object? sender, RoutedEventArgs e)
     {
-        if (await PageIo.PickFolderAsync(this, Loc.T("picker.outputFolder")) is { } folder && ViewModel is { } vm)
+        if (await PageIo.PickFolderAsync(this, Loc.T("picker.outputFolder")) is { } folder)
         {
-            vm.OutputDirectory = folder;
+            ViewModel.OutputDirectory = folder;
         }
     }
 
     private async void OnPickChapters(object? sender, RoutedEventArgs e)
     {
         IReadOnlyList<string> files = await PageIo.PickFilesAsync(this, Loc.T("mux.picker.chapters"), false, (Loc.T("picker.type.chapters"), ["*.xml", "*.txt"]));
-        if (files.Count > 0 && ViewModel is { } vm)
+        if (files.Count > 0)
         {
-            vm.ChaptersFile = files[0];
+            ViewModel.ChaptersFile = files[0];
         }
     }
 }

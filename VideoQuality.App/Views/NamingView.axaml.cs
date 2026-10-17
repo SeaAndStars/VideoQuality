@@ -13,14 +13,14 @@ public partial class NamingView : UserControl
         InitializeComponent();
         PageIo.AcceptDrops(this, async paths =>
         {
-            if (paths.FirstOrDefault(p => !string.IsNullOrEmpty(p)) is { } path && ViewModel is { } vm)
+            if (paths.FirstOrDefault(p => !string.IsNullOrEmpty(p)) is { } path)
             {
-                await vm.FillFromAsync(path);
+                await ViewModel.FillFromAsync(path);
             }
         });
         DataContextChanged += (_, _) =>
         {
-            if (ViewModel is { } vm)
+            if (DataContext is NamingViewModel vm)
             {
                 vm.CopyRequested -= OnCopyRequested;
                 vm.CopyRequested += OnCopyRequested;
@@ -28,14 +28,12 @@ public partial class NamingView : UserControl
         };
     }
 
-    private NamingViewModel? ViewModel => DataContext as NamingViewModel;
+    private NamingViewModel ViewModel => (NamingViewModel)DataContext!;
 
+    // Copy is only offered on the visible page, so the window and its clipboard exist.
     private async void OnCopyRequested(object? sender, string text)
     {
-        if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
-        {
-            await clipboard.SetTextAsync(text);
-            ToastHost.Show(new ToastRequest(ToastKind.Success, Loc.T("naming.copied")));
-        }
+        await TopLevel.GetTopLevel(this)!.Clipboard!.SetTextAsync(text);
+        ToastHost.Show(new ToastRequest(ToastKind.Success, Loc.T("naming.copied")));
     }
 }

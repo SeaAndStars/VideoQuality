@@ -77,16 +77,14 @@ public partial class MonitorViewModel : ObservableObject
     {
         SystemSample sample = await _monitor.SampleAsync(cancellationToken);
         Cpu.Add(sample.CpuPercent, Percent(sample.CpuPercent));
-        double memory = sample.MemoryTotal > 0 ? 100.0 * sample.MemoryUsed / sample.MemoryTotal : 0;
-        Memory.Add(memory, $"{MediaInfo.FormatSize(sample.MemoryUsed)} / {MediaInfo.FormatSize(sample.MemoryTotal)}");
+        Memory.Add(Share(sample.MemoryUsed, sample.MemoryTotal), $"{MediaInfo.FormatSize(sample.MemoryUsed)} / {MediaInfo.FormatSize(sample.MemoryTotal)}");
         if (sample.Gpus.FirstOrDefault() is { } gpu)
         {
             GpuName = gpu.Name;
             Gpu.Add(gpu.Utilization, Percent(gpu.Utilization) + $" · {gpu.Temperature:0} °C");
             GpuEncoder.Add(gpu.Encoder, Percent(gpu.Encoder));
             GpuDecoder.Add(gpu.Decoder, Percent(gpu.Decoder));
-            double vram = gpu.MemoryTotalMb > 0 ? 100 * gpu.MemoryUsedMb / gpu.MemoryTotalMb : 0;
-            GpuMemory.Add(vram, $"{gpu.MemoryUsedMb:0} / {gpu.MemoryTotalMb:0} MiB");
+            GpuMemory.Add(Share(gpu.MemoryUsedMb, gpu.MemoryTotalMb), $"{gpu.MemoryUsedMb:0} / {gpu.MemoryTotalMb:0} MiB");
         }
 
         Encodes.Clear();
@@ -110,6 +108,9 @@ public partial class MonitorViewModel : ObservableObject
 
         OnPropertyChanged(nameof(HasEncodes));
     }
+
+    /// <summary>Used as a percentage of total; 0 when the total is unknown.</summary>
+    internal static double Share(double used, double total) => total > 0 ? 100 * used / total : 0;
 
     private static string Percent(double value) => value.ToString("0", CultureInfo.InvariantCulture) + " %";
 }
