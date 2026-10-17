@@ -19,8 +19,9 @@ ffmpeg build and machine support it, including 10-bit sources.
 - **Reports what it is actually doing**: backend and precision (`CUDA·8b` for converted 10-bit),
   ffmpeg path, bit depth, colour metadata, true bitrate, a progress bar with Cancel, and a session
   log in a `logs/` directory beside the binary.
-- **Tested**: 19 xUnit unit tests for the progress parser, stats, packet index and exports, plus
-  3 integration tests that run when `VQ_TEST_VIDEO` is set (22 total) and skip otherwise.
+- **Tested**: 28 xUnit unit tests for the progress parser, stats, packet index, exports, difference
+  imaging and the job state machine, plus 3 integration tests that run when `VQ_TEST_VIDEO` is set
+  (31 total) and skip otherwise.
 
 ## Quick start
 
@@ -72,7 +73,7 @@ The app finds a VMAF-enabled ffmpeg automatically (`$VQ_FFMPEG`, `$FFMPEG_ROOT/b
 
 Working and verified on Ubuntu 26.04, CUDA 13.1, RTX 5060 Ti: 8-bit and 10-bit scoring, H.264/HEVC/AV1,
 1080p playback (900 frames at 30 fps), wipe/flicker/difference, multi-encode overlays, the encode
-table, and 22 passing tests (integration tests skip without `VQ_TEST_VIDEO`).
+table, and 31 tests (28 unit + 3 integration; integration skips without `VQ_TEST_VIDEO`).
 
 Not implemented yet: rate-distortion plots/BD-rate, worst-frames navigation, hover tooltips, score
 caching and PNG export, resolution-mismatch scaling, frame-offset control, colour-matrix-aware RGB
