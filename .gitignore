@@ -1,0 +1,16 @@
+# build output
+bin/
+obj/
+artifacts/
+
+# IDE / tooling
+.vs/
+.idea/
+*.user
+*.suo
+*.DotSettings.user
+
+# OS / misc
+.DS_Store
+Thumbs.db
+*.log

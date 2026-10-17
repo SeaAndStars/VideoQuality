@@ -1,0 +1,290 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:VideoQuality.App.ViewModels"
+        xmlns:sp="using:ScottPlot.Avalonia"
+        xmlns:controls="using:VideoQuality.App.Controls"
+        xmlns:conv="using:VideoQuality.App.Converters"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1500" d:DesignHeight="950"
+        x:Class="VideoQuality.App.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Background="#141619"
+        Width="1500" Height="950"
+        MinWidth="1080" MinHeight="720"
+        Title="VideoQuality — VMAF compare">
+
+    <Window.Resources>
+        <conv:LabelConverter x:Key="Label" />
+    </Window.Resources>
+
+    <Design.DataContext>
+        <vm:MainViewModel />
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,Auto" Margin="10" RowSpacing="8">
+
+        <!-- toolbar: fixed height so the viewer never moves when mode-specific controls appear -->
+        <Grid Grid.Row="0" Height="40"
+              ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
+            <Button Content="Reference…" Click="OnPickReference" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="Encodes…" Click="OnPickEncodes" VerticalAlignment="Center"
+                    ToolTip.Tip="Add one or more distorted files; each is scored against the reference" />
+            <Button Grid.Column="2" Content="Re-score" Command="{Binding AnalyzeCommand}" VerticalAlignment="Center" />
+            <Button Grid.Column="3" Content="{Binding PlayPauseHint}" Command="{Binding TogglePlaybackCommand}"
+                    Width="72" VerticalAlignment="Center" />
+
+            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8"
+                        HorizontalAlignment="Right" VerticalAlignment="Center">
+                <TextBlock Text="View" VerticalAlignment="Center" Foreground="#9aa3ad" />
+                <ComboBox ItemsSource="{Binding CompareModes}" SelectedItem="{Binding CompareMode}" Width="130"
+                          VerticalAlignment="Center">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource Label}}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsDifference}" VerticalAlignment="Center">
+                    <TextBlock Text="Gain" VerticalAlignment="Center" Foreground="#9aa3ad" />
+                    <Slider Minimum="1" Maximum="16" Value="{Binding DifferenceGain, Mode=TwoWay}" Width="110" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding DifferenceGain, StringFormat={}{0:0.#}×}" VerticalAlignment="Center" Foreground="#9aa3ad" Width="34" />
+                    <Button Content="Auto" Command="{Binding AutoGainCommand}" Padding="8,1" FontSize="11"
+                            VerticalAlignment="Center" ToolTip.Tip="Normalise the gain to the 99.9th percentile difference" />
+                    <ComboBox ItemsSource="{Binding DifferenceChannelOptions}" SelectedItem="{Binding DifferenceChannels}"
+                              MinWidth="170" VerticalAlignment="Center">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Converter={StaticResource Label}}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+
+                <CheckBox Content="Auto flicker" IsChecked="{Binding AutoFlicker}" IsVisible="{Binding IsFlicker}"
+                          VerticalAlignment="Center" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <Button Content="Fit" Click="OnFit" Padding="10,2" />
+                <Button Content="1:1" Click="OnActualSize" Padding="10,2" />
+                <TextBlock x:Name="ZoomLabel" Text="fit" VerticalAlignment="Center" Width="86"
+                           Foreground="#9aa3ad" FontFamily="monospace" />
+            </StackPanel>
+
+            <CheckBox Grid.Column="6" Content="0–100" IsChecked="{Binding FixedScale}"
+                      VerticalAlignment="Center" Margin="6,0,0,0"
+                      ToolTip.Tip="Pin the graph to 0–100 instead of autoscaling" />
+        </Grid>
+
+        <!-- viewer: height is set from the image aspect so there is no letterbox dead space -->
+        <Grid Grid.Row="1" x:Name="ViewerHost" Height="420">
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding IsTwoPane}">
+                <Border Background="#0b0d10" CornerRadius="6" ClipToBounds="True">
+                    <Grid RowDefinitions="Auto,*">
+                        <Grid ColumnDefinitions="Auto,Auto,*" Margin="10,6">
+                            <TextBlock Text="REFERENCE" FontWeight="SemiBold" Foreground="#7fb2ff" FontSize="12" VerticalAlignment="Center" />
+                            <Border Grid.Column="1" IsVisible="{Binding HasReferenceBadge}" Background="#33222222"
+                                    CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding ReferenceBadge}" FontSize="10" Foreground="#ffd7a8" />
+                            </Border>
+                            <TextBlock Grid.Column="2" Text="{Binding ReferenceInfo}" FontSize="11"
+                                       Foreground="#aab1ba" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                        <controls:FrameView Grid.Row="1" x:Name="ReferenceView"
+                                            Source="{Binding ReferenceBitmap}"
+                                            Zoom="{Binding Viewport.Zoom}"
+                                            CenterX="{Binding Viewport.CenterX}"
+                                            CenterY="{Binding Viewport.CenterY}" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="1" Background="#0b0d10" CornerRadius="6" ClipToBounds="True">
+                    <Grid RowDefinitions="Auto,*">
+                        <Grid ColumnDefinitions="Auto,Auto,*" Margin="10,6">
+                            <TextBlock Text="{Binding RightPaneTitle}" FontWeight="SemiBold" Foreground="#ffb86b"
+                                       FontSize="12" VerticalAlignment="Center" />
+                            <Border Grid.Column="1" IsVisible="{Binding HasEncodeBadge}" Background="#33222222"
+                                    CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding EncodeBadge}" FontSize="10" Foreground="#ffd7a8" />
+                            </Border>
+                            <TextBlock Grid.Column="2" Text="{Binding DistortedInfo}" FontSize="11"
+                                       Foreground="#aab1ba" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                        <Panel Grid.Row="1">
+                            <controls:FrameView x:Name="DistortedView" IsVisible="{Binding !IsDifference}"
+                                                Source="{Binding DistortedBitmap}"
+                                                Zoom="{Binding Viewport.Zoom}"
+                                                CenterX="{Binding Viewport.CenterX}"
+                                                CenterY="{Binding Viewport.CenterY}" />
+                            <controls:FrameView x:Name="DifferenceView" IsVisible="{Binding IsDifference}"
+                                                Source="{Binding DifferenceBitmap}"
+                                                Zoom="{Binding Viewport.Zoom}"
+                                                CenterX="{Binding Viewport.CenterX}"
+                                                CenterY="{Binding Viewport.CenterY}" />
+                            <Border IsVisible="{Binding IsDifference}" VerticalAlignment="Bottom" HorizontalAlignment="Right"
+                                    Margin="10" Padding="6,4" Background="#aa101216" CornerRadius="4">
+                                <StackPanel Spacing="3">
+                                    <Border Height="8" Width="150" CornerRadius="2">
+                                        <Border.Background>
+                                            <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                                                <GradientStop Color="#000004" Offset="0" />
+                                                <GradientStop Color="#420a68" Offset="0.35" />
+                                                <GradientStop Color="#932667" Offset="0.6" />
+                                                <GradientStop Color="#dd513a" Offset="0.8" />
+                                                <GradientStop Color="#fcffa4" Offset="1" />
+                                            </LinearGradientBrush>
+                                        </Border.Background>
+                                    </Border>
+                                    <TextBlock Text="{Binding DifferenceLegend}" FontSize="10" Foreground="#aab1ba" />
+                                </StackPanel>
+                            </Border>
+                        </Panel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Border x:Name="SinglePaneHost" Background="#0b0d10" CornerRadius="6" ClipToBounds="True"
+                    IsVisible="{Binding IsSinglePane}" HorizontalAlignment="Center">
+                <Grid RowDefinitions="Auto,*">
+                    <Grid ColumnDefinitions="Auto,Auto,*" Margin="10,6">
+                        <TextBlock Text="{Binding SinglePaneTitle}" FontWeight="SemiBold" Foreground="#ffb86b"
+                                   FontSize="12" VerticalAlignment="Center" />
+                        <Border Grid.Column="1" IsVisible="{Binding HasEncodeBadge}" Background="#33222222"
+                                CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding EncodeBadge}" FontSize="10" Foreground="#ffd7a8" />
+                        </Border>
+                        <TextBlock Grid.Column="2" Text="{Binding DistortedInfo}" FontSize="11"
+                                   Foreground="#aab1ba" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center" />
+                    </Grid>
+                    <Panel Grid.Row="1">
+                        <controls:WipeView x:Name="Wipe" IsVisible="{Binding IsWipe}"
+                                           SourceA="{Binding ReferenceBitmap}"
+                                           SourceB="{Binding DistortedBitmap}"
+                                           Split="{Binding WipeSplit}"
+                                           Zoom="{Binding Viewport.Zoom}"
+                                           CenterX="{Binding Viewport.CenterX}"
+                                           CenterY="{Binding Viewport.CenterY}" />
+                        <controls:FrameView x:Name="FlickerView" IsVisible="{Binding IsFlicker}"
+                                            Source="{Binding SingleBitmap}"
+                                            Zoom="{Binding Viewport.Zoom}"
+                                            CenterX="{Binding Viewport.CenterX}"
+                                            CenterY="{Binding Viewport.CenterY}" />
+                        <Border IsVisible="{Binding IsFlicker}" VerticalAlignment="Top" HorizontalAlignment="Left"
+                                Margin="10" Padding="8,3" Background="#aa101216" CornerRadius="4">
+                            <Panel>
+                                <TextBlock Text="A · reference" FontSize="11" Foreground="#7fb2ff" IsVisible="{Binding !FlickerShowsDistorted}" />
+                                <TextBlock Text="B · encode" FontSize="11" Foreground="#ffb86b" IsVisible="{Binding FlickerShowsDistorted}" />
+                            </Panel>
+                        </Border>
+                        <Border IsVisible="{Binding IsWipe}" VerticalAlignment="Bottom" HorizontalAlignment="Left"
+                                Margin="10" Padding="7,3" Background="#cc101216" CornerRadius="4">
+                            <TextBlock Text="{Binding ReferenceName}" FontSize="11" Foreground="#7fb2ff" />
+                        </Border>
+                        <Border IsVisible="{Binding IsWipe}" VerticalAlignment="Bottom" HorizontalAlignment="Right"
+                                Margin="10" Padding="7,3" Background="#cc101216" CornerRadius="4">
+                            <TextBlock Text="{Binding EncodeName}" FontSize="11" Foreground="#ffb86b" />
+                        </Border>
+                    </Panel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- graph + encode table -->
+        <Grid Grid.Row="2" ColumnDefinitions="2.2*,1*" ColumnSpacing="8">
+            <Border Background="#0b0d10" CornerRadius="6" ClipToBounds="True">
+                <sp:AvaPlot x:Name="PlotView" />
+            </Border>
+
+            <Border Grid.Column="1" Background="#0b0d10" CornerRadius="6" Padding="8">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="8,*,46,46,64,52,22" ColumnSpacing="4" Margin="2,0,2,6">
+                        <TextBlock Grid.Column="1" Text="ENCODE" FontSize="10" Foreground="#7d8691" />
+                        <TextBlock Grid.Column="2" Text="MEAN" FontSize="10" Foreground="#7d8691" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="3" Text="P1" FontSize="10" Foreground="#7d8691" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="4" Text="BITRATE" FontSize="10" Foreground="#7d8691" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="5" Text="SIZE" FontSize="10" Foreground="#7d8691" HorizontalAlignment="Right" />
+                    </Grid>
+
+                    <ListBox ItemsSource="{Binding Encodes}"
+                             SelectedItem="{Binding SelectedEncode}"
+                             Background="Transparent" BorderThickness="0" Padding="0">
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="MinHeight" Value="0" />
+                                <Setter Property="Margin" Value="0,1" />
+                            </Style>
+                        </ListBox.Styles>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:EncodeEntry">
+                                <Grid ColumnDefinitions="8,*,46,46,64,52,22" ColumnSpacing="4" Margin="2,3">
+                                    <Border Grid.Column="0" Width="5" CornerRadius="2" Background="{Binding Swatch}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="11" TextTrimming="CharacterEllipsis"
+                                               ToolTip.Tip="{Binding Path}" />
+                                    <TextBlock Grid.Column="2" Text="{Binding MeanText}" FontSize="11" HorizontalAlignment="Right" FontFamily="monospace" />
+                                    <TextBlock Grid.Column="3" Text="{Binding P1Text}" FontSize="11" HorizontalAlignment="Right" FontFamily="monospace" Foreground="#9aa3ad" />
+                                    <TextBlock Grid.Column="4" Text="{Binding BitrateText}" FontSize="11" HorizontalAlignment="Right" FontFamily="monospace" Foreground="#9aa3ad" ToolTip.Tip="Video stream bitrate from the packet index" />
+                                    <TextBlock Grid.Column="5" Text="{Binding SizeText}" FontSize="11" HorizontalAlignment="Right" FontFamily="monospace" Foreground="#9aa3ad" />
+                                    <Button Grid.Column="6" Content="✕" FontSize="10" Padding="2,0" Click="OnRemoveEncode"
+                                            Background="Transparent" BorderThickness="0" Foreground="#7d8691" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!-- timeline -->
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <TextBlock Text="{Binding FrameText}" VerticalAlignment="Center" FontFamily="monospace"
+                       FontSize="13" MinWidth="330" Foreground="#e6e9ee" />
+            <Slider Grid.Column="1" Minimum="0" Maximum="{Binding MaxFrame}"
+                    Value="{Binding CurrentFrameValue, Mode=TwoWay}"
+                    TickFrequency="1" IsSnapToTickEnabled="True"
+                    VerticalAlignment="Center" />
+        </Grid>
+
+        <!-- pooled stats -->
+        <TextBlock Grid.Row="4" Text="{Binding StatsText}" FontFamily="monospace" FontSize="12"
+                   Foreground="#9aa3ad" Margin="0,0,0,2" />
+
+        <!-- status bar -->
+        <Grid Grid.Row="5" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="12">
+            <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Foreground="#8f98a3" FontSize="11" VerticalAlignment="Center" />
+
+            <TextBlock Grid.Column="1" Text="{Binding BackendStatus}" Foreground="#6f7883" FontSize="11" VerticalAlignment="Center" />
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <ProgressBar Width="150" Height="6" Minimum="0" Maximum="100"
+                             Value="{Binding ProgressPercent}"
+                             IsIndeterminate="{Binding ProgressIndeterminate}"
+                             IsVisible="{Binding IsBusy}" VerticalAlignment="Center" />
+                <Button Content="Cancel" Command="{Binding CancelAnalysisCommand}"
+                        IsVisible="{Binding IsBusy}" Padding="8,2" FontSize="11" />
+            </StackPanel>
+
+            <Button Grid.Column="3" Content="Settings" Padding="10,3" FontSize="11" VerticalAlignment="Center">
+                <Button.Flyout>
+                    <Flyout Placement="Top">
+                        <StackPanel Width="460" Spacing="8">
+                            <TextBlock Text="ffmpeg executable" FontWeight="SemiBold" />
+                            <TextBox Text="{Binding FfmpegPath, UpdateSourceTrigger=LostFocus}"
+                                     VerticalContentAlignment="Center" Padding="8,6" />
+                            <TextBlock Text="{Binding BackendStatus}" TextWrapping="Wrap" FontSize="11" Foreground="#9aa3ad" />
+                            <TextBlock Text="Left as 'ffmpeg', the app resolves a VMAF-enabled build automatically. See the README for the CUDA build recipe."
+                                       TextWrapping="Wrap" FontSize="11" Foreground="#6f7883" />
+                        </StackPanel>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
+        </Grid>
+    </Grid>
+</Window>
