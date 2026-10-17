@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320">
+  <!-- README banner; regenerate docs/banner.png with: rsvg-convert docs/banner.svg -o docs/banner.png -->
+  <defs>
+    <linearGradient id="wash" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#56B4E9" stop-opacity="0.28"/>
+      <stop offset="0.5" stop-color="#16161A" stop-opacity="0"/>
+      <stop offset="1" stop-color="#E69F00" stop-opacity="0.28"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="320" rx="24" fill="#16161A"/>
+  <rect width="1280" height="320" rx="24" fill="url(#wash)"/>
+  <rect x="0.75" y="0.75" width="1278.5" height="318.5" rx="23.5" fill="none" stroke="#2F3036" stroke-width="1.5"/>
+  <!-- per-frame score trace across the background -->
+  <polyline points="0,250 60,238 110,246 170,226 230,240 290,220 350,236 410,214 470,232 530,210 590,228 650,206 710,226 770,212 830,232 890,208 950,228 1010,214 1070,236 1130,212 1190,230 1280,218"
+            fill="none" stroke="#56B4E9" stroke-opacity="0.35" stroke-width="3" stroke-linejoin="round"/>
+  <polyline points="0,272 60,262 110,270 170,254 230,266 290,250 350,262 410,246 470,260 530,244 590,258 650,240 710,256 770,246 830,262 890,242 950,258 1010,248 1070,264 1130,246 1190,260 1280,250"
+            fill="none" stroke="#E69F00" stroke-opacity="0.35" stroke-width="3" stroke-linejoin="round"/>
+  <!-- mark -->
+  <g transform="translate(96,72) scale(4.5)">
+    <rect x="2" y="4" width="20" height="16" rx="3" fill="#56B4E9" fill-opacity="0.2" stroke="#56B4E9" stroke-width="2"/>
+    <rect x="10" y="12" width="20" height="16" rx="3" fill="#E69F00" fill-opacity="0.2" stroke="#E69F00" stroke-width="2"/>
+    <polyline points="13,24 17,19 20,22 24,16 27,18" fill="none" stroke="#F5F5F7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="270" y="150" font-family="Ubuntu Sans, Ubuntu, DejaVu Sans, sans-serif" font-size="76" font-weight="700" fill="#F5F5F7">VideoQuality</text>
+  <text x="274" y="200" font-family="Ubuntu Sans, Ubuntu, DejaVu Sans, sans-serif" font-size="28" fill="#A0A1A7">GPU-first VMAF comparison for video encodes</text>
+</svg>

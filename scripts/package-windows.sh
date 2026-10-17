@@ -63,6 +63,7 @@ echo "== bundle FFmpeg"
 cp -r "$stage" "$out/ffmpeg"
 
 echo "== notices"
+cp "$root/LICENSE" "$out/licenses/VideoQuality-MIT.txt"
 cp "$src/ffmpeg-9.0.2/COPYING.LGPLv2.1" "$out/licenses/FFmpeg-LGPL-2.1.txt"
 cp "$src/vmaf-3.2.1/LICENSE" "$out/licenses/libvmaf-BSD-2-Clause-Patent.txt"
 cp "$src/dav1d/COPYING" "$out/licenses/dav1d-BSD-2-Clause.txt"

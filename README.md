@@ -1,93 +1,198 @@
-# VideoQuality
+<p align="center">
+  <img src="docs/banner.png" alt="VideoQuality — GPU-first VMAF comparison for video encodes" width="100%">
+</p>
 
-A desktop tool for comparing encoded video against a reference: per-frame VMAF, a synced frame
-viewer, and multi-encode comparison. GPU-first — every score runs through `libvmaf_cuda` when the
-ffmpeg build and machine support it, including 10-bit sources.
+<p align="center">
+  <a href="https://github.com/SeaAndStars/VideoQuality/releases"><img alt="Release" src="https://img.shields.io/github/v/release/SeaAndStars/VideoQuality?include_prereleases&style=flat-square&color=56B4E9"></a>
+  <img alt="Platforms" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-23242a?style=flat-square">
+  <img alt=".NET 10" src="https://img.shields.io/badge/.NET-10-512BD4?style=flat-square&logo=dotnet&logoColor=white">
+  <img alt="Avalonia 12" src="https://img.shields.io/badge/Avalonia-12-8B44AC?style=flat-square">
+  <img alt="FFmpeg 9" src="https://img.shields.io/badge/FFmpeg-9.0-007808?style=flat-square&logo=ffmpeg&logoColor=white">
+  <img alt="libvmaf CUDA" src="https://img.shields.io/badge/libvmaf-3.2.1%20%C2%B7%20CUDA-76B900?style=flat-square&logo=nvidia&logoColor=white">
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-E69F00?style=flat-square"></a>
+</p>
 
-![The app after scoring five encodes on the CUDA backend](docs/screenshot.png)
+<p align="center">
+  <b>Score encodes against a reference with VMAF on the GPU, then see exactly where they differ.</b><br>
+  Per-frame curves for many encodes at once, a frame-exact synced viewer, and a difference heatmap.
+</p>
 
-## What it does
+<p align="center">
+  <a href="#download">Download</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#build-from-source">Build</a> ·
+  <a href="#command-line">CLI</a> ·
+  <a href="docs/usage.md">Docs</a>
+</p>
 
-- **Scores with libvmaf** via ffmpeg, preferring the CUDA filter, and parses the JSON log into
-  per-frame scores plus pooled stats (mean, harmonic mean, p1, min, max, σ). **VMAF NEG is the
-  default** — it does not reward sharpening or contrast changes the way plain VMAF does. Standard
-  VMAF and the 4K model remain one click (or `--model`) away, and mixing models in one comparison is
-  flagged.
-- **Drag and drop with explicit roles**: drop on **Reference** or **Compare**, or anywhere for the
-  automatic rule; folders, paste and Open With go through the same router. Rows appear at once and
-  move through probe → index → score as jobs, two CUDA scores at a time.
-- **Compares N encodes against one reference**: overlaid curves, a summary table with mean, p1,
-  true video bitrate and file size, and a selectable row that drives the viewer.
-- **Shows both videos frame by frame**: side by side, wipe with a draggable divider, A/B flicker, or
-  an amplified difference heatmap — with synced zoom/pan across every pane.
-- **Decodes through FFmpeg.AutoGen**, not external frame extraction, with exact seeks, an LRU
-  cache, and a keyframe walk that skips frames nobody sees, so stepping and scrubbing stay quick
-  (see [benchmarks](docs/development.md#benchmarks)).
-- **Reports what it is actually doing**: backend and precision (`CUDA·8b` for converted 10-bit),
-  ffmpeg path, bit depth, colour metadata, true bitrate, a progress bar with Cancel, and a session
-  log in a `logs/` directory beside the binary.
-- **Tested**: 60 unit/ABI tests (progress parser, stats, packet index, exports, difference imaging,
-  job state machine and lanes, drop routing, model defaults, libavcodec ABI) plus 4 integration tests that run when
-  `VQ_TEST_VIDEO` is set (64 total) and skip otherwise.
+<p align="center">
+  <img src="docs/screenshot.png" alt="Five encodes scored against one reference on the CUDA backend" width="100%">
+</p>
+
+## Features
+
+**Scoring**
+- **GPU-first VMAF.** Every score runs through `libvmaf_cuda` when the GPU and ffmpeg allow it, with
+  automatic CPU fallback. Two GPU scores run at once (900 frames of 1080p in about 1.6 s on an
+  RTX 5060 Ti).
+- **VMAF NEG by default**, so sharpening and contrast tricks do not buy points. Standard and 4K
+  models are one click away, and mixing models in one comparison is flagged.
+- **Pooled stats that matter:** mean, harmonic mean, p1, min, max and σ, plus the *true* video
+  bitrate from the packet index (no audio or container overhead).
+
+**Comparing**
+- **Many encodes, one reference.** Overlaid per-frame curves in a colourblind-safe palette, a table
+  with mean, p1 and bitrate, Δ-to-baseline and smoothing.
+- **Frame-exact viewer:** side by side, **wipe** with a draggable divider, A/B **flicker**, or an
+  amplified **difference** heatmap with luma/chroma channels and auto gain. Zoom and pan stay locked
+  across panes.
+- **Fast stepping:** ←/→ steps, scrubs and plays smoothly thanks to a keyframe walk that skips
+  frames nobody sees and a byte-budgeted frame cache
+  ([benchmarks](docs/development.md#benchmarks)).
+
+**Workflow**
+- **Drag and drop with explicit roles.** Drop on *Reference* or *Compare* (or anywhere for the
+  automatic rule). Folders, paste, startup arguments and "Open With" follow the same rules.
+- **Live job queue.** Rows appear immediately and move through probe → index → score, with per-row
+  progress, re-score, reveal-in-folder and remove.
+- **Honest about what it did:** backend and precision (`CUDA·8b` when a 10-bit source was converted
+  on the GPU), colour metadata warnings, resolution/fps/frame-count mismatch warnings, and a session
+  log.
+- **Portable.** On Windows the release is one `VideoQuality.exe` with ffmpeg bundled, and settings
+  live in `settings.json` beside it.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshot-wipe.png" alt="Wipe mode"><br><sub><b>Wipe:</b> drag the divider between reference and encode.</sub></td>
+    <td width="50%"><img src="docs/screenshot-difference.png" alt="Difference mode"><br><sub><b>Difference:</b> amplified error heatmap with auto gain.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshot-progress.png" alt="Scoring in progress"><br><sub><b>Scoring:</b> per-row progress, two GPU jobs at a time.</sub></td>
+    <td width="50%"><img src="docs/screenshot.png" alt="Side by side"><br><sub><b>Side by side:</b> five encodes, NEG model, CUDA backend.</sub></td>
+  </tr>
+</table>
+
+## Download
+
+**Windows 10/11 (x64):** grab `VideoQuality-<version>-win-x64.zip` from
+[Releases](https://github.com/SeaAndStars/VideoQuality/releases), unzip anywhere, and run
+`VideoQuality.exe`. Nothing else to install. For GPU scoring you need an NVIDIA GPU (Turing or newer)
+and its driver; without one, scoring runs on the CPU.
+
+```
+VideoQuality.exe      the app (single file)
+settings.json         your settings, created on first change
+ffmpeg\               FFmpeg 9 + libvmaf 3.2.1 (CUDA), LGPL build
+tools\vq.exe          command-line tool
+licenses\             third-party notices
+```
+
+**Linux:** build from source (below). The app needs an FFmpeg 9 build with libvmaf; the
+[FFmpeg + CUDA guide](docs/ffmpeg-cuda.md) has the exact recipe.
 
 ## Quick start
 
+1. Drop a **reference** (lossless or high-bitrate is best) onto the left zone.
+2. Drop one or more **encodes**, or a folder of them, onto the right zone.
+3. Watch them score, then click a row to inspect it: step with ←/→, switch modes with the
+   segmented control, hold <kbd>F</kbd> to flicker, scroll to zoom, drag to pan.
+
+| Keys | Action |
+|---|---|
+| <kbd>←</kbd> / <kbd>→</kbd> (+ <kbd>Shift</kbd>) | step 1 (10) frames |
+| <kbd>Space</kbd> | play / pause |
+| <kbd>F</kbd> (hold) | flicker to the encode |
+| <kbd>Ctrl</kbd>+<kbd>O</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd> | open reference / add encodes |
+| <kbd>Ctrl</kbd>+<kbd>V</kbd> | paste files or paths |
+| <kbd>Ctrl</kbd>+<kbd>R</kbd> | re-score the selected encode |
+
+## Build from source
+
+Requirements: **.NET 10 SDK** and **FFmpeg 9.x** (`libavcodec.so.63` / `avcodec-63.dll`) built with
+`--enable-libvmaf` (plus `libvmaf` with CUDA and `--enable-ffnvcodec` for GPU scoring, and
+`--enable-libdav1d` for AV1 on the CPU path). The bindings are `FFmpeg.AutoGen` 9.0.1.1, and the app
+refuses to start against a different libavcodec major.
+
 ```bash
+git clone https://github.com/SeaAndStars/VideoQuality.git
+cd VideoQuality
 dotnet build VideoQuality.slnx
 
-# reference first, then any number of encodes
+# reference first, then any number of encodes (or start empty and drop files)
 dotnet run --project VideoQuality.App -- ref.mkv encode-a.mp4 encode-b.mp4
-
-# or open the app and drop files on it (or use Reference / Encodes)
-dotnet run --project VideoQuality.App
 ```
 
-Headless:
+The app finds a VMAF-enabled ffmpeg automatically: a bundled `ffmpeg/` folder, `$VQ_FFMPEG`,
+`ffmpeg` on PATH if it has libvmaf, `$FFMPEG_ROOT/bin`, `/opt/ffmpeg/bin`, or `C:\ffmpeg\bin`. The
+resolved path is shown in **Settings**.
+
+**Windows release from Linux/WSL.** FFmpeg and libvmaf with CUDA are cross-compiled with mingw-w64
+(LGPL, `cuda-llvm`, so the result is redistributable), then packaged with the app:
 
 ```bash
-dotnet run --project VideoQuality.Cli -- probe
-dotnet run --project VideoQuality.Cli -- score ref.mkv dist.mp4 --csv out.csv --json out.json
-dotnet run --project VideoQuality.Cli -- frame dist.mp4 42 --ppm frame.ppm
-dotnet run --project VideoQuality.Cli -- diag
+./scripts/build-ffmpeg-windows.sh     # FFmpeg n9.0.2 + libvmaf v3.2.1 CUDA + dav1d → ~/build-win/stage
+./scripts/package-windows.sh          # → artifacts/VideoQuality-<version>-win-x64.zip
 ```
 
-The app finds a VMAF-enabled ffmpeg automatically (`$VQ_FFMPEG`, `$FFMPEG_ROOT/bin/ffmpeg`,
-`/opt/ffmpeg/bin/ffmpeg`, or `ffmpeg` on PATH when it has libvmaf). The resolved path is shown in
-**Settings**. If your distro build has no VMAF, see the build guide.
+## Command line
+
+```bash
+vq probe                                          # ffmpeg, libvmaf, CUDA and libav detection
+vq score ref.mkv dist.mp4 --json out.json --csv out.csv [--gpu|--cpu] [--model vmaf_v0.6.1]
+vq frame dist.mp4 42 --ppm frame.ppm              # decode one frame exactly as the viewer does
+vq diag                                           # environment report for bug reports
+```
+
+From source, replace `vq` with `dotnet run --project VideoQuality.Cli --`.
+
+## Performance
+
+Measured with the BenchmarkDotNet suite in `VideoQuality.Benchmarks` (Ryzen 7 9700X, 1080p H.264):
+
+| | Before | After |
+|---|---:|---:|
+| 10 backward frame steps | 931 ms | **80 ms** |
+| 10 random slider jumps | 352 ms | **270 ms** |
+| Difference image | 45 ms | **5 ms** |
+| Auto-gain percentile | 31 ms | **4.6 ms** |
+| 60 frames, reference + encode | 202 ms | **90 ms** |
+| Two 1080p CUDA scores | 5.4 s | **3.5 s** |
 
 ## Documentation
 
 | Guide | Contents |
 |---|---|
-| [Usage](docs/usage.md) | UI tour, compare modes, keyboard and mouse, CLI reference |
-| [FFmpeg + CUDA setup](docs/ffmpeg-cuda.md) | Building ffmpeg with `libvmaf_cuda`, GPU policy, 10-bit behaviour, troubleshooting |
-| [Architecture](docs/architecture.md) | Projects, data flow, threading, decoding and indexing |
+| [Usage](docs/usage.md) | UI tour, drop rules, compare modes, keyboard and mouse, settings, CLI |
+| [FFmpeg + CUDA](docs/ffmpeg-cuda.md) | Building ffmpeg with `libvmaf_cuda` on Linux and for Windows, GPU policy, 10-bit, troubleshooting |
+| [Architecture](docs/architecture.md) | Projects, data flow, threading, decoding, jobs, ingest |
 | [Metrics](docs/metrics.md) | What VMAF measures, frame pairing, bitrate, interpreting stats |
-| [Development](docs/development.md) | Prerequisites, build, tests, verification, Git workflow |
+| [Development](docs/development.md) | Build, tests, benchmarks, verification, repository layout, roadmap |
 
-## Requirements
+## Built with
 
-- .NET 10 SDK.
-- FFmpeg **9.x** (`libavcodec.so.63`) built with `--enable-libvmaf`; add
-  `--enable-cuda-nvcc --enable-ffnvcodec` for GPU scoring and `--enable-libdav1d` for AV1 on the CPU
-  path. (There is no `--enable-libvmaf-cuda` switch — see [ffmpeg-cuda.md](docs/ffmpeg-cuda.md).)
-- `FFmpeg.AutoGen` 8.0.0.1, which matches the installed `libavcodec.so.62`. The bindings and the
-  native `libav*` major version must agree.
-- For GPU scoring: an NVIDIA GPU, a driver new enough for CUDA 12.8+ on Blackwell (`sm_120`), and an
-  ffmpeg built against a CUDA-enabled libvmaf.
+[Avalonia 12](https://avaloniaui.net) with [Semi.Avalonia](https://github.com/irihitech/Semi.Avalonia)
+and [Ursa](https://github.com/irihitech/Ursa.Avalonia) ·
+[Fluent System Icons](https://github.com/davidxuang/FluentIcons) ·
+[ScottPlot](https://scottplot.net) ·
+[FFmpeg.AutoGen](https://github.com/Ruslan-B/FFmpeg.AutoGen) ·
+[FFmpeg](https://ffmpeg.org) · [libvmaf](https://github.com/Netflix/vmaf) ·
+[dav1d](https://code.videolan.org/videolan/dav1d)
 
 ## Status
 
-Also runs on Windows 10/11 (x64). `scripts/package-windows.sh` builds a self-contained, redistributable
-release zip with FFmpeg + libvmaf CUDA bundled (LGPL, `cuda-llvm`); unzip and run. Scores match Linux
-(see [ffmpeg-cuda.md](docs/ffmpeg-cuda.md#windows)).
+Verified on Ubuntu 26.04 (CUDA 13.1) and Windows 10, RTX 5060 Ti: 8-bit and 10-bit scoring,
+H.264/HEVC/AV1, all compare modes, multi-encode comparison, with identical CPU scores on both
+platforms. 64 tests (60 unit/ABI, 4 integration that run when `VQ_TEST_VIDEO` points at a clip).
 
-Working and verified on Ubuntu 26.04, CUDA 13.1, RTX 5060 Ti: 8-bit and 10-bit scoring, H.264/HEVC/AV1,
-1080p playback (900 frames at 30 fps), wipe/flicker/difference, multi-encode overlays, the encode
-table, and 64 tests (60 unit/ABI + 4 integration; integration skips without `VQ_TEST_VIDEO`).
+Not yet: rate-distortion plots and BD-rate, worst-frame navigation, graph hover tooltips, score
+caching, resolution-mismatch scaling, frame-offset control, colour-matrix-aware RGB conversion
+(mismatches are warned), an in-app log panel, and single-instance "Open With" forwarding. See the
+[roadmap](docs/development.md#roadmap).
 
-Not implemented yet: rate-distortion plots/BD-rate, worst-frames navigation, hover tooltips, score
-caching and PNG export, resolution-mismatch scaling, frame-offset control, colour-matrix-aware RGB
-conversion (the matrix is displayed and mismatches warned, but swscale's default is still used), the
-in-app log panel (file logging and crash handlers exist), and single-instance forwarding of Open With
-files to a running window.
+## License
+
+MIT; see [LICENSE](LICENSE). Release packages bundle FFmpeg under the LGPL 2.1+ and other
+third-party components under their own licenses, listed in `licenses/THIRD-PARTY-NOTICES.txt` inside
+each release.
