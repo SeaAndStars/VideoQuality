@@ -35,7 +35,7 @@ public sealed class TrimMergeTests : IDisposable
     /// <summary>A page whose external tools answer from <paramref name="runner"/>.</summary>
     private static async Task<TrimMergeViewModel> PageAsync(ScriptedRunner runner, bool encoder = true, bool mkv = true)
     {
-        var settings = new SettingsViewModel(new MainViewModel(), new AppServices { Processes = runner });
+        var settings = new SettingsViewModel(new MainViewModel(Pages.Isolated()), Pages.Isolated(runner));
         await Ui.UntilAsync(() => settings.EncoderStatus != Loc.T("settings.encoder.looking"));
         settings.Encoder = encoder ? new EncoderTool("/bin/ffmpeg", "ffmpeg version x", new HashSet<string> { "libx264" }, new HashSet<string>()) : null;
         settings.MkvToolNix = mkv ? ScriptedMkv.Create(_ => ScriptedRunner.Ok()) : null;

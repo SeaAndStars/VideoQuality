@@ -38,7 +38,7 @@ public sealed class EncodePageTests : IDisposable
     };
 
     private EncodeViewModel Page(SettingsViewModel settings, EncodeQueue queue, Func<string, MediaInfo>? read = null) =>
-        new(settings, queue, new PresetStore(Path.Combine(_work, "presets")), read ?? Info, action => action());
+        new(settings, queue, new PresetStore(Path.Combine(_work, "presets")), read ?? Info); // updates go through the UI thread, as in the app
 
     [AvaloniaFact]
     public async Task Files_are_added_previewed_and_queued()
@@ -210,7 +210,7 @@ public sealed class EncodePageTests : IDisposable
     [AvaloniaFact]
     public void The_default_dispatcher_posts_job_updates()
     {
-        var settings = new SettingsViewModel(new MainViewModel(), new Services.AppServices { Processes = Pages.NothingRuns });
+        var settings = new SettingsViewModel(new MainViewModel(Pages.Isolated()), Pages.Isolated(Pages.NothingRuns));
         var vm = new EncodeViewModel(settings, new EncodeQueue(Pages.NothingRuns, () => "ffmpeg"), new PresetStore(Path.Combine(_work, "p2")));
         vm.Queue.Add(new EncodeJob("/in.mkv", new EncodeCommand([["-i", "x"]], "/out.mkv", [], [], 0, TimeSpan.FromSeconds(1))));
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();

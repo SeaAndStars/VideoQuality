@@ -19,8 +19,8 @@ public class SettingsTests
     public async Task Tools_are_located_from_the_chosen_folders()
     {
         var restarts = new List<IReadOnlyList<string>>();
-        var services = new AppServices { Restart = restarts.Add };
-        var settings = new SettingsViewModel(new MainViewModel(), services);
+        var services = new AppServices { Restart = restarts.Add, Settings = new MemorySettings() };
+        var settings = new SettingsViewModel(new MainViewModel(Pages.Isolated()), services);
         await Ui.UntilAsync(() => settings.HasMkvToolNix && settings.HasEncoder);
         Assert.Contains("mkvmerge", settings.MkvToolNixStatus, StringComparison.Ordinal);
 
@@ -35,7 +35,7 @@ public class SettingsTests
         Assert.Equal("/opt/mkvtoolnix", settings.Compare.PersistedSettings.MkvToolNixFolder);
         Assert.Null(settings.Compare.PersistedSettings.EncoderFolder);
         settings.EncoderFolder = "/opt/ffmpeg";
-        var reopened = new SettingsViewModel(settings.Compare, new AppServices { Processes = NothingRuns }); // saved folders come back
+        var reopened = new SettingsViewModel(settings.Compare, Pages.Isolated(NothingRuns)); // saved folders come back
         Assert.Equal(("/opt/mkvtoolnix", "/opt/ffmpeg"), (reopened.MkvToolNixFolder, reopened.EncoderFolder));
         settings.MkvToolNixFolder = string.Empty;
         settings.EncoderFolder = string.Empty;
@@ -55,7 +55,7 @@ public class SettingsTests
     [AvaloniaFact]
     public async Task Missing_tools_are_reported()
     {
-        var settings = new SettingsViewModel(new MainViewModel(), new AppServices { Processes = NothingRuns });
+        var settings = new SettingsViewModel(new MainViewModel(Pages.Isolated()), Pages.Isolated(NothingRuns));
         await settings.LocateToolsAsync();
         Assert.False(settings.HasMkvToolNix);
         Assert.False(settings.HasEncoder);
@@ -66,9 +66,9 @@ public class SettingsTests
     [AvaloniaFact]
     public void Language_choice_is_saved_and_needs_a_restart_when_it_changes()
     {
-        var compare = new MainViewModel();
+        var compare = new MainViewModel(Pages.Isolated());
         compare.UpdateSettings(s => { s.Language = "zh-Hans"; s.TrackNaming = "bogus"; s.EncodeConcurrency = 9; });
-        var settings = new SettingsViewModel(compare, new AppServices { Processes = NothingRuns });
+        var settings = new SettingsViewModel(compare, Pages.Isolated(NothingRuns));
         Assert.Equal("zh-Hans", settings.SelectedLanguage.Code);
         Assert.Equal(TrackNamingProfile.GreenTea, settings.TrackNaming);
         Assert.Equal(4, settings.EncodeConcurrency);
@@ -80,7 +80,7 @@ public class SettingsTests
         Assert.Equal(settings.SelectedLanguage.Name, settings.SelectedLanguage.ToString());
 
         compare.UpdateSettings(s => s.Language = "xx");
-        Assert.Equal(string.Empty, new SettingsViewModel(compare, new AppServices { Processes = NothingRuns }).SelectedLanguage.Code);
+        Assert.Equal(string.Empty, new SettingsViewModel(compare, Pages.Isolated(NothingRuns)).SelectedLanguage.Code);
         compare.UpdateSettings(s => { s.Language = null; s.TrackNaming = null; s.EncodeConcurrency = 1; });
         compare.FlushSettings();
     }
@@ -96,7 +96,7 @@ public class SettingsTests
     [AvaloniaFact]
     public async Task Settings_page_buttons_pick_folders_and_reveal_the_app()
     {
-        var settings = new SettingsViewModel(new MainViewModel(), new AppServices { Processes = NothingRuns });
+        var settings = new SettingsViewModel(new MainViewModel(Pages.Isolated()), Pages.Isolated(NothingRuns));
         var view = new SettingsView();
         var window = Ui.Show(view, settings);
         using var scope = new DialogScope(new ScriptedDialogs().Answer("/tools/mkv", null, "/tools/ffmpeg", null));

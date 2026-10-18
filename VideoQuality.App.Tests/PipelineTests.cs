@@ -113,7 +113,7 @@ public sealed class PipelineTests : IDisposable
         });
         queue = new EncodeQueue(runner, () => "/bin/ffmpeg");
 
-        var settings = new SettingsViewModel(new MainViewModel(), new AppServices { Processes = runner });
+        var settings = new SettingsViewModel(new MainViewModel(Pages.Isolated()), Pages.Isolated(runner));
         await Ui.UntilAsync(() => settings.EncoderStatus != Loc.T("settings.encoder.looking"));
         settings.Encoder = new EncoderTool("/bin/ffmpeg", "ffmpeg version x", new HashSet<string> { "libx265", "aac" }, new HashSet<string> { "subtitles" });
         settings.MkvToolNix = ScriptedMkv.Create(request =>
@@ -132,7 +132,7 @@ public sealed class PipelineTests : IDisposable
             return new ProcessResult(script.MuxExit, string.Empty, script.MuxExit == 2 ? "mux broke" : string.Empty);
         });
 
-        var compare = new MainViewModel(new AppServices { Processes = runner }) { FfmpegPath = "/bin/vmaf-ffmpeg-" + Guid.NewGuid().ToString("N")[..6], SelectedBackend = VmafBackend.Cpu };
+        var compare = new MainViewModel(Pages.Isolated(runner)) { FfmpegPath = "/bin/vmaf-ffmpeg-" + Guid.NewGuid().ToString("N")[..6], SelectedBackend = VmafBackend.Cpu };
         var naming = new NamingViewModel(_ => new MediaInfo { Path = "x" }) { Title = "Takopii No Genzai" };
         string sourcePath = Path.Combine(_work, "source.mkv");
         var vm = new PipelineViewModel(settings, compare, queue, naming, path =>

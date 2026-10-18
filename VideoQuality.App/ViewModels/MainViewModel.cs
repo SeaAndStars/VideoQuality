@@ -94,7 +94,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        _settings = SettingsFile.Load<UserSettings>();
+        _settings = Services.Settings.Load();
         _settingsQuiet = true;
         try
         {
@@ -142,7 +142,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         _saveTimer ??= new DispatcherTimer(TimeSpan.FromMilliseconds(500), DispatcherPriority.Background, (_, _) =>
         {
             _saveTimer!.Stop();
-            SettingsFile.Save(_settings);
+            Services.Settings.Save(_settings);
         });
         _saveTimer.Stop();
         _saveTimer.Start();
@@ -154,7 +154,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         if (_saveTimer is { IsEnabled: true })
         {
             _saveTimer.Stop();
-            SettingsFile.Save(_settings);
+            Services.Settings.Save(_settings);
         }
     }
 

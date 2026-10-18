@@ -12,7 +12,7 @@ public class EncodeViewTests
     [AvaloniaFact]
     public void Preset_editor_combo_boxes_show_the_preset_values()
     {
-        var shell = new ShellViewModel(new MainViewModel());
+        var shell = new ShellViewModel(new MainViewModel(Pages.Isolated()));
         var window = new Window { Width = 1400, Height = 900, Content = new EncodeView { DataContext = shell.Encode } };
         window.Show();
 

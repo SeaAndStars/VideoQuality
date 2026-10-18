@@ -134,8 +134,18 @@ public class SmallPiecesTests
         await run;
         Directory.Delete(folder, true);
 
-        var settings = new SettingsViewModel(new MainViewModel()); // default services
+        var settings = new SettingsViewModel(new MainViewModel(Pages.Isolated())); // default services
         await Ui.UntilAsync(() => settings.MkvToolNixStatus != Loc.T("settings.mkv.looking"));
         Assert.Same(AppServices.Default, settings.Services);
+    }
+
+    [AvaloniaFact]
+    public void Settings_default_to_the_settings_file()
+    {
+        var compare = new MainViewModel();
+        Assert.Same(AppServices.Default, compare.Services);
+        UserSettings loaded = FileSettingsStore.Instance.Load();
+        FileSettingsStore.Instance.Save(loaded);
+        Assert.True(File.Exists(VideoQuality.Core.Settings.SettingsFile.Location));
     }
 }

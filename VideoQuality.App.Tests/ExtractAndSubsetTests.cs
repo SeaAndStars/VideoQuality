@@ -13,14 +13,33 @@ using VideoQuality.Tests;
 
 namespace VideoQuality.App.Tests;
 
+/// <summary>Settings kept in memory, so tests never see each other's choices.</summary>
+public sealed class MemorySettings : ISettingsStore
+{
+    private string _json = "{}";
+
+    public int Saves { get; private set; }
+
+    public UserSettings Load() => System.Text.Json.JsonSerializer.Deserialize<UserSettings>(_json)!;
+
+    public void Save(UserSettings settings)
+    {
+        _json = System.Text.Json.JsonSerializer.Serialize(settings);
+        Saves++;
+    }
+}
+
 internal static class Pages
 {
+    public static AppServices Isolated(IProcessRunner? processes = null) =>
+        new() { Processes = processes ?? SystemProcessRunner.Instance, Settings = new MemorySettings() };
+
     public static readonly ScriptedRunner NothingRuns = new(_ => throw new ProcessStartException("x", new System.ComponentModel.Win32Exception()));
 
     /// <summary>Settings whose tool search has finished (real tools, or none).</summary>
     public static async Task<SettingsViewModel> SettingsAsync(bool tools = true)
     {
-        var settings = new SettingsViewModel(new MainViewModel(), tools ? new AppServices() : new AppServices { Processes = NothingRuns });
+        var settings = new SettingsViewModel(new MainViewModel(Pages.Isolated()), tools ? Pages.Isolated() : Pages.Isolated(NothingRuns));
         await Ui.UntilAsync(() => settings.MkvToolNixStatus != Loc.T("settings.mkv.looking") && settings.EncoderStatus != Loc.T("settings.encoder.looking"));
         if (tools)
         {

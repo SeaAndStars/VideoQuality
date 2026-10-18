@@ -9,7 +9,7 @@ public class ShellSmokeTests
     [AvaloniaFact]
     public void Main_window_shows_every_page_and_never_a_separator()
     {
-        var compare = new MainViewModel();
+        var compare = new MainViewModel(Pages.Isolated());
         var shell = new ShellViewModel(compare);
         var window = new MainWindow { DataContext = shell };
         window.Show();

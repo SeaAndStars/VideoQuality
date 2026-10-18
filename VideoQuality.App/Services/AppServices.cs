@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using VideoQuality.App.ViewModels;
+using VideoQuality.Core.Settings;
 using VideoQuality.Core.Tools;
 
 namespace VideoQuality.App.Services;
@@ -11,6 +13,9 @@ public sealed class AppServices
     public static AppServices Default { get; } = new();
 
     public IProcessRunner Processes { get; init; } = SystemProcessRunner.Instance;
+
+    /// <summary>Where the user's settings live; tests keep theirs in memory.</summary>
+    public ISettingsStore Settings { get; init; } = FileSettingsStore.Instance;
 
     /// <summary>Starts the app again with the given arguments and closes this instance.</summary>
     public Action<IReadOnlyList<string>> Restart { get; init; } = RestartThisApp;
@@ -48,4 +53,22 @@ public sealed class AppServices
 
     internal static void ShutdownDesktop() =>
         (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+}
+
+/// <summary>Loads and saves <see cref="UserSettings"/>.</summary>
+public interface ISettingsStore
+{
+    UserSettings Load();
+
+    void Save(UserSettings settings);
+}
+
+/// <summary>settings.json beside the app, or in the user's config folder (see <see cref="SettingsFile"/>).</summary>
+public sealed class FileSettingsStore : ISettingsStore
+{
+    public static FileSettingsStore Instance { get; } = new();
+
+    public UserSettings Load() => SettingsFile.Load<UserSettings>();
+
+    public void Save(UserSettings settings) => SettingsFile.Save(settings);
 }
