@@ -93,6 +93,9 @@ public partial class CompareView : UserControl
         ViewerHost.SizeChanged += (_, _) => UpdateViewerHeight();
     }
 
+    /// <summary>The page's model; input only reaches the page while it shows one.</summary>
+    private MainViewModel ViewModel => _viewModel!;
+
     /// <summary>Display scale (1.5 at 150% Windows scaling) of the window hosting this page.</summary>
     private double RenderScaling => _topLevel?.RenderScaling ?? 1;
 
@@ -195,10 +198,13 @@ public partial class CompareView : UserControl
         });
 
         _marker = null;
+        if (_viewModel is not { } viewModel)
+        {
+            PlotView.Refresh();
+            return;
+        }
 
-        List<EncodeEntry> all = _viewModel?.Encodes
-            .Where(entry => entry.Report is { Frames.Count: > 0 })
-            .ToList() ?? [];
+        List<EncodeEntry> all = [.. viewModel.Encodes.Where(entry => entry.Report is { Frames.Count: > 0 })];
 
         List<EncodeEntry> entries = all.Where(entry => entry.IsVisible).ToList();
 
@@ -211,9 +217,9 @@ public partial class CompareView : UserControl
             return;
         }
 
-        bool delta = _viewModel?.ShowDelta == true && entries[0].Report is not null;
+        bool delta = viewModel.ShowDelta;
         EncodeEntry baseline = entries[0];
-        bool smooth = _viewModel?.ShowSmoothed == true;
+        bool smooth = viewModel.ShowSmoothed;
 
         double maxFrame = 1;
         double low = double.MaxValue;
@@ -233,7 +239,7 @@ public partial class CompareView : UserControl
             }
 
             Scatter line = plot.Add.ScatterLine(xs, ys, entry.PlotColor);
-            bool selected = ReferenceEquals(entry, _viewModel?.SelectedEncode);
+            bool selected = ReferenceEquals(entry, viewModel.SelectedEncode);
             line.LineWidth = selected ? 2.2f : 1.1f;
             line.MarkerSize = 0;
 
@@ -242,9 +248,9 @@ public partial class CompareView : UserControl
             high = Math.Max(high, ys.Max());
         }
 
-        if (_viewModel?.SelectedEncode?.Report is { } report)
+        if (viewModel.SelectedEncode?.Report is { } report)
         {
-            _marker = plot.Add.VerticalLine(_viewModel.CurrentFrame, 1.2f, Colors.White);
+            _marker = plot.Add.VerticalLine(viewModel.CurrentFrame, 1.2f, Colors.White);
 
             if (delta)
             {
@@ -257,7 +263,7 @@ public partial class CompareView : UserControl
             }
         }
 
-        if (!delta && _viewModel?.FixedScale != false)
+        if (!delta && viewModel.FixedScale)
         {
             plot.Axes.SetLimits(0, maxFrame, 0, 100);
         }
@@ -281,11 +287,11 @@ public partial class CompareView : UserControl
             plot.Axes.SetLimits(0, maxFrame, bottom, top);
         }
 
-        string backend = _viewModel?.SelectedEncode?.Report?.Backend.ToDisplayName() ?? string.Empty;
-        string label = _viewModel?.SelectedEncode?.Report is { } selectedReport
+        string backend = viewModel.SelectedEncode?.Report?.Backend.ToDisplayName() ?? string.Empty;
+        string label = viewModel.SelectedEncode?.Report is { } selectedReport
             ? VmafModels.DisplayName(selectedReport.Model)
             : "VMAF";
-        string mixed = _viewModel?.HasMixedModels == true ? "  ·  " + Loc.T("compare.graph.mixedModels") : string.Empty;
+        string mixed = viewModel.HasMixedModels ? "  ·  " + Loc.T("compare.graph.mixedModels") : string.Empty;
 
         string title = delta
             ? Loc.T("compare.graph.deltaTitle", label, baseline.Name, entries.Count) + mixed
@@ -318,19 +324,14 @@ public partial class CompareView : UserControl
     /// <summary>Baseline value at a frame number; frames are dense and start at zero.</summary>
     private static double BaselineValue(EncodeEntry baseline, int frameNumber)
     {
-        IReadOnlyList<Core.Models.VmafFrame> frames = baseline.Report!.Frames;
-        if (frames.Count == 0)
-        {
-            return 0;
-        }
-
+        IReadOnlyList<Core.Models.VmafFrame> frames = baseline.Report!.Frames; // plotted entries have frames
         int index = Math.Clamp(frameNumber, 0, frames.Count - 1);
         return frames[index].Vmaf;
     }
 
     private static double[] MovingAverage(double[] values, int window)
     {
-        if (values.Length < window || window <= 1)
+        if (values.Length < window)
         {
             return values;
         }
@@ -355,25 +356,25 @@ public partial class CompareView : UserControl
         return result;
     }
 
+    // Row buttons carry their encode as DataContext.
+    private static EncodeEntry RowOf(object? sender) => (EncodeEntry)((Control)sender!).DataContext!;
+
     private void OnToggleEncodeVisibility(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: EncodeEntry entry })
-        {
-            entry.IsVisible = !entry.IsVisible;
-            RedrawPlot();
-        }
-
+        EncodeEntry entry = RowOf(sender);
+        entry.IsVisible = !entry.IsVisible;
+        RedrawPlot();
         e.Handled = true;
     }
 
     private void UpdateMarker()
     {
-        if (_marker is null || _viewModel is null)
+        if (_marker is null)
         {
             return;
         }
 
-        _marker.X = _viewModel.CurrentFrame;
+        _marker.X = ViewModel.CurrentFrame;
         PlotView.Refresh();
     }
 
@@ -385,7 +386,7 @@ public partial class CompareView : UserControl
 
     private void OnPlotPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (!_pressed || _viewModel is null)
+        if (!_pressed)
         {
             return;
         }
@@ -405,14 +406,15 @@ public partial class CompareView : UserControl
             PlotView.Plot.Axes.Bottom,
             PlotView.Plot.Axes.Left);
 
-        _viewModel.GoToFrame((int)Math.Round(coordinates.X));
+        ViewModel.GoToFrame((int)Math.Round(coordinates.X));
     }
 
     // ---------------------------------------------------------------- viewer input
 
     private void OnViewWheel(object? sender, PointerWheelEventArgs e)
     {
-        if (_viewModel is null || sender is not Control view || _viewModel.ImageWidth <= 0)
+        var view = (Control)sender!;
+        if (ViewModel.ImageWidth <= 0)
         {
             return;
         }
@@ -420,13 +422,13 @@ public partial class CompareView : UserControl
         double current = EffectiveScale(view);
         Point position = e.GetPosition(view);
 
-        _viewModel.Viewport.ZoomAt(
+        ViewModel.Viewport.ZoomAt(
             position.X,
             position.Y,
             view.Bounds.Width,
             view.Bounds.Height,
-            _viewModel.ImageWidth,
-            _viewModel.ImageHeight,
+            ViewModel.ImageWidth,
+            ViewModel.ImageHeight,
             current,
             e.Delta.Y > 0 ? 1.25 : 0.8);
 
@@ -436,11 +438,7 @@ public partial class CompareView : UserControl
 
     private void OnViewPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (_viewModel is null || sender is not Control view)
-        {
-            return;
-        }
-
+        var view = (Control)sender!;
         PointerPointProperties properties = e.GetCurrentPoint(view).Properties;
         if (!properties.IsLeftButtonPressed)
         {
@@ -451,7 +449,7 @@ public partial class CompareView : UserControl
 
         if (view is WipeView wipe)
         {
-            double splitX = _viewModel.WipeSplit * wipe.Bounds.Width;
+            double splitX = ViewModel.WipeSplit * wipe.Bounds.Width;
             if (Math.Abs(position.X - splitX) <= 20)
             {
                 _draggingWipe = true;
@@ -469,15 +467,11 @@ public partial class CompareView : UserControl
 
     private void OnViewMoved(object? sender, PointerEventArgs e)
     {
-        if (_viewModel is null || sender is not Control view)
-        {
-            return;
-        }
-
+        var view = (Control)sender!;
         if (_draggingWipe && view is WipeView wipe)
         {
             Point position = e.GetPosition(wipe);
-            _viewModel.WipeSplit = Math.Clamp(position.X / Math.Max(1, wipe.Bounds.Width), 0.02, 0.98);
+            ViewModel.WipeSplit = Math.Clamp(position.X / Math.Max(1, wipe.Bounds.Width), 0.02, 0.98);
             e.Handled = true;
             return;
         }
@@ -491,7 +485,7 @@ public partial class CompareView : UserControl
         Vector delta = current - _panLast;
         _panLast = current;
 
-        _viewModel.Viewport.Pan(delta.X, delta.Y, _viewModel.ImageWidth, _viewModel.ImageHeight, EffectiveScale(view));
+        ViewModel.Viewport.Pan(delta.X, delta.Y, ViewModel.ImageWidth, ViewModel.ImageHeight, EffectiveScale(view));
         UpdateZoomLabel();
         e.Handled = true;
     }
@@ -503,20 +497,11 @@ public partial class CompareView : UserControl
         e.Pointer.Capture(null);
     }
 
-    private double EffectiveScale(Control view) => view switch
-    {
-        FrameView frameView => frameView.GetEffectiveScale(),
-        WipeView wipeView => wipeView.GetEffectiveScale(),
-        _ => 1,
-    };
+    // The viewer panes are frame views, except the wipe.
+    private static double EffectiveScale(Control view) =>
+        view is WipeView wipeView ? wipeView.GetEffectiveScale() : ((FrameView)view).GetEffectiveScale();
 
-    private Control? ActiveView() => _viewModel switch
-    {
-        null => null,
-        { IsTwoPane: true } => ReferenceView,
-        { IsWipe: true } => Wipe,
-        _ => FlickerView,
-    };
+    private Control ActiveView() => ViewModel.IsTwoPane ? ReferenceView : ViewModel.IsWipe ? Wipe : FlickerView;
 
     /// <summary>
     /// Sizes the viewer row: from the video's aspect ratio by default, or as the share the user chose
@@ -619,21 +604,20 @@ public partial class CompareView : UserControl
         }
 
         // Physical pixels per video pixel: 100% is pixel-exact whatever the Windows display scaling.
-        Control? view = ActiveView();
-        double scale = (view is null ? 1 : EffectiveScale(view)) * RenderScaling;
+        double scale = EffectiveScale(ActiveView()) * RenderScaling;
         string suffix = _viewModel.Viewport.IsFit ? "  (" + Loc.T("compare.fit") + ")" : string.Empty;
         ZoomLabel.Text = $"{scale * 100:0}%{suffix}";
     }
 
     private void OnFit(object? sender, RoutedEventArgs e)
     {
-        _viewModel?.Viewport.Fit();
+        ViewModel.Viewport.Fit();
         UpdateZoomLabel();
     }
 
     private void OnActualSize(object? sender, RoutedEventArgs e)
     {
-        _viewModel?.Viewport.ActualSize(RenderScaling);
+        ViewModel.Viewport.ActualSize(RenderScaling);
         UpdateZoomLabel();
     }
 
@@ -641,7 +625,7 @@ public partial class CompareView : UserControl
 
     private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
     {
-        if (_viewModel is null || !IsEffectivelyVisible || _topLevel?.FocusManager?.GetFocusedElement() is TextBox)
+        if (_viewModel is null || !IsEffectivelyVisible || _topLevel!.FocusManager!.GetFocusedElement() is TextBox)
         {
             return;
         }
@@ -709,7 +693,7 @@ public partial class CompareView : UserControl
     {
         if (e.Key == Key.F)
         {
-            _viewModel?.SetFlicker(false);
+            _viewModel?.SetFlicker(false); // the page may have no model while another page shows
             e.Handled = true;
         }
     }
@@ -718,34 +702,31 @@ public partial class CompareView : UserControl
 
     private async void OnPickReference(object? sender, RoutedEventArgs e)
     {
-        IReadOnlyList<IStorageFile> files = await _topLevel!.StorageProvider.OpenFilePickerAsync(VideoPicker(Loc.T("compare.picker.reference"), false));
-        if (files.Count > 0 && _viewModel is not null)
+        IReadOnlyList<string> files = await PageIo.PickFilesAsync(this, Loc.T("compare.picker.reference"), false, VideoTypes);
+        if (files.Count > 0)
         {
-            await _viewModel.HandleDropAsync([.. files.Select(file => file.TryGetLocalPath())], DropZone.Reference);
+            await ViewModel.HandleDropAsync([.. files], DropZone.Reference);
         }
     }
 
     private async void OnPickEncodes(object? sender, RoutedEventArgs e)
     {
-        IReadOnlyList<IStorageFile> files = await _topLevel!.StorageProvider.OpenFilePickerAsync(VideoPicker(Loc.T("compare.picker.encodes"), true));
-        if (files.Count > 0 && _viewModel is not null)
+        IReadOnlyList<string> files = await PageIo.PickFilesAsync(this, Loc.T("compare.picker.encodes"), true, VideoTypes);
+        if (files.Count > 0)
         {
-            await _viewModel.HandleDropAsync([.. files.Select(file => file.TryGetLocalPath())], DropZone.Encodes);
+            await ViewModel.HandleDropAsync([.. files], DropZone.Encodes);
         }
     }
 
     /// <summary>Ctrl+V: files on the clipboard, or one path per line of text (file:// URIs too).</summary>
     private async Task PasteAsync()
     {
-        if (_viewModel is null || _topLevel?.Clipboard is not { } clipboard)
-        {
-            return;
-        }
+        IClipboard clipboard = _topLevel!.Clipboard!;
 
         IStorageItem[]? files = await clipboard.TryGetFilesAsync();
         if (files is { Length: > 0 })
         {
-            await _viewModel.HandleDropAsync([.. files.Select(f => f.TryGetLocalPath())], DropZone.Auto);
+            await ViewModel.HandleDropAsync([.. files.Select(f => f.TryGetLocalPath())], DropZone.Auto);
             return;
         }
 
@@ -763,56 +744,33 @@ public partial class CompareView : UserControl
                 : uri is { IsFile: true } ? uri.LocalPath : line)
             .ToList();
 
-        await _viewModel.HandleDropAsync(paths, DropZone.Auto);
+        await ViewModel.HandleDropAsync(paths, DropZone.Auto);
     }
 
-    private void OnStepBack(object? sender, RoutedEventArgs e) => _viewModel?.StepFrame(-1);
+    private void OnStepBack(object? sender, RoutedEventArgs e) => ViewModel.StepFrame(-1);
 
-    private void OnStepForward(object? sender, RoutedEventArgs e) => _viewModel?.StepFrame(1);
+    private void OnStepForward(object? sender, RoutedEventArgs e) => ViewModel.StepFrame(1);
 
     private void OnRemoveEncode(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: EncodeEntry entry })
-        {
-            _viewModel?.RemoveEncode(entry);
-        }
-
+        ViewModel.RemoveEncode(RowOf(sender));
         e.Handled = true;
     }
 
     private void OnRescoreEncode(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: EncodeEntry entry } && _viewModel is not null)
-        {
-            _ = _viewModel.RescoreAsync(entry);
-        }
-
+        _ = ViewModel.RescoreAsync(RowOf(sender));
         e.Handled = true;
     }
 
     private async void OnRevealEncode(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        if (sender is Button { DataContext: EncodeEntry entry } &&
-            Path.GetDirectoryName(entry.Path) is { } folder)
-        {
-            await _topLevel!.Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(folder));
-        }
+        await PageIo.RevealAsync(this, RowOf(sender).Path);
     }
 
-    private static FilePickerOpenOptions VideoPicker(string title, bool allowMultiple) => new()
-    {
-        Title = title,
-        AllowMultiple = allowMultiple,
-        FileTypeFilter =
-        [
-            new FilePickerFileType(Loc.T("picker.type.video"))
-            {
-                Patterns = [.. DropRouter.VideoExtensions.Select(extension => "*" + extension)],
-                MimeTypes = ["video/*"],
-            },
-        ],
-    };
+    private static (string Name, string[] Patterns) VideoTypes =>
+        (Loc.T("picker.type.video"), [.. DropRouter.VideoExtensions.Select(extension => "*" + extension)]);
 
     // ---------------------------------------------------------------- drag and drop
 
@@ -820,9 +778,9 @@ public partial class CompareView : UserControl
 
     private void OnDragEnter(object? sender, DragEventArgs e)
     {
-        if (_viewModel is not null && HasFiles(e))
+        if (HasFiles(e))
         {
-            _viewModel.IsDragging = true;
+            ViewModel.IsDragging = true;
         }
     }
 
@@ -831,10 +789,9 @@ public partial class CompareView : UserControl
     private void OnDragLeave(object? sender, DragEventArgs e)
     {
         Point position = e.GetPosition(this);
-        if (_viewModel is not null &&
-            (position.X <= 0 || position.Y <= 0 || position.X >= Bounds.Width || position.Y >= Bounds.Height))
+        if (position.X <= 0 || position.Y <= 0 || position.X >= Bounds.Width || position.Y >= Bounds.Height)
         {
-            _viewModel.IsDragging = false;
+            ViewModel.IsDragging = false;
             SetHotZone(null);
         }
     }
@@ -851,13 +808,7 @@ public partial class CompareView : UserControl
         e.Handled = true;
         Border? zoneBorder = ZoneAt(e.Source);
         SetHotZone(null);
-
-        if (_viewModel is null)
-        {
-            return;
-        }
-
-        _viewModel.IsDragging = false;
+        ViewModel.IsDragging = false;
         if (!HasFiles(e))
         {
             return;
@@ -869,7 +820,7 @@ public partial class CompareView : UserControl
             .ToList();
 
         DropZone zone = zoneBorder?.Tag is DropZone tagged ? tagged : DropZone.Auto;
-        await _viewModel.HandleDropAsync(paths, zone);
+        await ViewModel.HandleDropAsync(paths, zone);
     }
 
     private static Border? ZoneAt(object? source)

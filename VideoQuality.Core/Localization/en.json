@@ -68,7 +68,6 @@
   "compare.autoGain": "Auto gain",
   "compare.bEncode": "B · encode",
   "compare.backend.noVmaf": "this ffmpeg has no VMAF",
-  "compare.backend.probeFailed": "probe failed: {0}",
   "compare.backend.probing": "probing ffmpeg…",
   "compare.baseline": "Δ baseline",
   "compare.bitrate": "BITRATE",

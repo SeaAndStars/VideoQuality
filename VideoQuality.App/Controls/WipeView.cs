@@ -76,31 +76,8 @@ public class WipeView : Control
         set => SetValue(SplitProperty, value);
     }
 
-    public double GetEffectiveScale()
-    {
-        if (SourceA is not { } source)
-        {
-            return 1;
-        }
-
-        Size image = source.Size;
-        if (image.Width <= 0 || image.Height <= 0)
-        {
-            return 1;
-        }
-
-        if (Zoom > 0)
-        {
-            return Zoom;
-        }
-
-        if (Bounds.Width <= 0 || Bounds.Height <= 0)
-        {
-            return 1;
-        }
-
-        return Math.Min(Bounds.Width / image.Width, Bounds.Height / image.Height);
-    }
+    /// <summary>Current scale in screen pixels per image pixel (resolves "fit" to a number).</summary>
+    public double GetEffectiveScale() => ImagePlacement.EffectiveScale(SourceA, Zoom, Bounds.Size);
 
     public override void Render(DrawingContext context)
     {

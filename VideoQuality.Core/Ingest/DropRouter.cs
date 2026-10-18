@@ -59,6 +59,8 @@ public static class DropRouter
     public static readonly IReadOnlySet<string> VideoExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         ".mkv", ".mp4", ".mov", ".webm", ".avi", ".ts", ".m2ts", ".ivf", ".y4m",
+        // Raw elementary streams, as x264/x265 write them.
+        ".h264", ".264", ".hevc", ".h265", ".265",
     };
 
     public static string NonLocalReason => Loc.T("drop.nonLocal");

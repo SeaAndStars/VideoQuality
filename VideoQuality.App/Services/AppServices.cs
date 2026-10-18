@@ -14,6 +14,12 @@ public sealed class AppServices
 
     public IProcessRunner Processes { get; init; } = SystemProcessRunner.Instance;
 
+    /// <summary>Environment variables (VQ_FFMPEG, …); tests pass their own.</summary>
+    public Func<string, string?> Environment { get; init; } = System.Environment.GetEnvironmentVariable;
+
+    /// <summary>The loaded libav libraries, for the session log (throws when they cannot load).</summary>
+    public Func<string> DescribeLibav { get; init; } = VideoQuality.Core.Decoding.FfmpegRuntime.Describe;
+
     /// <summary>Where the user's settings live; tests keep theirs in memory.</summary>
     public ISettingsStore Settings { get; init; } = FileSettingsStore.Instance;
 
@@ -37,7 +43,7 @@ public sealed class AppServices
 
     private static void RestartThisApp(IReadOnlyList<string> arguments)
     {
-        (string fileName, IReadOnlyList<string> args) = RestartCommand(Environment.ProcessPath!, Environment.GetCommandLineArgs()[0], arguments);
+        (string fileName, IReadOnlyList<string> args) = RestartCommand(System.Environment.ProcessPath!, System.Environment.GetCommandLineArgs()[0], arguments);
         var start = new ProcessStartInfo(fileName) { UseShellExecute = false };
         foreach (string argument in args)
         {

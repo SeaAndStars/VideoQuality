@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="VideoQuality.Tests" />
+    <InternalsVisibleTo Include="VideoQuality.App.Tests" />
   </ItemGroup>
 
 </Project>

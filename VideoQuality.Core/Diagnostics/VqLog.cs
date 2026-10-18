@@ -70,6 +70,15 @@ public static class VqLog
         }
     }
 
+    /// <summary>Turns logging off (tests of "logging disabled").</summary>
+    internal static void Disable()
+    {
+        lock (Gate)
+        {
+            _file = new LogFile(null);
+        }
+    }
+
     public static void Info(string source, string message) => File.Write("INF", source, message, null);
 
     public static void Warn(string source, string message, Exception? exception = null) =>

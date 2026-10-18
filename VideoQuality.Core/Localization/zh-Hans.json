@@ -68,7 +68,6 @@
   "compare.autoGain": "自动增益",
   "compare.bEncode": "B · 待测",
   "compare.backend.noVmaf": "此 ffmpeg 不支持 VMAF",
-  "compare.backend.probeFailed": "检测失败：{0}",
   "compare.backend.probing": "正在检测 ffmpeg…",
   "compare.baseline": "Δ 基准",
   "compare.bitrate": "码率",

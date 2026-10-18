@@ -157,6 +157,9 @@ public sealed class LogTests : IDisposable
         VqLog.Error("test", "error", new InvalidOperationException("x"));
         Assert.NotNull(VqLog.CurrentPath);
         Assert.Contains("key: value", File.ReadAllText(VqLog.CurrentPath!), StringComparison.Ordinal);
+        VqLog.Disable();
+        Assert.Null(VqLog.CurrentPath);
+        VqLog.Info("test", "dropped");
         VqLog.Reset();
     }
 }

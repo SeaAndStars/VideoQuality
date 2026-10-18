@@ -69,7 +69,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         LoadSettings();
 
-        string? configuredFfmpeg = Environment.GetEnvironmentVariable("VQ_FFMPEG");
+        string? configuredFfmpeg = Services.Environment("VQ_FFMPEG");
         if (!string.IsNullOrWhiteSpace(configuredFfmpeg))
         {
             _settingsQuiet = true;
@@ -89,11 +89,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     private void LoadSettings()
     {
-        if (Avalonia.Controls.Design.IsDesignMode)
-        {
-            return;
-        }
-
         _settings = Services.Settings.Load();
         _settingsQuiet = true;
         try
@@ -133,7 +128,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     private void ScheduleSave(Action<UserSettings> change)
     {
-        if (_settingsQuiet || Avalonia.Controls.Design.IsDesignMode)
+        if (_settingsQuiet)
         {
             return;
         }
@@ -442,11 +437,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public async Task InitializeAsync()
     {
-        if (Avalonia.Controls.Design.IsDesignMode)
-        {
-            return;
-        }
-
         if (string.IsNullOrWhiteSpace(FfmpegPath) || string.Equals(FfmpegPath, "ffmpeg", StringComparison.Ordinal))
         {
             string resolved = await VmafRunner.ResolveFfmpegAsync(FfmpegPath, Services.Processes).ConfigureAwait(true);
@@ -467,21 +457,21 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         VqLog.SessionHeader("app session", new Dictionary<string, string>
         {
-            ["core"] = typeof(VmafRunner).Assembly.GetName().Version?.ToString() ?? "?",
+            ["core"] = typeof(VmafRunner).Assembly.GetName().Version!.ToString(),
             ["dotnet"] = Environment.Version.ToString(),
             ["os"] = RuntimeInformation.OSDescription,
             ["ffmpeg"] = FfmpegPath,
-            ["backend"] = _capabilities?.Describe() ?? "unknown",
+            ["backend"] = _capabilities!.Describe(), // probed just before
             ["libav"] = SafeLibav(),
             ["log"] = VqLog.CurrentPath ?? "(disabled)",
         });
     }
 
-    private static string SafeLibav()
+    private string SafeLibav()
     {
         try
         {
-            return FfmpegRuntime.Describe();
+            return Services.DescribeLibav();
         }
         catch (Exception ex)
         {
@@ -773,7 +763,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
             entry.ActiveJob = null;
 
-            if (indexJob.State != JobState.Succeeded || probe is null || index is null)
+            if (indexJob.State != JobState.Succeeded)
             {
                 entry.State = indexJob.State == JobState.Cancelled ? EncodeState.Cancelled : EncodeState.Failed;
                 entry.Error = indexJob.Error ?? Loc.T("compare.error.unreadable");
@@ -781,11 +771,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 return;
             }
 
-            entry.BitDepth = probe.BitDepth;
+            // A finished index job filled both in.
+            entry.BitDepth = probe!.BitDepth;
             entry.Width = probe.Width;
             entry.Height = probe.Height;
             entry.FrameRate = probe.FrameRate;
-            entry.PacketCount = index.FrameCount;
+            entry.PacketCount = index!.FrameCount;
             entry.BitrateKbps = index.BitrateKbps > 0
                 ? index.BitrateKbps
                 : _referenceDecoder?.Info.Duration.TotalSeconds is double seconds and > 0
@@ -813,7 +804,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         UpdateJobSummary();
 
         string reference = ReferencePath!;
-        int totalFrames = _referencePacketCount > 0 ? _referencePacketCount : _referenceDecoder?.Info.FrameCount ?? 0;
+        // Scoring starts only with the reference open (ProcessEncodeAsync checks).
+        int totalFrames = _referencePacketCount > 0 ? _referencePacketCount : _referenceDecoder!.Info.FrameCount;
         VmafBackend backend = SelectedBackend;
         string model = SelectedModel;
         bool cpu = backend == VmafBackend.Cpu || _capabilities is { CudaUsable: false };
@@ -875,10 +867,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         entry.ActiveJob = null;
 
-        if (job.State == JobState.Succeeded && report is not null &&
-            string.Equals(reference, ReferencePath, StringComparison.Ordinal))
+        if (job.State == JobState.Succeeded && string.Equals(reference, ReferencePath, StringComparison.Ordinal))
         {
-            entry.Report = report;
+            entry.Report = report; // a finished score job set it
             entry.Progress = 1;
             entry.State = EncodeState.Done;
 
@@ -1543,21 +1534,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         string path = string.IsNullOrWhiteSpace(FfmpegPath) ? "ffmpeg" : FfmpegPath.Trim();
 
-        try
+        // The probe reports a broken ffmpeg in its capabilities rather than throwing.
+        VmafCapabilities capabilities = await VmafRunner.ProbeAsync(path, Services.Processes).ConfigureAwait(true);
+        _capabilities = capabilities;
+        OnPropertyChanged(nameof(BackendChip));
+        LogPath = VqLog.CurrentPath ?? string.Empty;
+        BackendStatus = capabilities.Describe();
+        if (!capabilities.HasLibvmaf && !capabilities.HasLibvmafCuda)
         {
-            VmafCapabilities capabilities = await VmafRunner.ProbeAsync(path, Services.Processes).ConfigureAwait(true);
-            _capabilities = capabilities;
-            OnPropertyChanged(nameof(BackendChip));
-            LogPath = VqLog.CurrentPath ?? string.Empty;
-            BackendStatus = capabilities.Describe();
-            if (!capabilities.HasLibvmaf && !capabilities.HasLibvmafCuda)
-            {
-                BackendStatus += " — " + Loc.T("compare.backend.noVmaf");
-            }
-        }
-        catch (Exception ex)
-        {
-            BackendStatus = Loc.T("compare.backend.probeFailed", ex.Message);
+            BackendStatus += " — " + Loc.T("compare.backend.noVmaf");
         }
     }
 

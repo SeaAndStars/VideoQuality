@@ -92,7 +92,7 @@ public static class Ui
     }
 
     /// <summary>Runs the dispatcher (and lets background work finish) until the condition holds.</summary>
-    public static async Task UntilAsync(Func<bool> condition, int timeoutMs = 20_000)
+    public static async Task UntilAsync(Func<bool> condition, int timeoutMs = 20_000, Func<string>? message = null)
     {
         DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
         while (true)
@@ -105,7 +105,7 @@ public static class Ui
 
             if (DateTime.UtcNow > deadline)
             {
-                throw new TimeoutException("condition was not met in time");
+                throw new TimeoutException("condition was not met in time" + (message is null ? string.Empty : ": " + message()));
             }
 
             await Task.Delay(10);
