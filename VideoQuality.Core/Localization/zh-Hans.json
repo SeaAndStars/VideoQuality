@@ -573,8 +573,6 @@
   "settings.general": "常规",
   "settings.harfbuzz": "HarfBuzz",
   "settings.language": "语言",
-  "settings.language.restart": "立即重启",
-  "settings.language.restartHint": "新语言将在重启后生效。",
   "settings.language.system": "跟随系统",
   "settings.lastLog": "最近日志",
   "settings.locate": "查找",

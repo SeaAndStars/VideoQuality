@@ -573,8 +573,6 @@
   "settings.general": "GENERAL",
   "settings.harfbuzz": "HarfBuzz",
   "settings.language": "Language",
-  "settings.language.restart": "Restart now",
-  "settings.language.restartHint": "The new language applies after a restart.",
   "settings.language.system": "Follow the system",
   "settings.lastLog": "Last log",
   "settings.locate": "Locate",

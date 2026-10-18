@@ -40,13 +40,27 @@ public enum StepState
 /// <summary>One stage of the release pipeline, shown as a row with a status icon.</summary>
 public partial class PipelineStep : ObservableObject
 {
-    /// <summary>Which step this is, for the step's own settings in the view.</summary>
-    public string Key { get; init; } = string.Empty;
+    /// <summary>Which step this is: its texts (<c>pipeline.step.{Key}</c>) and its own settings in the view.</summary>
+    public required string Key { get; init; }
 
-    public required string Title { get; init; }
+    /// <summary>The step's name in the current language.</summary>
+    public string Title => Loc.T("pipeline.step." + Key);
 
+    /// <summary>The description's catalog key; empty uses <c>pipeline.step.{Key}.description</c>.</summary>
     [ObservableProperty]
-    public required partial string Description { get; set; }
+    [NotifyPropertyChangedFor(nameof(Description))]
+    public partial string DescriptionKey { get; set; } = string.Empty;
+
+    /// <summary>The description's one format argument, if it takes one.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Description))]
+    public partial string? DescriptionArg { get; set; }
+
+    /// <summary>What the step does, in the current language.</summary>
+    public string Description => Loc.T(DescriptionKey.Length > 0 ? DescriptionKey : $"pipeline.step.{Key}.description", DescriptionArg);
+
+    /// <summary>Re-reads the texts after a language change.</summary>
+    public void RefreshTexts() => OnPropertyChanged(string.Empty);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsPending), nameof(IsRunning), nameof(IsDone), nameof(IsFailed), nameof(IsSkipped))]
@@ -102,7 +116,7 @@ public partial class BurnTarget : ObservableObject
 /// fonts, mux the 内封 MKV, burn the 内嵌 MP4s, check every file against the rules, and score the
 /// encode against the source with VMAF. File names come from the Naming page.
 /// </summary>
-public partial class PipelineViewModel : ObservableObject
+public partial class PipelineViewModel : ViewModelBase
 {
     /// <summary>Audio a web source never carries: a lossless track means a disc.</summary>
     private static readonly HashSet<string> LosslessAudio = ["flac", "truehd", "alac", "pcm_s16le", "pcm_s24le", "pcm_s32le"];
@@ -167,24 +181,24 @@ public partial class PipelineViewModel : ObservableObject
     /// <summary>The files the last run wrote, in order (MKV first).</summary>
     public ObservableCollection<string> Outputs { get; } = [];
 
-    public PipelineStep EncodeStep { get; } = new() { Key = "encode", Title = Loc.T("pipeline.step.encode"), Description = Loc.T("pipeline.step.encode.description") };
+    public PipelineStep EncodeStep { get; } = new() { Key = "encode" };
 
-    public PipelineStep SubsetStep { get; } = new() { Key = "subset", Title = Loc.T("pipeline.step.subset"), Description = Loc.T("pipeline.step.subset.description") };
+    public PipelineStep SubsetStep { get; } = new() { Key = "subset" };
 
-    public PipelineStep MuxStep { get; } = new() { Key = "mux", Title = Loc.T("pipeline.step.mux"), Description = Loc.T("pipeline.step.mux.description") };
+    public PipelineStep MuxStep { get; } = new() { Key = "mux" };
 
-    public PipelineStep BurnStep { get; } = new() { Key = "burn", Title = Loc.T("pipeline.step.burn"), Description = Loc.T("pipeline.step.burn.description") };
+    public PipelineStep BurnStep { get; } = new() { Key = "burn" };
 
-    public PipelineStep VerifyStep { get; } = new() { Key = "verify", Title = Loc.T("pipeline.step.verify"), Description = Loc.T("pipeline.step.verify.description") };
+    public PipelineStep VerifyStep { get; } = new() { Key = "verify" };
 
-    public PipelineStep VmafStep { get; } = new() { Key = "vmaf", Title = Loc.T("pipeline.step.vmaf"), Description = Loc.T("pipeline.step.vmaf.description") };
+    public PipelineStep VmafStep { get; } = new() { Key = "vmaf" };
 
-    public PipelineStep ExtractStep { get; } = new() { Key = "extract", Title = Loc.T("pipeline.step.extract"), Description = Loc.T("pipeline.step.extract.description") };
+    public PipelineStep ExtractStep { get; } = new() { Key = "extract" };
 
     /// <summary>Off by default: most releases keep the whole episode.</summary>
-    public PipelineStep TrimStep { get; } = new() { Key = "trim", Title = Loc.T("pipeline.step.trim"), Description = Loc.T("pipeline.step.trim.description"), Enabled = false };
+    public PipelineStep TrimStep { get; } = new() { Key = "trim", Enabled = false };
 
-    public PipelineStep ChaptersStep { get; } = new() { Key = "chapters", Title = Loc.T("pipeline.step.chapters"), Description = Loc.T("pipeline.step.chapters.description") };
+    public PipelineStep ChaptersStep { get; } = new() { Key = "chapters" };
 
     /// <summary>Every tool page as a step, in release order; each can be switched off.</summary>
     public IReadOnlyList<PipelineStep> Steps => [ExtractStep, TrimStep, EncodeStep, SubsetStep, ChaptersStep, MuxStep, BurnStep, VerifyStep, VmafStep];
@@ -358,12 +372,26 @@ public partial class PipelineViewModel : ObservableObject
 
     partial void OnSelectedPresetChanged(EncodePreset? value) => DescribeEncode();
 
-    private void DescribeEncode() => EncodeStep.Description = Encoder switch
+    private void DescribeEncode()
     {
-        PipelineEncoder.NvencUhq => Loc.T("pipeline.step.encode.nvenc"),
-        PipelineEncoder.Preset => Loc.T("pipeline.step.encode.preset", SelectedPreset!.Name),
-        _ => Loc.T("pipeline.step.encode.description"),
-    };
+        EncodeStep.DescriptionKey = Encoder switch
+        {
+            PipelineEncoder.NvencUhq => "pipeline.step.encode.nvenc",
+            PipelineEncoder.Preset => "pipeline.step.encode.preset",
+            _ => string.Empty,
+        };
+        EncodeStep.DescriptionArg = IsPreset ? SelectedPreset!.Name : null;
+    }
+
+    /// <inheritdoc />
+    public override void RefreshTexts()
+    {
+        base.RefreshTexts();
+        foreach (PipelineStep step in Steps)
+        {
+            step.RefreshTexts();
+        }
+    }
 
     private decimal DefaultQuality() => IsNvenc ? (decimal)NvencUhq.Quality : GreenTeaSpec.IsBd(Profile) ? 18 : 20;
 

@@ -11,7 +11,7 @@ namespace VideoQuality.App.ViewModels;
 public sealed record NamedFile(string Purpose, string Name);
 
 /// <summary>Naming page: release file names and titles following the group's naming rules.</summary>
-public partial class NamingViewModel : ObservableObject
+public partial class NamingViewModel : ViewModelBase
 {
     private readonly Func<string, MediaInfo> _read;
 
@@ -150,6 +150,13 @@ public partial class NamingViewModel : ObservableObject
 
     [RelayCommand]
     private void CopyAll() => CopyRequested?.Invoke(this, string.Join(Environment.NewLine, Files.Select(f => f.Name).Append(ReleaseTitle)));
+
+    /// <inheritdoc />
+    public override void RefreshTexts()
+    {
+        Update();
+        base.RefreshTexts();
+    }
 
     private void Update()
     {

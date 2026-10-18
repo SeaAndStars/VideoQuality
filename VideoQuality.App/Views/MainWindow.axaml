@@ -41,7 +41,7 @@
                 <u:NavMenu DockPanel.Dock="Bottom" x:Name="SettingsNav" Classes="rail"
                            IsHorizontalCollapsed="{Binding IsNavCollapsed}" ExpandWidth="200" CollapseWidth="56"
                            SelectionChanged="OnSettingsNavSelected">
-                    <u:NavMenuItem Header="{Binding SettingsPage.Title}" Tag="settings"
+                    <u:NavMenuItem Header="{l:L nav.settings}" Tag="settings"
                                    IsSelected="{Binding IsSettings, Mode=OneWay}">
                         <u:NavMenuItem.Icon><ic:SymbolIcon Symbol="Settings" /></u:NavMenuItem.Icon>
                     </u:NavMenuItem>
@@ -49,7 +49,7 @@
                 <u:NavMenu x:Name="PagesNav" Classes="rail" ItemsSource="{Binding Pages}"
                            SelectedItem="{Binding SelectedPage}"
                            IsHorizontalCollapsed="{Binding IsNavCollapsed}" ExpandWidth="200" CollapseWidth="56"
-                           HeaderBinding="{Binding Title, x:DataType=vm:NavPage}"
+                           HeaderBinding="{l:Key Path=TitleKey}"
                            IconBinding="{Binding Icon, x:DataType=vm:NavPage}">
                     <u:NavMenu.Styles>
                         <!-- Group separators come from the page list itself. -->

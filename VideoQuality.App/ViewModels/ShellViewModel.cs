@@ -10,8 +10,11 @@ using VideoQuality.Core.Monitor;
 namespace VideoQuality.App.ViewModels;
 
 /// <summary>One entry of the navigation rail; a separator divides the groups.</summary>
-public sealed record NavPage(string Key, string Title, Symbol Icon, object? ViewModel, bool IsSeparator = false)
+public sealed record NavPage(string Key, string TitleKey, Symbol Icon, object? ViewModel, bool IsSeparator = false)
 {
+    /// <summary>The page's name in the current language.</summary>
+    public string Title => Loc.T(TitleKey); // separators have no key, and an empty key reads as empty
+
     public static NavPage Separator(string group) => new("-" + group, string.Empty, Symbol.LineHorizontal1, null, true);
 }
 
@@ -41,21 +44,22 @@ public partial class ShellViewModel : ObservableObject, IDisposable
 
         Pages =
         [
-            new NavPage("mediainfo", Loc.T("nav.mediainfo"), Symbol.Info, MediaInfo),
-            new NavPage("compare", Loc.T("nav.compare"), Symbol.DataLine, Compare),
+            new NavPage("mediainfo", "nav.mediainfo", Symbol.Info, MediaInfo),
+            new NavPage("compare", "nav.compare", Symbol.DataLine, Compare),
             NavPage.Separator("make"),
-            new NavPage("extract", Loc.T("nav.extract"), Symbol.ArrowExportUp, Extract),
-            new NavPage("encode", Loc.T("nav.encode"), Symbol.VideoClip, Encode),
-            new NavPage("trim", Loc.T("nav.trim"), Symbol.Cut, TrimMerge),
-            new NavPage("subset", Loc.T("nav.subset"), Symbol.TextFont, FontSubset),
-            new NavPage("chapters", Loc.T("nav.chapters"), Symbol.BookOpen, Chapters),
-            new NavPage("mux", Loc.T("nav.mux"), Symbol.Merge, Mux),
-            new NavPage("naming", Loc.T("nav.naming"), Symbol.Rename, Naming),
+            new NavPage("extract", "nav.extract", Symbol.ArrowExportUp, Extract),
+            new NavPage("encode", "nav.encode", Symbol.VideoClip, Encode),
+            new NavPage("trim", "nav.trim", Symbol.Cut, TrimMerge),
+            new NavPage("subset", "nav.subset", Symbol.TextFont, FontSubset),
+            new NavPage("chapters", "nav.chapters", Symbol.BookOpen, Chapters),
+            new NavPage("mux", "nav.mux", Symbol.Merge, Mux),
+            new NavPage("naming", "nav.naming", Symbol.Rename, Naming),
             NavPage.Separator("automate"),
-            new NavPage("pipeline", Loc.T("nav.pipeline"), Symbol.FlowchartCircle, Pipeline),
-            new NavPage("monitor", Loc.T("nav.monitor"), Symbol.Pulse, Monitor),
+            new NavPage("pipeline", "nav.pipeline", Symbol.FlowchartCircle, Pipeline),
+            new NavPage("monitor", "nav.monitor", Symbol.Pulse, Monitor),
         ];
-        SettingsPage = new NavPage("settings", Loc.T("nav.settings"), Symbol.Settings, Settings);
+        SettingsPage = new NavPage("settings", "nav.settings", Symbol.Settings, Settings);
+        Loc.LanguageChanged += OnLanguageChanged;
         SelectedPage = Pages.First(p => p.Key == "compare");
 
         Compare.PropertyChanged += OnComparePropertyChanged;
@@ -226,8 +230,20 @@ public partial class ShellViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>A language change: every page re-reads its texts; work in progress is untouched.</summary>
+    private void OnLanguageChanged(object? sender, EventArgs e)
+    {
+        foreach (ViewModelBase page in Pages.Select(p => p.ViewModel).Append(Settings).OfType<ViewModelBase>())
+        {
+            page.RefreshTexts();
+        }
+
+        OnPropertyChanged(string.Empty);
+    }
+
     public void Dispose()
     {
+        Loc.LanguageChanged -= OnLanguageChanged;
         Compare.PropertyChanged -= OnComparePropertyChanged;
         foreach (EncodeJob job in Queue.Jobs)
         {

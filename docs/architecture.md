@@ -93,6 +93,15 @@ sequenceDiagram
     UI->>V: VMAF of the encode against the source
 ```
 
+## Language
+
+Texts come from `Loc` (`VideoQuality.Core/Localization`). In XAML, `{l:L key}` is a binding, not a
+fixed string: it listens to `LocSource.Revision`, which changes when `Loc.SetLanguage` switches
+catalogs, so every text is read again. `{l:Label}` does the same for enum labels in item templates and
+`{l:Key Path=…}` for keys a view model holds (navigation titles). View models with texts computed from
+the catalog get `RefreshTexts()` from the shell, and the Compare graph redraws its titles. Statuses
+written before the change stay as written until the next one.
+
 ## Threading
 
 - The UI thread owns all Avalonia objects, including `WriteableBitmap`s.

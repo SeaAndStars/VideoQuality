@@ -97,6 +97,7 @@
   log.
 - **English and 简体中文.** Every UI text comes from a translation catalog
   (`VideoQuality.Core/Localization/*.json`); pick the language in Settings or follow the system.
+  A change applies at once to every page, with no restart and nothing lost.
 - **Portable.** On Windows the release is one `VideoQuality.exe` with ffmpeg bundled, and settings
   live in `settings.json` beside it.
 

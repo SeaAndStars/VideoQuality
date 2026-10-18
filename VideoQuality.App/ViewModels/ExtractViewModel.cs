@@ -32,7 +32,7 @@ public partial class ExtractItem : ObservableObject
 }
 
 /// <summary>Extract page (抽流): pick tracks, attachments (fonts) and chapters out of a file.</summary>
-public partial class ExtractViewModel : ObservableObject
+public partial class ExtractViewModel : ViewModelBase
 {
     public ExtractViewModel(SettingsViewModel settings)
     {

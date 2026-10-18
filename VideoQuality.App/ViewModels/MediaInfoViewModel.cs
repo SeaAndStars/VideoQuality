@@ -25,7 +25,7 @@ public sealed record FindingRow(FindingLevel Level, string Message)
 /// Media Info page: what a file contains (like MediaInfo / HandBrake's summary) and whether a
 /// finished release follows the group's rules.
 /// </summary>
-public partial class MediaInfoViewModel : ObservableObject
+public partial class MediaInfoViewModel : ViewModelBase
 {
     private readonly Func<string, MediaInfo> _read;
 

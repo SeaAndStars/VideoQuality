@@ -9,9 +9,6 @@
              xmlns:controls="using:VideoQuality.App.Controls"
              x:Class="VideoQuality.App.Views.PipelineView"
              x:DataType="vm:PipelineViewModel">
-    <UserControl.Resources>
-        <conv:LabelConverter x:Key="Label" />
-    </UserControl.Resources>
     <UserControl.Styles>
         <Style Selector="Border.step.off > Grid > :is(Control):not(ToggleSwitch)">
             <Setter Property="Opacity" Value="0.45" />
@@ -92,7 +89,7 @@
                                 <TextBlock Grid.Row="8" Text="{l:L pipeline.releaseKind}" />
                                 <ComboBox Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{Binding Profiles}"
                                           SelectedItem="{Binding Profile, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
-                                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{l:Label}" /></DataTemplate></ComboBox.ItemTemplate>
                                 </ComboBox>
                                 <TextBlock Grid.Row="9" Text="{l:L naming.titleRomaji}" />
                                 <TextBox Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Naming.Title}" Watermark="Takopii No Genzai" />
@@ -149,7 +146,7 @@
                                                                 <TextBlock Text="{l:L pipeline.encoder}" FontSize="12" />
                                                                 <ComboBox Grid.Column="1" ItemsSource="{Binding Encoders}"
                                                                           SelectedItem="{Binding Encoder, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
-                                                                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                                                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{l:Label}" /></DataTemplate></ComboBox.ItemTemplate>
                                                                 </ComboBox>
                                                                 <TextBlock Grid.Row="1" Text="{l:L pipeline.preset}" FontSize="12" IsVisible="{Binding IsPreset}" />
                                                                 <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Presets}" IsVisible="{Binding IsPreset}"
@@ -255,11 +252,11 @@
                                                                   x:DataType="vm:PipelineViewModel" DataContext="{Binding $parent[UserControl].DataContext}" IsEnabled="{Binding !IsBusy}">
                                                                 <TextBlock Text="{l:L settings.vmafModel}" FontSize="12" />
                                                                 <ComboBox Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{Binding Compare.ModelOptions}" SelectedItem="{Binding Compare.SelectedModel, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
-                                                                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                                                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{l:Label}" /></DataTemplate></ComboBox.ItemTemplate>
                                                                 </ComboBox>
                                                                 <TextBlock Grid.Row="1" Text="{l:L common.backend}" FontSize="12" />
                                                                 <ComboBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{Binding Compare.BackendOptions}" SelectedItem="{Binding Compare.SelectedBackend, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
-                                                                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                                                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{l:Label}" /></DataTemplate></ComboBox.ItemTemplate>
                                                                 </ComboBox>
                                                                 <TextBlock Grid.Row="2" Text="{l:L compare.reference2}" FontSize="12" />
                                                                 <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Reference}" Watermark="{l:L pipeline.referenceWatermark}" />

@@ -84,12 +84,30 @@ public partial class LocalizationTests
         {
             ["track.type."] = Enum.GetNames<Core.Mkv.MkvTrackType>(),
             ["mediainfo.kind."] = Enum.GetNames<Core.Media.StreamKind>(),
+            ["pipeline.step."] = ["extract", "trim", "encode", "subset", "chapters", "mux", "burn", "verify", "vmaf"],
         };
         IEnumerable<string> expanded = used.SelectMany(key => key.EndsWith('.')
             ? dynamicKeys[key].Select(name => key + name.ToLowerInvariant())
             : [key]);
         string[] undefined = [.. expanded.Where(key => !Loc.Keys.Contains(key))];
         Assert.True(undefined.Length == 0, "undefined keys: " + string.Join(", ", undefined));
+    }
+
+    [Fact]
+    public void Choosing_the_language_already_shown_tells_nobody()
+    {
+        int changes = 0;
+        EventHandler counted = (_, _) => changes++;
+        Loc.LanguageChanged += counted;
+        try
+        {
+            Loc.SetLanguage(Loc.Language);
+            Assert.Equal(0, changes);
+        }
+        finally
+        {
+            Loc.LanguageChanged -= counted;
+        }
     }
 
     [Theory]

@@ -7,9 +7,6 @@
              xmlns:ic="using:FluentIcons.Avalonia"
              x:Class="VideoQuality.App.Views.NamingView"
              x:DataType="vm:NamingViewModel">
-    <UserControl.Resources>
-        <conv:LabelConverter x:Key="Label" />
-    </UserControl.Resources>
     <Panel>
         <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="12">
             <Border Classes="raised" Padding="16,12">
@@ -39,7 +36,7 @@
                             <TextBlock Grid.Row="4" Text="{l:L naming.kindNumber}" VerticalAlignment="Center" />
                             <Grid Grid.Row="4" Grid.Column="1" ColumnDefinitions="*,80,80" ColumnSpacing="6">
                                 <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Kinds}" SelectedItem="{Binding Kind, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
-                                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{l:Label}" /></DataTemplate></ComboBox.ItemTemplate>
                                 </ComboBox>
                                 <NumericUpDown Grid.Column="1" Value="{Binding Episode}" Minimum="0" Maximum="9999" FormatString="0" ToolTip.Tip="{l:L label.EpisodeKind.Episode}" />
                                 <NumericUpDown Grid.Column="2" Value="{Binding Version}" Minimum="1" Maximum="9" FormatString="'v'0" ToolTip.Tip="{l:L naming.reissueV2}" />
@@ -55,7 +52,7 @@
                             <ComboBox Grid.Row="7" Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding AudioCodecs}" SelectedItem="{Binding AudioCodec, Converter={x:Static conv:KeepSelectionConverter.Instance}}" />
                             <TextBlock Grid.Row="8" Text="{l:L extract.subtitles}" VerticalAlignment="Center" />
                             <ComboBox Grid.Row="8" Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding SubtitleSets}" SelectedItem="{Binding Subtitles, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
-                                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{l:Label}" /></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
                             <TextBlock Grid.Row="9" Text="{l:L naming.groupChinese}" VerticalAlignment="Center" />
                             <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding ChineseGroup}" />

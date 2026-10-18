@@ -23,6 +23,7 @@ public sealed class LabelConverter : IValueConverter
         VmafBackend.Cpu => "CPU",
         VmafBackend.Cuda => "CUDA",
         string model => VmafModels.DisplayName(model),
+        LanguageOption language => language.Name,
         Enum other when Loc.Has($"label.{other.GetType().Name}.{other}") => Loc.T($"label.{other.GetType().Name}.{other}"),
         _ => value?.ToString(),
     };

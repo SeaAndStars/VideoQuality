@@ -107,10 +107,19 @@ public partial class CompareView : UserControl
         _topLevel = TopLevel.GetTopLevel(this)!; // attached: inside a window
         _topLevel.AddHandler(KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel);
         _topLevel.AddHandler(KeyUpEvent, OnGlobalKeyUp, RoutingStrategies.Tunnel);
+        Loc.LanguageChanged += OnLanguageChanged;
+    }
+
+    /// <summary>The graph's titles and the zoom readout are drawn in code: draw them again in the new language.</summary>
+    private void OnLanguageChanged(object? sender, EventArgs e)
+    {
+        RedrawPlot();
+        UpdateZoomLabel();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        Loc.LanguageChanged -= OnLanguageChanged;
         _topLevel!.RemoveHandler(KeyDownEvent, OnGlobalKeyDown);
         _topLevel.RemoveHandler(KeyUpEvent, OnGlobalKeyUp);
         _topLevel = null;

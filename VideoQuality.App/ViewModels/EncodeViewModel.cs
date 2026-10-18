@@ -81,7 +81,7 @@ public partial class EncodeJobRow(EncodeJob job) : ObservableObject
 /// Encode page (压制): pick or edit a preset, add files, and run them through the encode queue
 /// shared with Trim &amp; Merge and Pipeline.
 /// </summary>
-public partial class EncodeViewModel : ObservableObject
+public partial class EncodeViewModel : ViewModelBase
 {
     private readonly Func<string, MediaInfo> _read;
     private readonly Action<Action> _post;

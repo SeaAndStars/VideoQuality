@@ -406,7 +406,7 @@ public sealed class PipelineTests : IDisposable
         vm.AddPaths([Path.Combine(elsewhere, "x.ass")]);
         Assert.Equal(string.Empty, vm.FontDirectory); // no fonts folder beside the script
 
-        var step = new PipelineStep { Title = "t", Description = "d" };
+        var step = new PipelineStep { Key = "encode" };
         step.State = StepState.Running;
         Assert.True(step.IsRunning);
     }

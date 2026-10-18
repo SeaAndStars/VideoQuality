@@ -1,4 +1,7 @@
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using VideoQuality.App.Services;
 using VideoQuality.App.ViewModels;
 using VideoQuality.App.Views;
@@ -18,8 +21,7 @@ public class SettingsTests
     [AvaloniaFact]
     public async Task Tools_are_located_from_the_chosen_folders()
     {
-        var restarts = new List<IReadOnlyList<string>>();
-        var services = new AppServices { Restart = restarts.Add, Settings = new MemorySettings() };
+        var services = new AppServices { Settings = new MemorySettings() };
         var settings = new SettingsViewModel(new MainViewModel(Pages.Isolated()), services);
         await Ui.UntilAsync(() => settings.HasMkvToolNix && settings.HasEncoder);
         Assert.Contains("mkvmerge", settings.MkvToolNixStatus, StringComparison.Ordinal);
@@ -45,8 +47,6 @@ public class SettingsTests
         Assert.Equal(("Generic", 2), (settings.Compare.PersistedSettings.TrackNaming, settings.Compare.PersistedSettings.EncodeConcurrency));
         Assert.Equal(TrackNamingProfile.Generic, new SettingsViewModel(settings.Compare, Pages.Isolated(NothingRuns)).TrackNaming);
 
-        settings.RestartCommand.Execute(null);
-        Assert.Equal(["--page=settings"], Assert.Single(restarts));
         Assert.StartsWith("v", settings.Version, StringComparison.Ordinal);
         Assert.False(string.IsNullOrEmpty(settings.HarfBuzzVersion));
         Assert.False(string.IsNullOrEmpty(settings.SettingsPath));
@@ -65,25 +65,58 @@ public class SettingsTests
     }
 
     [AvaloniaFact]
-    public void Language_choice_is_saved_and_needs_a_restart_when_it_changes()
+    public void Language_choice_is_saved_and_read_back()
     {
         var compare = new MainViewModel(Pages.Isolated());
         compare.UpdateSettings(s => { s.Language = "zh-Hans"; s.TrackNaming = "bogus"; s.EncodeConcurrency = 9; });
         var settings = new SettingsViewModel(compare, Pages.Isolated(NothingRuns));
         Assert.Equal("zh-Hans", settings.SelectedLanguage.Code);
+        Assert.Equal("en", Loc.Language); // reading the saved choice does not switch (the app did that at startup)
         Assert.Equal(TrackNamingProfile.GreenTea, settings.TrackNaming);
         Assert.Equal(4, settings.EncodeConcurrency);
-        Assert.True(settings.NeedsRestart); // the tests run in English
-
-        settings.SelectedLanguage = settings.LanguageOptions[0]; // follow the system
-        Assert.Null(compare.PersistedSettings.Language);
-        Assert.Equal(Loc.SystemLanguage != Loc.Language, settings.NeedsRestart);
-        Assert.Equal(settings.SelectedLanguage.Name, settings.SelectedLanguage.ToString());
 
         compare.UpdateSettings(s => s.Language = "xx");
         Assert.Equal(string.Empty, new SettingsViewModel(compare, Pages.Isolated(NothingRuns)).SelectedLanguage.Code);
         compare.UpdateSettings(s => { s.Language = null; s.TrackNaming = null; s.EncodeConcurrency = 1; });
         compare.FlushSettings();
+    }
+
+    [AvaloniaFact]
+    public void A_language_change_applies_at_once_to_every_page()
+    {
+        var shell = new ShellViewModel(new MainViewModel(Pages.Isolated()), Pages.Isolated(NothingRuns));
+        var window = new MainWindow { DataContext = shell, Width = 1600, Height = 1000 };
+        window.Show();
+        shell.Navigate("pipeline");
+        Dispatcher.UIThread.RunJobs();
+        IEnumerable<string?> Texts() => window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text);
+        SettingsViewModel settings = shell.Settings;
+        LanguageOption english = settings.LanguageOptions.First(o => o.Code == "en");
+        LanguageOption chinese = settings.LanguageOptions.First(o => o.Code == "zh-Hans");
+        Assert.Contains("Release pipeline", Texts());
+        try
+        {
+            settings.SelectedLanguage = chinese; // no awaits until English is back: other tests share the catalog
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(("zh-Hans", "zh-Hans"), (Loc.Language, settings.Compare.PersistedSettings.Language));
+            Assert.Contains(Loc.T("pipeline.releasePipeline"), Texts());            // page text from XAML
+            Assert.Contains(Loc.T("pipeline.step.extract"), Texts());              // a step title from its key
+            Assert.Contains(Loc.T("nav.encode"), Texts());                          // navigation
+            Assert.Contains(Loc.T("label.ReleaseProfile.WebEpisode"), Texts());     // an enum label
+            Assert.Equal(Loc.T("settings.language.system"), settings.LanguageOptions[0].Name);
+            Assert.Contains(Loc.T("nav.pipeline"), shell.WindowTitle);
+        }
+        finally
+        {
+            settings.SelectedLanguage = english;
+        }
+
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("en", Loc.Language);
+        Assert.Contains("Release pipeline", Texts());
+        Loc.SetLanguage("en"); // already English: nothing to tell anyone
+        window.Close();
+        shell.Dispose();
     }
 
     [Fact]

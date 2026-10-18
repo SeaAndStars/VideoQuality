@@ -7,9 +7,6 @@
              xmlns:conv="using:VideoQuality.App.Converters"
              x:Class="VideoQuality.App.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
-    <UserControl.Resources>
-        <conv:LabelConverter x:Key="Label" />
-    </UserControl.Resources>
     <ScrollViewer Margin="12">
         <StackPanel Spacing="12" MaxWidth="820" HorizontalAlignment="Stretch">
             <Border Classes="raised" Padding="16,12">
@@ -27,14 +24,9 @@
                 <Grid Classes="form" RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="160,*" Margin="16,0,16,14">
                     <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="{l:L settings.general}" /></Grid>
                     <TextBlock Grid.Row="1" Text="{l:L settings.language}" VerticalAlignment="Center" />
-                    <ComboBox HorizontalAlignment="Left" Grid.Row="1" Grid.Column="1" MinWidth="260" ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding SelectedLanguage, Converter={x:Static conv:KeepSelectionConverter.Instance}}"
-                              DisplayMemberBinding="{Binding Name, x:DataType=vm:LanguageOption}" />
-                    <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" IsVisible="{Binding NeedsRestart}">
-                        <ic:SymbolIcon Symbol="ArrowClockwise" FontSize="16" Foreground="{DynamicResource SemiColorPrimary}" />
-                        <TextBlock Grid.Column="1" Text="{l:L settings.language.restartHint}" Classes="muted" FontSize="12"
-                                   TextWrapping="Wrap" VerticalAlignment="Center" />
-                        <Button Grid.Column="2" Classes="primary" Command="{Binding RestartCommand}" Content="{l:L settings.language.restart}" />
-                    </Grid>
+                    <ComboBox HorizontalAlignment="Left" Grid.Row="1" Grid.Column="1" MinWidth="260" ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding SelectedLanguage, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
+                        <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{l:Label}" /></DataTemplate></ComboBox.ItemTemplate>
+                    </ComboBox>
                 </Grid>
             </Border>
 
@@ -45,13 +37,13 @@
                     <TextBlock Grid.Row="1" Text="{l:L settings.vmafModel}" VerticalAlignment="Center" />
                     <ComboBox HorizontalAlignment="Left" Grid.Row="1" Grid.Column="1" MinWidth="260" ItemsSource="{Binding Compare.ModelOptions}" SelectedItem="{Binding Compare.SelectedModel, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
                         <ComboBox.ItemTemplate>
-                            <DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate>
+                            <DataTemplate><TextBlock Text="{l:Label}" /></DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                     <TextBlock Grid.Row="2" Text="{l:L common.backend}" VerticalAlignment="Center" />
                     <ComboBox HorizontalAlignment="Left" Grid.Row="2" Grid.Column="1" MinWidth="260" ItemsSource="{Binding Compare.BackendOptions}" SelectedItem="{Binding Compare.SelectedBackend, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
                         <ComboBox.ItemTemplate>
-                            <DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate>
+                            <DataTemplate><TextBlock Text="{l:Label}" /></DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                 </Grid>
@@ -102,7 +94,7 @@
                     <TextBlock Grid.Row="1" Text="{l:L settings.trackNaming}" VerticalAlignment="Center" />
                     <ComboBox HorizontalAlignment="Left" Grid.Row="1" Grid.Column="1" MinWidth="260" ItemsSource="{Binding TrackNamingOptions}" SelectedItem="{Binding TrackNaming, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
                         <ComboBox.ItemTemplate>
-                            <DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate>
+                            <DataTemplate><TextBlock Text="{l:Label}" /></DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                     <TextBlock Grid.Row="2" Text="{l:L settings.encodesAtOnce}" VerticalAlignment="Center" />

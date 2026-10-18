@@ -38,7 +38,7 @@ public partial class Gauge(string title) : ObservableObject
 public sealed record RunningEncode(string Name, string Details);
 
 /// <summary>Monitor page: machine load while encoding (like a small task manager).</summary>
-public partial class MonitorViewModel : ObservableObject
+public partial class MonitorViewModel : ViewModelBase
 {
     private readonly SystemMonitor _monitor;
     private readonly EncodeQueue _queue;

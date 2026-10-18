@@ -59,7 +59,7 @@ public partial class MuxInputRow : ObservableObject
 }
 
 /// <summary>Mux page (混流): video, audio, subtitles, fonts and chapters into one MKV with mkvmerge.</summary>
-public partial class MuxViewModel : ObservableObject
+public partial class MuxViewModel : ViewModelBase
 {
     private static readonly string[] FontExtensions = [".ttf", ".otf", ".ttc", ".otc"];
 

@@ -8,9 +8,6 @@
              xmlns:ic="using:FluentIcons.Avalonia"
              x:Class="VideoQuality.App.Views.EncodeView"
              x:DataType="vm:EncodeViewModel">
-    <UserControl.Resources>
-        <conv:LabelConverter x:Key="Label" />
-    </UserControl.Resources>
     <UserControl.Styles>
         <Style Selector="Expander Grid.form">
             <Setter Property="Margin" Value="4,6,4,10" />
@@ -229,7 +226,7 @@
                                                   DisplayMemberBinding="{Binding Name, x:DataType=enc:VideoEncoderInfo}" />
                                         <TextBlock Grid.Row="1" Text="{l:L encode.rateControl}" IsVisible="{Binding !IsCopy}" />
                                         <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Modes}" SelectedItem="{Binding Mode, Converter={x:Static conv:KeepSelectionConverter.Instance}}" IsVisible="{Binding !IsCopy}">
-                                            <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                            <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{l:Label}" /></DataTemplate></ComboBox.ItemTemplate>
                                         </ComboBox>
                                         <TextBlock Grid.Row="2" Text="{l:L encode.qualityCrfCq}" IsVisible="{Binding UsesQuality}" />
                                         <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding Quality}" Minimum="0" Maximum="255" Increment="0.5" FormatString="0.##" IsVisible="{Binding UsesQuality}" />
@@ -285,12 +282,12 @@
                                         </Grid>
                                         <TextBlock Grid.Row="2" Text="{l:L encode.deinterlace}" />
                                         <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding DeinterlaceOptions}" SelectedItem="{Binding Deinterlace, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
-                                            <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                            <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{l:Label}" /></DataTemplate></ComboBox.ItemTemplate>
                                         </ComboBox>
                                         <TextBlock Grid.Row="3" Text="{l:L encode.denoiseStrength}" />
                                         <Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*,*" ColumnSpacing="6">
                                             <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding DenoiseOptions}" SelectedItem="{Binding Denoise, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
-                                                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{l:Label}" /></DataTemplate></ComboBox.ItemTemplate>
                                             </ComboBox>
                                             <NumericUpDown Grid.Column="1" Value="{Binding DenoiseStrength}" Minimum="1" Maximum="10" FormatString="0" />
                                         </Grid>
@@ -302,7 +299,7 @@
                                         <TextBlock Grid.Row="5" Text="{l:L encode.flipRotate}" />
                                         <Grid Grid.Row="5" Grid.Column="1" ColumnDefinitions="*,*" ColumnSpacing="6">
                                             <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding FlipOptions}" SelectedItem="{Binding Flip, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
-                                                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{l:Label}" /></DataTemplate></ComboBox.ItemTemplate>
                                             </ComboBox>
                                             <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding Rotations}" SelectedItem="{Binding Rotate, Converter={x:Static conv:KeepSelectionConverter.Instance}}" />
                                         </Grid>

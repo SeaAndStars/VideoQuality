@@ -27,7 +27,7 @@ public partial class ChapterRow : ObservableObject
 }
 
 /// <summary>Chapters page: edit, import, name the fansub way, check and export chapter files.</summary>
-public partial class ChaptersViewModel : ObservableObject
+public partial class ChaptersViewModel : ViewModelBase
 {
     private readonly Func<string, MediaInfo> _read;
 

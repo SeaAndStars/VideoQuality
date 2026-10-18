@@ -14,7 +14,7 @@ public sealed record SubsetFontRow(string NewFamily, string Originals, string So
 public sealed record SubsetNote(ToastKind Kind, string Text);
 
 /// <summary>Font Subset page: scripts + font folder → renamed scripts and subset fonts.</summary>
-public partial class FontSubsetViewModel : ObservableObject
+public partial class FontSubsetViewModel : ViewModelBase
 {
     public ObservableCollection<string> Scripts { get; } = [];
 

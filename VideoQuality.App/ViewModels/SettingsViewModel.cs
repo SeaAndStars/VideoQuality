@@ -12,8 +12,12 @@ using VideoQuality.App.Services;
 namespace VideoQuality.App.ViewModels;
 
 /// <summary>An entry in the language picker; an empty code follows the system.</summary>
-public sealed record LanguageOption(string Code, string Name)
+/// <summary>A UI language; the empty code follows the system.</summary>
+public sealed record LanguageOption(string Code, string NativeName)
 {
+    /// <summary>The language in its own script, or "follow the system" in the current language.</summary>
+    public string Name => Code.Length > 0 ? NativeName : Loc.T("settings.language.system");
+
     public override string ToString() => Name;
 }
 
@@ -21,7 +25,7 @@ public sealed record LanguageOption(string Code, string Name)
 /// App-wide settings and tool detection: scoring options (shared with Compare), ffmpeg, and the
 /// mkvtoolnix installation the Extract, Mux and Pipeline pages use.
 /// </summary>
-public partial class SettingsViewModel : ObservableObject
+public partial class SettingsViewModel : ViewModelBase
 {
     public SettingsViewModel(MainViewModel compare, AppServices? services = null)
     {
@@ -31,10 +35,11 @@ public partial class SettingsViewModel : ObservableObject
         EncoderFolder = compare.PersistedSettings.EncoderFolder ?? string.Empty;
         TrackNaming = Enum.TryParse(compare.PersistedSettings.TrackNaming, out TrackNamingProfile profile) ? profile : TrackNamingProfile.GreenTea;
         EncodeConcurrency = Math.Clamp(compare.PersistedSettings.EncodeConcurrency, 1, 4);
-        LanguageOptions = [new LanguageOption(string.Empty, Loc.T("settings.language.system")),
+        LanguageOptions = [new LanguageOption(string.Empty, string.Empty),
             .. Loc.Languages.Select(l => new LanguageOption(l.Code, l.NativeName))];
         string saved = compare.PersistedSettings.Language ?? string.Empty;
         SelectedLanguage = LanguageOptions.FirstOrDefault(o => o.Code == saved) ?? LanguageOptions[0];
+        _languageReady = true; // the app applied the saved language at startup
         _ = LocateToolsAsync();
     }
 
@@ -79,24 +84,19 @@ public partial class SettingsViewModel : ObservableObject
 
     public IReadOnlyList<LanguageOption> LanguageOptions { get; }
 
+    /// <summary>The UI language; a change applies at once, to every open page.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(NeedsRestart))]
     public partial LanguageOption SelectedLanguage { get; set; }
 
-    /// <summary>The chosen language differs from the one this process is showing.</summary>
-    public bool NeedsRestart => (SelectedLanguage.Code.Length > 0 ? SelectedLanguage.Code : Loc.SystemLanguage) != Loc.Language;
+    private readonly bool _languageReady;
 
     partial void OnSelectedLanguageChanged(LanguageOption value)
     {
-        Compare.UpdateSettings(s => s.Language = value.Code.Length > 0 ? value.Code : null);
-    }
-
-    /// <summary>Starts a new instance on the Settings page and closes this one.</summary>
-    [RelayCommand]
-    private void Restart()
-    {
-        Compare.FlushSettings();
-        Services.Restart(["--page=settings"]);
+        if (_languageReady)
+        {
+            Compare.UpdateSettings(s => s.Language = value.Code.Length > 0 ? value.Code : null);
+            Loc.SetLanguage(value.Code);
+        }
     }
 
     public IReadOnlyList<TrackNamingProfile> TrackNamingOptions { get; } = Enum.GetValues<TrackNamingProfile>();

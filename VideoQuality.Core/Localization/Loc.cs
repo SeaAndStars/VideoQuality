@@ -32,8 +32,18 @@ public static class Loc
     /// Switches catalogs. <c>null</c> or empty follows the system: the UI culture, or on Linux
     /// (invariant globalization) LC_ALL / LC_MESSAGES / LANG.
     /// </summary>
-    public static void SetLanguage(string? code) =>
+    public static void SetLanguage(string? code)
+    {
+        string before = Language;
         (Language, _strings) = Catalog(code, SystemLanguageTag);
+        if (Language != before)
+        {
+            LanguageChanged(null, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>Raised after <see cref="SetLanguage"/> switches to another catalog, so open UI can re-read its texts.</summary>
+    public static event EventHandler LanguageChanged = (_, _) => { };
 
     /// <summary>The catalog <paramref name="code"/> selects; empty asks <paramref name="systemTag"/>.</summary>
     internal static (string Code, Dictionary<string, string> Strings) Catalog(string? code, Func<string?> systemTag)

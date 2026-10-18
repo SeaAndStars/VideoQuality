@@ -130,8 +130,8 @@
                             <u:SelectionList.ItemTemplate>
                                 <DataTemplate>
                                     <ic:SymbolIcon Symbol="{Binding Converter={StaticResource ModeIcon}}" FontSize="17"
-                                                   ToolTip.Tip="{Binding Converter={StaticResource Label}}"
-                                                   AutomationProperties.Name="{Binding Converter={StaticResource Label}}" />
+                                                   ToolTip.Tip="{l:Label}"
+                                                   AutomationProperties.Name="{l:Label}" />
                                 </DataTemplate>
                             </u:SelectionList.ItemTemplate>
                         </u:SelectionList>
@@ -154,7 +154,7 @@
                                       MinWidth="130" VerticalAlignment="Center" AutomationProperties.Name="{l:L compare.differenceChannels}">
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding Converter={StaticResource Label}}" />
+                                        <TextBlock Text="{l:Label}" />
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
@@ -213,7 +213,7 @@
                                                       SelectedItem="{Binding SelectedModel}" HorizontalAlignment="Stretch">
                                                 <ComboBox.ItemTemplate>
                                                     <DataTemplate>
-                                                        <TextBlock Text="{Binding Converter={StaticResource Label}}" />
+                                                        <TextBlock Text="{l:Label}" />
                                                     </DataTemplate>
                                                 </ComboBox.ItemTemplate>
                                             </ComboBox>
@@ -222,7 +222,7 @@
                                                       SelectedItem="{Binding SelectedBackend}" HorizontalAlignment="Stretch">
                                                 <ComboBox.ItemTemplate>
                                                     <DataTemplate>
-                                                        <TextBlock Text="{Binding Converter={StaticResource Label}}" />
+                                                        <TextBlock Text="{l:Label}" />
                                                     </DataTemplate>
                                                 </ComboBox.ItemTemplate>
                                             </ComboBox>

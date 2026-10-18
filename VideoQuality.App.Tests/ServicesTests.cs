@@ -143,17 +143,6 @@ public class ServicesTests
         }
     }
 
-    [Fact]
-    public void Restart_runs_the_app_or_the_dotnet_host_with_its_dll()
-    {
-        (string file, IReadOnlyList<string> args) = AppServices.RestartCommand("/opt/vq/VideoQuality", "/opt/vq/VideoQuality.dll", ["--page=settings"]);
-        Assert.Equal("/opt/vq/VideoQuality", file);
-        Assert.Equal(["--page=settings"], args);
-        (file, args) = AppServices.RestartCommand("/usr/bin/dotnet", "/opt/vq/VideoQuality.App.dll", ["--page=settings"]);
-        Assert.Equal("/usr/bin/dotnet", file);
-        Assert.Equal(["/opt/vq/VideoQuality.App.dll", "--page=settings"], args);
-    }
-
     [AvaloniaFact]
     public void The_window_closes_cleanly_with_many_toasts_up()
     {

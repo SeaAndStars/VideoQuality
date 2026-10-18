@@ -64,30 +64,8 @@ public class SmallPiecesTests
     }
 
     [AvaloniaFact]
-    public void Restart_starts_the_app_again_and_shuts_this_one_down()
-    {
-        Action<ProcessStartInfo> start = AppServices.StartProcess;
-        Action shutdown = AppServices.ShutdownApp;
-        try
-        {
-            ProcessStartInfo? started = null;
-            bool closed = false;
-            AppServices.StartProcess = info => started = info;
-            AppServices.ShutdownApp = () => closed = true;
-            AppServices.Default.Restart(["--page=settings"]);
-            Assert.Equal("--page=settings", started!.ArgumentList[^1]);
-            Assert.False(started.UseShellExecute);
-            Assert.True(closed);
-
-            AppServices.ShutdownDesktop(); // the headless lifetime is not a desktop one: nothing happens
-            AppServices.StartDetached(new ProcessStartInfo(OperatingSystem.IsWindows() ? "cmd.exe" : "true") { UseShellExecute = false, ArgumentList = { } });
-        }
-        finally
-        {
-            AppServices.StartProcess = start;
-            AppServices.ShutdownApp = shutdown;
-        }
-    }
+    public void Shutting_down_needs_a_desktop_lifetime() =>
+        AppServices.ShutdownDesktop(); // the headless lifetime is not a desktop one: nothing happens
 
     [AvaloniaFact]
     public async Task Without_a_window_toasts_are_dropped_and_questions_answer_yes()

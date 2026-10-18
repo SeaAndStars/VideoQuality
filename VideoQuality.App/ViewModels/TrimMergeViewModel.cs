@@ -22,7 +22,7 @@ public sealed record MergeInput(string Path, MediaInfo Info)
 }
 
 /// <summary>Trim &amp; Merge page (切割 / 合并): cut a range out of a file, or join files end to end.</summary>
-public partial class TrimMergeViewModel : ObservableObject
+public partial class TrimMergeViewModel : ViewModelBase
 {
     private readonly Func<string, MediaInfo> _read;
     private readonly Func<string, IReadOnlyList<TimeSpan>> _keyframes;

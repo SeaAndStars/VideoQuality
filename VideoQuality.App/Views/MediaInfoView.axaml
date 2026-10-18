@@ -8,9 +8,6 @@
              xmlns:controls="using:VideoQuality.App.Controls"
              x:Class="VideoQuality.App.Views.MediaInfoView"
              x:DataType="vm:MediaInfoViewModel">
-    <UserControl.Resources>
-        <conv:LabelConverter x:Key="Label" />
-    </UserControl.Resources>
     <Panel>
         <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="12">
             <Border Classes="raised" Padding="16,12">
@@ -65,10 +62,10 @@
                         <Grid Classes="cardheader"><TextBlock Classes="label" Text="{l:L mediainfo.rulesCheckGreenteaV2}" /></Grid>
                         <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="8">
                             <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Profiles}" SelectedItem="{Binding Profile, Converter={x:Static conv:KeepSelectionConverter.Instance}}" ToolTip.Tip="{l:L mediainfo.sourceAndLengthClass}">
-                                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{l:Label}" /></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
                             <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding Deliveries}" SelectedItem="{Binding Delivery, Converter={x:Static conv:KeepSelectionConverter.Instance}}" ToolTip.Tip="{l:L mediainfo.softSubtitlesMkvOr}">
-                                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate></ComboBox.ItemTemplate>
+                                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{l:Label}" /></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
                         </Grid>
                         <TextBlock Grid.Row="2" Text="{Binding Verdict}" FontWeight="SemiBold" TextWrapping="Wrap" />
