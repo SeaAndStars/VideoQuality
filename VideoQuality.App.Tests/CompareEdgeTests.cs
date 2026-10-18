@@ -74,6 +74,17 @@ public sealed class CompareEdgeTests : IDisposable
         Assert.False(vm.IsAutoFlicker); // only in flicker mode
         vm.AutoFlicker = false;
         Assert.Equal(VmafModels.Default, Compare(new ScoringTools(), new MemorySettings("""{"Model":""}"""), probe: false).SelectedModel);
+        string saved = Path.GetTempFileName();
+        try
+        {
+            string json = System.Text.Json.JsonSerializer.Serialize(new { FfmpegPath = saved });
+            Assert.Equal(saved, Compare(new ScoringTools(), new MemorySettings(json), probe: false).FfmpegPath); // one that still exists is kept
+        }
+        finally
+        {
+            File.Delete(saved);
+        }
+
         settings = new MemorySettings("""{"Model":"vmaf_v0.6.1","CompareMode":2}""");
         vm = Compare(new ScoringTools(), settings, probe: false);
 
