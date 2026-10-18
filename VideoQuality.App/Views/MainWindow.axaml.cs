@@ -30,6 +30,8 @@ public partial class MainWindow : UrsaWindow
             {
                 shell.RevealRequested -= OnRevealRequested;
                 shell.RevealRequested += OnRevealRequested;
+                shell.PropertyChanged -= OnShellChanged;
+                shell.PropertyChanged += OnShellChanged;
             }
         };
     }
@@ -40,9 +42,24 @@ public partial class MainWindow : UrsaWindow
 
     private void OnToggleRail(object? sender, RoutedEventArgs e) => Shell.IsNavCollapsed = !Shell.IsNavCollapsed;
 
+    /// <summary>
+    /// The settings entry sits in its own menu, which keeps it selected after a click. Follow the shell:
+    /// left selected, clicking it again after visiting another page would change nothing.
+    /// </summary>
+    private void OnShellChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        bool settings = ((ShellViewModel)sender!).IsSettings;
+        _syncingSettings = true; // Ursa reports the item as selected even while it is being let go
+        SettingsNav.SelectedItem = settings ? SettingsItem : null;
+        SettingsItem.IsSelected = settings;
+        _syncingSettings = false;
+    }
+
+    private bool _syncingSettings;
+
     private void OnSettingsNavSelected(object? sender, SelectionChangedEventArgs e)
     {
-        if (e.AddedItems.Count > 0)
+        if (e.AddedItems.Count > 0 && !_syncingSettings)
         {
             Shell.Navigate("settings");
         }

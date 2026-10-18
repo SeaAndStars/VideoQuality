@@ -1,7 +1,12 @@
 using System.Reflection;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
+using Ursa.Controls;
 using VideoQuality.App.Services;
 using VideoQuality.App.ViewModels;
 using VideoQuality.App.Views;
@@ -25,6 +30,39 @@ public sealed class ShellTests : IDisposable
         var shell = new ShellViewModel(new MainViewModel(services), services);
         await Ui.UntilAsync(() => shell.Settings.MkvToolNixStatus != Loc.T("settings.mkv.looking") && shell.Settings.EncoderStatus != Loc.T("settings.encoder.looking"));
         return shell;
+    }
+
+    [AvaloniaFact]
+    public void The_settings_entry_opens_settings_every_time_it_is_clicked()
+    {
+        var shell = new ShellViewModel(new MainViewModel(Pages.Isolated()), Pages.Isolated(Pages.NothingRuns));
+        var window = new MainWindow { DataContext = shell, Width = 1600, Height = 1000 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        NavMenuItem item = window.GetVisualDescendants().OfType<NavMenuItem>().Single(i => "settings".Equals(i.Tag));
+        Point centre = item.TranslatePoint(new Point(item.Bounds.Width / 2, item.Bounds.Height / 2), window)!.Value;
+        void Click()
+        {
+            window.MouseDown(centre, MouseButton.Left);
+            window.MouseUp(centre, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        for (int visit = 0; visit < 2; visit++)
+        {
+            Click();
+            Assert.True(shell.IsSettings);
+            Assert.True(item.IsSelected);
+            shell.Navigate("encode"); // away, and the entry lets go
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(item.IsSelected);
+        }
+
+        shell.Navigate("settings"); // from code, the entry lights up too
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(item.IsSelected);
+        window.Close();
+        shell.Dispose();
     }
 
     [AvaloniaFact]

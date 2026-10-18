@@ -41,8 +41,7 @@
                 <u:NavMenu DockPanel.Dock="Bottom" x:Name="SettingsNav" Classes="rail"
                            IsHorizontalCollapsed="{Binding IsNavCollapsed}" ExpandWidth="200" CollapseWidth="56"
                            SelectionChanged="OnSettingsNavSelected">
-                    <u:NavMenuItem Header="{l:L nav.settings}" Tag="settings"
-                                   IsSelected="{Binding IsSettings, Mode=OneWay}">
+                    <u:NavMenuItem x:Name="SettingsItem" Header="{l:L nav.settings}" Tag="settings">
                         <u:NavMenuItem.Icon><ic:SymbolIcon Symbol="Settings" /></u:NavMenuItem.Icon>
                     </u:NavMenuItem>
                 </u:NavMenu>
