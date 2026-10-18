@@ -26,7 +26,7 @@ public partial class MainWindow : UrsaWindow
         };
         DataContextChanged += (_, _) =>
         {
-            if (Shell is { } shell)
+            if (DataContext is ShellViewModel shell)
             {
                 shell.RevealRequested -= OnRevealRequested;
                 shell.RevealRequested += OnRevealRequested;
@@ -36,21 +36,15 @@ public partial class MainWindow : UrsaWindow
 
     private async void OnRevealRequested(object? sender, string path) => await PageIo.RevealAsync(this, path);
 
-    private ShellViewModel? Shell => DataContext as ShellViewModel;
+    private ShellViewModel Shell => (ShellViewModel)DataContext!;
 
-    private void OnToggleRail(object? sender, RoutedEventArgs e)
-    {
-        if (Shell is { } shell)
-        {
-            shell.IsNavCollapsed = !shell.IsNavCollapsed;
-        }
-    }
+    private void OnToggleRail(object? sender, RoutedEventArgs e) => Shell.IsNavCollapsed = !Shell.IsNavCollapsed;
 
     private void OnSettingsNavSelected(object? sender, SelectionChangedEventArgs e)
     {
-        if (e.AddedItems.Count > 0 && Shell is { } shell)
+        if (e.AddedItems.Count > 0)
         {
-            shell.Navigate("settings");
+            Shell.Navigate("settings");
         }
     }
 
@@ -98,9 +92,15 @@ public partial class MainWindow : UrsaWindow
         visual.GetSelfAndVisualAncestors().Any(v =>
             v is ToastCard or MessageCard or Ursa.Controls.NotificationCard or MessageBoxControl or DialogControlBase);
 
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        ToastHost.Detach();
+        base.OnClosing(e);
+    }
+
     protected override void OnClosed(EventArgs e)
     {
-        Shell?.Dispose();
+        (DataContext as ShellViewModel)?.Dispose();
         base.OnClosed(e);
     }
 }

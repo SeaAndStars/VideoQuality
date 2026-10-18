@@ -180,6 +180,11 @@ public sealed class TrimMergeTests : IDisposable
         await vm.MergeCommand.ExecuteAsync(null);
         Assert.Equal(Loc.T("common.mkvtoolnixRequired"), vm.Status);
 
+        await vm.AddMergeInputsAsync([File_("other-size.mkv")]);
+        vm.MergeInputs[^1] = vm.MergeInputs[^1] with { Info = Info("/x.mkv") with { Streams = [new MediaStream { Kind = StreamKind.Video, Codec = "hevc", Width = 640, Height = 360 }] } };
+        await vm.AddMergeInputsAsync([]);
+        Assert.NotEmpty(vm.MergeProblems);
+        vm.RemoveMergeInputCommand.Execute(vm.MergeInputs[^1]);
         vm.RemoveMergeInputCommand.Execute(vm.MergeInputs[0]);
         Assert.True(vm.HasMergeInputs);
         await vm.AddMergeInputsAsync([File_("03.mkv")]); // keeps the chosen output

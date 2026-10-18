@@ -21,11 +21,16 @@ public static class ToastHost
     public static void Initialize(Window owner)
     {
         _owner = owner;
-        _manager = new WindowToastManager(owner) { MaxItems = 4 };
+        // No upper limit in practice: when a new toast pushes the oldest out, closing the window
+        // during that removal breaks Avalonia's teardown of the visual tree. Toasts expire anyway.
+        _manager = new WindowToastManager(owner) { MaxItems = 64 };
     }
 
-    /// <summary>Forgets the window (it closed; tests start over).</summary>
-    internal static void Detach()
+    /// <summary>
+    /// Forgets the window when it closes. Its toasts are left alone: removing a toast while the
+    /// window closes breaks Avalonia's teardown of the visual tree.
+    /// </summary>
+    public static void Detach()
     {
         _manager = null;
         _owner = null;

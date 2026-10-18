@@ -332,6 +332,9 @@ public class PresetEditorTests
         Assert.Equal(["libx264", "hevc_nvenc", "copy"], editor.VideoEncoders.Select(e => e.Name));
         Assert.Contains(editor.AudioEncoders, e => e.Name == "aac");
 
+        editor.SetAvailable(tool); // unchanged: nothing to add or remove
+        editor.SetAvailable(new EncoderTool("ffmpeg", "ffmpeg version x", new HashSet<string> { "libx265", "libx264", "libopus" }, new HashSet<string>()));
+        Assert.Equal(["libx265", "libx264", "hevc_nvenc", "copy"], editor.VideoEncoders.Select(e => e.Name));
         editor.SetAvailable(null);
         Assert.Equal(EncoderCatalog.Video.Count, editor.VideoEncoders.Count);
         Assert.Equal(EncoderCatalog.Video, editor.VideoEncoders);
@@ -362,10 +365,13 @@ public class EncodeEntryTests
         Assert.Equal(string.Empty, entry.BadgeText);
         Assert.False(entry.HasReport);
 
+        Assert.Equal(1.0, entry.SwatchOpacity);
         foreach (EncodeState state in Enum.GetValues<EncodeState>())
         {
             entry.State = state;
             Assert.False(string.IsNullOrEmpty(entry.StatusText));
+            Assert.Equal(state is EncodeState.Queued or EncodeState.WaitingForReference or EncodeState.Indexing or EncodeState.Scoring, entry.IsBusy);
+            Assert.Equal(state is EncodeState.Failed or EncodeState.Cancelled, entry.IsFailed);
         }
 
         entry.State = EncodeState.Failed;
@@ -396,4 +402,28 @@ public class EncodeEntryTests
 
         Assert.Equal(0, new EncodeEntry("/missing.mkv", "#000000").FileSize);
     }
+
+public class EncodeRowTests
+{
+    [Fact]
+    public void Inputs_and_rows_describe_themselves()
+    {
+        var input = new EncodeInput("/a/audio.mka", new MediaInfo { Path = "/a/audio.mka", Duration = TimeSpan.FromSeconds(5) });
+        Assert.DoesNotContain("×", input.Details, StringComparison.Ordinal);
+        var job = new EncodeJob("/in.mkv", new EncodeCommand([["-i", "x"]], "/out.mkv", [], [], 0, TimeSpan.FromSeconds(1)), "named");
+        var row = new EncodeJobRow(job);
+        Assert.Equal(("named", "/out.mkv"), (row.Name, row.Output));
+        Assert.False(row.IsActive);
+    }
+
+    [AvaloniaFact]
+    public void Hand_offs_without_listeners_do_nothing()
+    {
+        var settings = new SettingsViewModel(new MainViewModel(Pages.Isolated()), Pages.Isolated(Pages.NothingRuns));
+        var vm = new EncodeViewModel(settings, new EncodeQueue(Pages.NothingRuns, () => "ffmpeg"), new PresetStore(Path.Combine(Path.GetTempPath(), "vq-none")));
+        var row = new EncodeJobRow(new EncodeJob("/in.mkv", new EncodeCommand([["-i", "x"]], "/out.mkv", [], [], 0, TimeSpan.FromSeconds(1))));
+        vm.RevealCommand.Execute(row);
+        vm.ScoreInCompareCommand.Execute(row);
+    }
+}
 }

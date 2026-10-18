@@ -41,6 +41,8 @@ public sealed class PipelineTests : IDisposable
         public bool WarnRules { get; set; }
 
         public bool UnreadableSource { get; set; }
+
+        public bool NoChapters { get; set; }
     }
 
     private static MediaInfo Compliant(string path, bool warn) => new()
@@ -137,7 +139,9 @@ public sealed class PipelineTests : IDisposable
         string sourcePath = Path.Combine(_work, "source.mkv");
         var vm = new PipelineViewModel(settings, compare, queue, naming, path =>
             path == sourcePath
-                ? script.UnreadableSource ? throw new InvalidOperationException("source unreadable") : Compliant(path, false) with { Streams = [.. Compliant(path, false).Streams.Take(2)] }
+                ? script.UnreadableSource
+                    ? throw new InvalidOperationException("source unreadable")
+                    : Compliant(path, false) with { Streams = [.. Compliant(path, false).Streams.Take(2)], Chapters = script.NoChapters ? [] : Compliant(path, false).Chapters }
                 : script.FailRules ? new MediaInfo { Path = path } : Compliant(path, script.WarnRules));
         return (vm, script, queue);
     }
@@ -204,7 +208,8 @@ public sealed class PipelineTests : IDisposable
     [AvaloniaFact]
     public async Task Without_scripts_or_a_reference_steps_are_skipped()
     {
-        (PipelineViewModel vm, _, _) = await PageAsync();
+        (PipelineViewModel vm, Script script, _) = await PageAsync();
+        script.NoChapters = true;
         vm.SetVideo(Source());
         vm.AlreadyEncoded = true;
         await vm.RunCommand.ExecuteAsync(null);
@@ -214,15 +219,30 @@ public sealed class PipelineTests : IDisposable
         Assert.True(vm.VmafStep.IsSkipped); // an encode without its reference
         Assert.Equal(vm.Video, vm.EncodedFile);
 
+        // No chapters anywhere, an output folder already chosen, no fonts folder, BD rules (no burned copies).
+        vm.SetVideo(Source());
+        Assert.Equal(Path.Combine(_work, "release"), vm.OutputDirectory);
         vm.Reference = Source();
         vm.RunVmaf = false;
         await vm.RunCommand.ExecuteAsync(null);
         Assert.True(vm.VmafStep.IsSkipped);
 
+        string subs = Scripts();
+        vm.AddPaths([Path.Combine(subs, "ep01.JPSC.ass")]);
+        vm.FontDirectory = string.Empty;
+        vm.MakeBurned = false;
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.True(vm.BurnStep.IsSkipped);
+        vm.MakeBurned = true;
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.True(vm.BurnStep.IsDone, vm.BurnStep.Detail);
+
         // An encode with a reference opens both in Compare; the reference alone otherwise.
         await vm.OpenInCompareCommand.ExecuteAsync(null);
         vm.Reference = string.Empty;
         await vm.OpenInCompareCommand.ExecuteAsync(null);
+        vm.EncodedFile = Path.Combine(_work, "gone.mkv");
+        Assert.False(vm.OpenInCompareCommand.CanExecute(null));
     }
 
     [AvaloniaFact]

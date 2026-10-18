@@ -135,6 +135,7 @@ public class ServicesTests
             Button no = box.GetVisualDescendants().OfType<Button>().First(b => b.Name == "PART_NoButton");
             no.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             Assert.False(await refused);
+            window.Close();
         }
         finally
         {
@@ -151,5 +152,24 @@ public class ServicesTests
         (file, args) = AppServices.RestartCommand("/usr/bin/dotnet", "/opt/vq/VideoQuality.App.dll", ["--page=settings"]);
         Assert.Equal("/usr/bin/dotnet", file);
         Assert.Equal(["/opt/vq/VideoQuality.App.dll", "--page=settings"], args);
+    }
+
+    [AvaloniaFact]
+    public void The_window_closes_cleanly_with_many_toasts_up()
+    {
+        // Regression: a toast pushed out (more than the old limit of four) or closed while the
+        // window closed broke Avalonia's visual-tree teardown.
+        var window = new MainWindow();
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        for (int i = 0; i < 20; i++)
+        {
+            ToastHost.Show(new ToastRequest(ToastKind.Error, "toast " + i));
+        }
+
+        Dispatcher.UIThread.RunJobs();
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+        ToastHost.Show(new ToastRequest(ToastKind.Info, "after closing: dropped"));
     }
 }

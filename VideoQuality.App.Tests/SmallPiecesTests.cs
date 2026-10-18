@@ -37,6 +37,9 @@ public class SmallPiecesTests
         Assert.Equal(Loc.T("label.RateControl.Quality"), Label(RateControl.Quality));
         Assert.Equal("Monday", Label(DayOfWeek.Monday)); // no label: the name
         Assert.Equal("42", Label(42));
+        Assert.Equal("99", Label((CompareMode)99)); // values outside an enum read as numbers
+        Assert.Equal("99", Label((DifferenceChannels)99));
+        Assert.Equal("99", Label((VmafBackend)99));
         Assert.Null(Label(null));
         Assert.Throws<NotSupportedException>(() => labels.ConvertBack("x", typeof(object), null, CultureInfo.InvariantCulture));
     }

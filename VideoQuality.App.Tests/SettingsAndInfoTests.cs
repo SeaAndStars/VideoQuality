@@ -43,6 +43,7 @@ public class SettingsTests
         settings.TrackNaming = TrackNamingProfile.Generic;
         settings.EncodeConcurrency = 2;
         Assert.Equal(("Generic", 2), (settings.Compare.PersistedSettings.TrackNaming, settings.Compare.PersistedSettings.EncodeConcurrency));
+        Assert.Equal(TrackNamingProfile.Generic, new SettingsViewModel(settings.Compare, Pages.Isolated(NothingRuns)).TrackNaming);
 
         settings.RestartCommand.Execute(null);
         Assert.Equal(["--page=settings"], Assert.Single(restarts));
