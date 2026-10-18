@@ -79,4 +79,15 @@ public sealed class SettingsFileTests : IDisposable
         Assert.EndsWith(Path.Combine(".config", "videoquality", "settings.json"), SettingsFile.UserPathFor(false, " "), StringComparison.Ordinal);
         Assert.False(string.IsNullOrEmpty(SettingsFile.UserPath));
     }
+
+    [Fact]
+    public void Location_is_the_portable_file_until_one_is_found()
+    {
+        string? current = SettingsFile.CurrentPath;
+        SettingsFile.CurrentPath = null;
+        Assert.Equal(SettingsFile.PortablePath, SettingsFile.Location);
+        SettingsFile.CurrentPath = "/x/settings.json";
+        Assert.Equal("/x/settings.json", SettingsFile.Location);
+        SettingsFile.CurrentPath = current;
+    }
 }

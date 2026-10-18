@@ -1,4 +1,3 @@
-using System.Reflection;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VideoQuality.Core;
@@ -57,7 +56,7 @@ public partial class SettingsViewModel : ObservableObject
 
     public bool HasMkvToolNix => MkvToolNix is not null;
 
-    public string SettingsPath => SettingsFile.CurrentPath ?? SettingsFile.PortablePath;
+    public string SettingsPath => SettingsFile.Location;
 
     public string AppFolder => AppPaths.Root;
 
@@ -76,9 +75,7 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
-    /// <summary>The build's version without the commit suffix (the SDK always stamps one).</summary>
-    public string Version { get; } = "v" + typeof(SettingsViewModel).Assembly
-        .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()!.InformationalVersion.Split('+')[0];
+    public string Version => AppInfo.Version;
 
     public IReadOnlyList<LanguageOption> LanguageOptions { get; }
 

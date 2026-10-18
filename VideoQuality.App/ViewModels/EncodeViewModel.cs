@@ -64,7 +64,7 @@ public partial class EncodeJobRow(EncodeJob job) : ObservableObject
                 Job.Remaining is TimeSpan left ? MediaInfo.FormatClock(left)[..8] : "--:--:--",
                 Job.EstimatedSize > 0 ? MediaInfo.FormatSize(Job.EstimatedSize) : "…"),
             EncodeJobState.Done => Loc.T("encode.row.done", MediaInfo.FormatSize(Job.WrittenSize), MediaInfo.FormatClock(Job.Elapsed)[..8]),
-            EncodeJobState.Failed => Job.Error ?? string.Empty,
+            EncodeJobState.Failed => Job.Error!, // the queue always says why
             EncodeJobState.Cancelled => Loc.T("encode.row.cancelled"),
             _ => Loc.T("encode.row.queued"),
         };
@@ -204,7 +204,7 @@ public partial class EncodeViewModel : ObservableObject
             }
             catch (InvalidOperationException ex)
             {
-                ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Warning, ex.Message));
+                Toast(new ToastRequest(ToastKind.Warning, ex.Message));
             }
         }
 
@@ -227,7 +227,7 @@ public partial class EncodeViewModel : ObservableObject
     {
         if (!Settings.HasEncoder)
         {
-            ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, Loc.T("encode.error.noEncoder")));
+            Toast(new ToastRequest(ToastKind.Error, Loc.T("encode.error.noEncoder")));
             return;
         }
 
@@ -244,7 +244,7 @@ public partial class EncodeViewModel : ObservableObject
             }
             catch (ArgumentException ex)
             {
-                ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, ex.Message));
+                Toast(new ToastRequest(ToastKind.Error, ex.Message));
                 break;
             }
         }
@@ -296,7 +296,7 @@ public partial class EncodeViewModel : ObservableObject
     {
         EncodePreset saved = Store.Save(Editor.ToPreset() with { Name = SaveName.Trim() });
         ReloadPresets(saved.Name);
-        ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Success, Loc.T("encode.preset.saved", saved.Name)));
+        Toast(new ToastRequest(ToastKind.Success, Loc.T("encode.preset.saved", saved.Name)));
     }
 
     [RelayCommand]
@@ -307,6 +307,8 @@ public partial class EncodeViewModel : ObservableObject
             ReloadPresets(Presets[0].Name);
         }
     }
+
+    private void Toast(ToastRequest request) => ToastRequested?.Invoke(this, request);
 
     private string OutputFor(EncodePreset preset, string source) =>
         FfmpegCommandBuilder.OutputPath(preset, source, string.IsNullOrWhiteSpace(OutputDirectory) ? null : OutputDirectory.Trim());
@@ -352,11 +354,11 @@ public partial class EncodeViewModel : ObservableObject
         row.Refresh();
         if (before != row.State && row.State == EncodeJobState.Done)
         {
-            ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Success, Loc.T("encode.toast.done", job.Name)));
+            Toast(new ToastRequest(ToastKind.Success, Loc.T("encode.toast.done", job.Name)));
         }
         else if (before != row.State && row.State == EncodeJobState.Failed)
         {
-            ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, Loc.T("encode.toast.failed", job.Name)));
+            Toast(new ToastRequest(ToastKind.Error, Loc.T("encode.toast.failed", job.Name)));
         }
     }
 }

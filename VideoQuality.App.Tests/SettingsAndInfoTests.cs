@@ -34,6 +34,11 @@ public class SettingsTests
         settings.MkvToolNixFolder = "/opt/mkvtoolnix";
         Assert.Equal("/opt/mkvtoolnix", settings.Compare.PersistedSettings.MkvToolNixFolder);
         Assert.Null(settings.Compare.PersistedSettings.EncoderFolder);
+        settings.EncoderFolder = "/opt/ffmpeg";
+        var reopened = new SettingsViewModel(settings.Compare, new AppServices { Processes = NothingRuns }); // saved folders come back
+        Assert.Equal(("/opt/mkvtoolnix", "/opt/ffmpeg"), (reopened.MkvToolNixFolder, reopened.EncoderFolder));
+        settings.MkvToolNixFolder = string.Empty;
+        settings.EncoderFolder = string.Empty;
 
         settings.TrackNaming = TrackNamingProfile.Generic;
         settings.EncodeConcurrency = 2;
@@ -76,6 +81,8 @@ public class SettingsTests
 
         compare.UpdateSettings(s => s.Language = "xx");
         Assert.Equal(string.Empty, new SettingsViewModel(compare, new AppServices { Processes = NothingRuns }).SelectedLanguage.Code);
+        compare.UpdateSettings(s => { s.Language = null; s.TrackNaming = null; s.EncodeConcurrency = 1; });
+        compare.FlushSettings();
     }
 
     [Fact]

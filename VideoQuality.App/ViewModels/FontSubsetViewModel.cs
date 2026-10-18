@@ -143,14 +143,14 @@ public partial class FontSubsetViewModel : ObservableObject
         {
             FontSubsetReport report = await Task.Run(() => FontSubsetter.Run(options, progress));
             Show(report);
-            ToastRequested?.Invoke(this, report.Succeeded
+            Toast(report.Succeeded
                 ? new ToastRequest(ToastKind.Success, Loc.T("subset.toast.done", report.Fonts.Count, report.ScriptsWritten.Count))
                 : new ToastRequest(ToastKind.Warning, Loc.T("subset.toast.missing", report.MissingFonts.Count)));
         }
-        catch (Exception ex) when (ex is InvalidOperationException or IOException or InvalidDataException or UnauthorizedAccessException)
+        catch (Exception ex) // unreadable script, unwritable output, …: report and keep the page usable
         {
             Status = Loc.T("common.failed", ex.Message);
-            ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, Loc.T("subset.toast.failed", ex.Message)));
+            Toast(new ToastRequest(ToastKind.Error, Loc.T("subset.toast.failed", ex.Message)));
         }
         finally
         {
@@ -169,7 +169,7 @@ public partial class FontSubsetViewModel : ObservableObject
                 $"{Path.GetFileName(font.SourcePath)}{(font.SourceFace > 0 ? $" #{font.SourceFace}" : string.Empty)}",
                 font.Characters,
                 $"{Size(font.SourceBytes)} → {Size(font.SubsetBytes)}",
-                font.SourceBytes > 0 ? font.SubsetBytes / (double)font.SourceBytes : 0));
+                font.SubsetBytes / (double)font.SourceBytes)); // a parsed font is never empty
         }
 
         foreach (FontRequest missing in report.MissingFonts)
@@ -209,16 +209,12 @@ public partial class FontSubsetViewModel : ObservableObject
         Status = Loc.T("subset.status.done", report.Fonts.Count, Size(before), Size(after), OutputDirectory);
     }
 
-    private bool CanSendToMux() => Result is { Fonts.Count: > 0 } or { ScriptsWritten.Count: > 0 };
+    // A finished run always wrote the scripts, so any result has something to send.
+    [RelayCommand(CanExecute = nameof(HasResult))]
+    private void SendToMux() =>
+        SendToMuxRequested?.Invoke(this, (Result!.ScriptsWritten, Result.Fonts.Select(f => f.OutputPath).ToList()));
 
-    [RelayCommand(CanExecute = nameof(CanSendToMux))]
-    private void SendToMux()
-    {
-        if (Result is { } report)
-        {
-            SendToMuxRequested?.Invoke(this, (report.ScriptsWritten, report.Fonts.Select(f => f.OutputPath).ToList()));
-        }
-    }
+    private void Toast(ToastRequest request) => ToastRequested?.Invoke(this, request);
 
     internal static string Size(long bytes) => bytes >= 1024 * 1024
         ? (bytes / 1024.0 / 1024.0).ToString("0.0", CultureInfo.InvariantCulture) + " MB"

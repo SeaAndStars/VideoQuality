@@ -1,4 +1,4 @@
-using System.Reflection;
+using VideoQuality.App.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using VideoQuality.Core.Localization;
 
@@ -14,9 +14,7 @@ public partial class SplashViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsReady { get; set; }
 
-    public string Version { get; } = "v" + (typeof(SplashViewModel).Assembly
-        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-        .Split('+')[0] ?? "dev");
+    public string Version => AppInfo.Version;
 
     /// <summary>The startup work the splash waits for; set by the app before the splash opens.</summary>
     public Task Startup { get; set; } = Task.CompletedTask;

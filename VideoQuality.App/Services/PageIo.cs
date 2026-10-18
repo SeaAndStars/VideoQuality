@@ -123,7 +123,7 @@ public sealed class StorageDialogs : IFileDialogs
             SuggestedFileName = suggestedName,
             DefaultExtension = extension,
         });
-        return LocalPaths(file is null ? [] : [file]).FirstOrDefault();
+        return LocalPath(file);
     }
 
     public async Task RevealAsync(Control owner, string path)
@@ -140,6 +140,8 @@ public sealed class StorageDialogs : IFileDialogs
         string? folder = Directory.Exists(path) ? path : Path.GetDirectoryName(path);
         return folder is not null && Directory.Exists(folder) ? folder : null;
     }
+
+    internal static string? LocalPath(IStorageItem? item) => item?.TryGetLocalPath();
 
     internal static IReadOnlyList<string> LocalPaths(IEnumerable<IStorageItem> items) =>
         [.. items.Select(item => item.TryGetLocalPath()).OfType<string>()];

@@ -159,3 +159,41 @@ public sealed class DialogScope : IDisposable
 
     public void Dispose() => PageIo.Dialogs = _previous;
 }
+
+/// <summary>mkvtoolnix answered by a script: <c>--version</c> is handled, everything else goes to the handler.</summary>
+public static class ScriptedMkv
+{
+    public static VideoQuality.Core.Mkv.MkvToolNix Create(Func<VideoQuality.Core.Tools.ProcessRequest, VideoQuality.Core.Tools.ProcessResult> handler) =>
+        VideoQuality.Core.Mkv.MkvToolNix.LocateAsync(null, new VideoQuality.Tests.ScriptedRunner(request =>
+            request.Arguments is ["--version"] ? VideoQuality.Tests.ScriptedRunner.Ok("mkvmerge v90.0 ('test') 64-bit\n") : handler(request)))
+            .GetAwaiter().GetResult()!;
+
+    /// <summary>mkvmerge -J output for a file with the given tracks (id, type, codec, language, name) and attachments.</summary>
+    public static string Identify(string container, double seconds, int chapters,
+        (int Id, string Type, string Codec, string Language, string Name)[] tracks,
+        (int Id, string File, string Mime)[]? attachments = null) =>
+        System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object>
+        {
+            ["file_name"] = "/media/x.mkv",
+            ["container"] = new Dictionary<string, object> { ["recognized"] = true, ["type"] = container, ["properties"] = new Dictionary<string, object> { ["duration"] = (long)(seconds * 1e9) } },
+            ["tracks"] = tracks.Select(t => new Dictionary<string, object>
+            {
+                ["id"] = t.Id,
+                ["type"] = t.Type,
+                ["codec"] = t.Codec,
+                ["properties"] = new Dictionary<string, object>
+                {
+                    ["codec_id"] = t.Type switch { "video" => "V_MPEG4/ISO/AVC", "audio" => "A_AAC", "subtitles" => "S_TEXT/ASS", _ => "X_OTHER" },
+                    ["language"] = t.Language,
+                    ["track_name"] = t.Name,
+                    ["default_track"] = t.Id == 0,
+                    ["forced_track"] = t.Id == 2,
+                },
+            }).ToArray(),
+            ["attachments"] = (attachments ?? []).Select(a => new Dictionary<string, object>
+            {
+                ["id"] = a.Id, ["file_name"] = a.File, ["content_type"] = a.Mime, ["size"] = 2048,
+            }).ToArray(),
+            ["chapters"] = chapters > 0 ? new[] { new Dictionary<string, object> { ["num_entries"] = chapters } } : Array.Empty<object>(),
+        });
+}

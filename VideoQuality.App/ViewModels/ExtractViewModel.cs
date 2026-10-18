@@ -148,7 +148,7 @@ public partial class ExtractViewModel : ObservableObject
             OutputDirectory = Path.Combine(Path.GetDirectoryName(path)!, stem + "_extracted");
             Status = Summary;
         }
-        catch (Exception ex) when (ex is InvalidDataException or InvalidOperationException or System.Text.Json.JsonException)
+        catch (Exception ex) // not a container mkvmerge understands
         {
             Status = Loc.T("extract.status.unreadable", ex.Message);
         }
@@ -157,6 +157,8 @@ public partial class ExtractViewModel : ObservableObject
             IsBusy = false;
         }
     }
+
+    private void Toast(ToastRequest request) => ToastRequested?.Invoke(this, request);
 
     [RelayCommand]
     private void SelectKind(string kind)
@@ -179,11 +181,9 @@ public partial class ExtractViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanExtract))]
     private async Task ExtractAsync()
     {
-        if (Settings.MkvToolNix is not { } tools || Info is not { } info)
-        {
-            return;
-        }
-
+        // CanExtract: the tools are there and a file is open.
+        MkvToolNix tools = Settings.MkvToolNix!;
+        MkvFileInfo info = Info!;
         var tracks = Items.Where(i => i.IsSelected && !i.IsAttachment).ToList();
         var attachments = Items.Where(i => i.IsSelected && i.IsAttachment).ToList();
         if (tracks.Count == 0 && attachments.Count == 0 && !ExtractChapters)
@@ -233,18 +233,18 @@ public partial class ExtractViewModel : ObservableObject
                 Progress = 1;
                 Status = Loc.T("extract.status.done", tracks.Count, attachments.Count, OutputDirectory) +
                          (result.Warnings.Count > 0 ? Loc.T("extract.status.warnings", result.Warnings.Count) : ".");
-                ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Success, Loc.T("extract.toast.done")));
+                Toast(new ToastRequest(ToastKind.Success, Loc.T("extract.toast.done")));
             }
             else
             {
                 Status = Loc.T("extract.status.failed", string.Join("; ", result.Errors));
-                ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, Status));
+                Toast(new ToastRequest(ToastKind.Error, Status));
             }
         }
-        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) // a failed remux, an unwritable folder, …
         {
             Status = Loc.T("extract.status.failed", ex.Message);
-            ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, Status));
+            Toast(new ToastRequest(ToastKind.Error, Status));
         }
         finally
         {

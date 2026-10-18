@@ -43,7 +43,10 @@ public static class SettingsFile
     }
 
     /// <summary>Where the last <see cref="Load{T}()"/> or <see cref="Save{T}(T)"/> found the file.</summary>
-    public static string? CurrentPath { get; private set; }
+    public static string? CurrentPath { get; internal set; }
+
+    /// <summary>Where the settings are (or will be written when none exist yet).</summary>
+    public static string Location => CurrentPath ?? PortablePath;
 
     [RequiresUnreferencedCode(ReflectionNote)]
     public static T Load<T>()

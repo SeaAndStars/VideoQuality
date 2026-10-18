@@ -24,6 +24,13 @@ public static class ToastHost
         _manager = new WindowToastManager(owner) { MaxItems = 4 };
     }
 
+    /// <summary>Forgets the window (it closed; tests start over).</summary>
+    internal static void Detach()
+    {
+        _manager = null;
+        _owner = null;
+    }
+
     public static void Show(ToastRequest request)
     {
         if (_manager is null)
@@ -45,7 +52,7 @@ public static class ToastHost
             var action = new Button
             {
                 Content = request.ActionLabel,
-                Theme = _owner?.FindResource("BorderlessButton") as ControlTheme,
+                Theme = _owner!.FindResource("BorderlessButton") as ControlTheme,
                 Padding = new Avalonia.Thickness(8, 2),
                 VerticalAlignment = VerticalAlignment.Center,
             };
