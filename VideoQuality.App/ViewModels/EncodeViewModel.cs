@@ -353,7 +353,7 @@ public partial class EncodeViewModel : ObservableObject
             return;
         }
 
-        EncodePreset preset = Editor.ToPreset();
+        EncodePreset preset = NvencUhq.ForEncoder(Editor.ToPreset(), Settings.Encoder);
         int added = 0;
         foreach (EncodeInput input in Inputs.ToList())
         {
@@ -446,7 +446,7 @@ public partial class EncodeViewModel : ObservableObject
 
         try
         {
-            EncodePreset preset = Editor.ToPreset();
+            EncodePreset preset = NvencUhq.ForEncoder(Editor.ToPreset(), Settings.Encoder);
             EncodeCommand command = FfmpegCommandBuilder.Build(preset, input.Path, input.Info, OutputFor(preset, input.Path), Path.GetTempPath());
             string executable = Settings.Encoder?.Path ?? "ffmpeg";
             CommandPreview = string.Join(Environment.NewLine + Environment.NewLine,

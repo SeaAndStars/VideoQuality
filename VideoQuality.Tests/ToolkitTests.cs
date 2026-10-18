@@ -245,9 +245,12 @@ public class EncoderToolTests
         using FakeTool ffmpeg = FakeTool.Create("ffmpeg",
             new FakeRule { Match = ["-version"], Stdout = "ffmpeg version n8.1.3 Copyright\nbuilt with gcc\n" },
             new FakeRule { Match = ["-encoders"], Stdout = Encoders },
-            new FakeRule { Match = ["-filters"], Stdout = Filters });
+            new FakeRule { Match = ["-filters"], Stdout = Filters },
+            new FakeRule { Match = ["encoder=hevc_nvenc"], Stdout = NvencHelp(withUhq: true) });
 
         EncoderTool tool = (await EncoderTool.LocateAsync(ffmpeg.Directory, SystemProcessRunner.Instance, TestContext.Current.CancellationToken))!;
+        Assert.True(tool.SupportsNvencUhq);
+        Assert.Contains("p7", tool.NvencValues);
 
         Assert.Equal(ffmpeg.Path, tool.Path);
         Assert.Equal("ffmpeg version n8.1.3 Copyright", tool.Version);
@@ -258,6 +261,42 @@ public class EncoderToolTests
         Assert.Contains(EncoderCatalog.AvailableAudio(tool), e => e.Name == "libopus");
         Assert.Equal(["copy"], EncoderCatalog.AvailableVideo(null).Select(e => e.Name));
         Assert.Equal(["copy", "none"], EncoderCatalog.AvailableAudio(null).Select(e => e.Name));
+    }
+
+    /// <summary>What <c>ffmpeg -h encoder=hevc_nvenc</c> prints for the preset and tune options.</summary>
+    private static string NvencHelp(bool withUhq) => $"""
+        Encoder hevc_nvenc [NVIDIA NVENC hevc encoder]:
+          -preset            <int>        E..V....... Set the encoding preset (from 0 to 18) (default p4)
+             p7              18           E..V....... slowest (best quality)
+          -tune              <int>        E..V....... Set the encoding tuning info (from 1 to 5) (default hq)
+             hq              1            E..V....... High quality
+        {(withUhq ? "     uhq             5            E..V....... Ultra high quality" : string.Empty)}
+             lossless        4            E..V....... Lossless
+        """;
+
+    [Fact]
+    public async Task An_older_nvenc_without_uhq_falls_back_to_the_hq_tune()
+    {
+        using FakeTool ffmpeg = FakeTool.Create("ffmpeg",
+            new FakeRule { Match = ["-version"], Stdout = "ffmpeg version 8.0.1-3ubuntu2\n" },
+            new FakeRule { Match = ["-encoders"], Stdout = Encoders },
+            new FakeRule { Match = ["-filters"], Stdout = Filters },
+            new FakeRule { Match = ["encoder=hevc_nvenc"], Stdout = NvencHelp(withUhq: false) });
+        using FakeTool plain = FakeTool.Create("ffmpeg",
+            new FakeRule { Match = ["-version"], Stdout = "ffmpeg version 8\n" },
+            new FakeRule { Match = ["-encoders"], Stdout = " V....D libx265              libx265 H.265 / HEVC\n" },
+            new FakeRule { Match = ["-filters"], Stdout = Filters });
+
+        EncoderTool old = (await EncoderTool.LocateAsync(ffmpeg.Directory, SystemProcessRunner.Instance, TestContext.Current.CancellationToken))!;
+        EncoderTool cpu = (await EncoderTool.LocateAsync(plain.Directory, SystemProcessRunner.Instance, TestContext.Current.CancellationToken))!;
+        Assert.Equal((false, false), (old.SupportsNvencUhq, cpu.SupportsNvencUhq));
+        Assert.Empty(cpu.NvencValues);
+
+        EncodePreset uhq = PresetStore.BuiltIn.First(p => p.Name == "NVENC HEVC UHQ");
+        Assert.Equal("hq", NvencUhq.ForEncoder(uhq, old).Video.Tune);
+        Assert.Same(uhq, NvencUhq.ForEncoder(uhq, null)); // unknown encoder: as written
+        EncodePreset x265 = PresetStore.BuiltIn[0];
+        Assert.Same(x265, NvencUhq.ForEncoder(x265, old));
     }
 
     [Fact]

@@ -54,7 +54,8 @@ public sealed record VmafProgress(int? FrameNumber, double Fps, bool Done);
 /// </remarks>
 public static partial class VmafRunner
 {
-    private static readonly ConcurrentDictionary<string, VmafCapabilities> CapabilityCache = new(StringComparer.Ordinal);
+    /// <summary>Per runner and path: the same path run another way (a scripted runner, a sandbox) is another answer.</summary>
+    private static readonly ConcurrentDictionary<(IProcessRunner Runner, string Path), VmafCapabilities> CapabilityCache = new();
 
     /// <summary>How long a probe waits for ffmpeg (a fresh copy can sit behind an antivirus scan).</summary>
     internal static TimeSpan ProbeTimeout { get; set; } = TimeSpan.FromSeconds(60);
@@ -305,7 +306,7 @@ public static partial class VmafRunner
     /// <inheritdoc cref="ProbeAsync(string, CancellationToken)"/>
     public static async Task<VmafCapabilities> ProbeAsync(string ffmpegPath, IProcessRunner runner, CancellationToken cancellationToken = default)
     {
-        if (CapabilityCache.TryGetValue(ffmpegPath, out var cached))
+        if (CapabilityCache.TryGetValue((runner, ffmpegPath), out var cached))
         {
             return cached;
         }
@@ -341,7 +342,7 @@ public static partial class VmafRunner
             capabilities = new VmafCapabilities(false, false, false, Loc.T("capabilities.unavailable", ex.Message));
         }
 
-        CapabilityCache[ffmpegPath] = capabilities;
+        CapabilityCache[(runner, ffmpegPath)] = capabilities;
         return capabilities;
     }
 

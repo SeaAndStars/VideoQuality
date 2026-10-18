@@ -161,6 +161,27 @@ backends.
 - Scores are paired by frame index (`ts_sync_mode=nearest`, `shortest=1`), not by wall-clock
   timestamp.
 
+## Toolkit pages
+
+The left navigation groups the pages as **inspect** (Media Info, Compare), **make** (Extract,
+Encode, Trim & Merge, Font Subset, Chapters, Mux, Naming) and **automate** (Pipeline), with Monitor
+and Settings at the bottom. Every page takes drops, keeps its work while you switch pages, and shares
+the same layout: a header with the page's actions, cards with forms (labels on the left, fields on
+the right), and a status line.
+
+| Page | What it does |
+|---|---|
+| **Media Info** | Streams, languages, flags, attachments and chapters of a file, and a check against the release rules for the chosen release kind. |
+| **Extract** | Lists a video's tracks, fonts and chapters; pick what to pull out with `mkvextract` (MP4 is remuxed first). |
+| **Encode** | Inputs, a preset editor (video, output, picture, colour, burn-in subtitles, audio, streams, custom arguments) with a live command preview, and the encode queue (pause, stop, retry, reveal, score in Compare). Presets: built-in, saved, **Import…/Export…** as JSON, and **Online presets** from a GitHub folder (`owner/repo/folder@branch` or a folder link; default `SeaAndStars/VideoQuality/presets@main`). |
+| **Trim & Merge** | Cut a range by stream copy (starts on a keyframe) or a frame-exact re-encode with a preset; join parts with mkvmerge or ffmpeg concat. |
+| **Font Subset** | Subset and rename the fonts ASS scripts draw; writes renamed scripts and a `fonts/` folder. |
+| **Chapters** | Import from a video or a chapter file, edit times and names, mark OP/ED, **Auto-name** OP/ED/Chapter*N*, save XML/OGM or send to Mux. |
+| **Mux** | Video, audio, scripts, fonts and chapters into one MKV with per-track language, name and flags. |
+| **Naming** | Release file names and the release title from a form, a release file name or a video. |
+| **Pipeline** | All of the above as one run of switchable, configurable steps. See the [pipeline guide](pipeline.md). |
+| **Monitor** | CPU, memory and NVIDIA GPU, NVENC and NVDEC load, VRAM, and the running encodes. |
+
 ## CLI
 
 ```
@@ -177,6 +198,9 @@ vq frame <video> [index] [--ppm out.ppm]
 
 vq diag  [--ffmpeg PATH]
     Print a session header: versions, OS, ffmpeg capabilities, libav path, log location.
+
+vq subset <script.ass>... [--fonts DIR] [--output DIR]
+    Subset and rename the fonts the scripts draw; write the renamed scripts and their fonts.
 ```
 
 `score` prints backend and precision, frame count, mean, harmonic mean, p1, min, max, standard

@@ -19,6 +19,12 @@ public sealed partial record EncoderTool(
 
     public bool HasFilter(string name) => Filters.Contains(name);
 
+    /// <summary>The named values hevc_nvenc takes (presets, tunes, …); empty without NVENC.</summary>
+    public IReadOnlySet<string> NvencValues { get; init; } = new HashSet<string>();
+
+    /// <summary>hevc_nvenc has the ultra-high-quality tune (NVENC SDK 12.2+ headers; older builds stop at <c>hq</c>).</summary>
+    public bool SupportsNvencUhq => NvencValues.Contains("uhq");
+
     /// <summary>
     /// Where to look, in order: the folder chosen in Settings, the bundled copy, then PATH
     /// (<c>null</c>).
@@ -62,11 +68,23 @@ public sealed partial record EncoderTool(
                     new ProcessRequest { FileName = path, Arguments = ["-hide_banner", "-encoders"] }, cancellationToken).ConfigureAwait(false);
                 ProcessResult filters = await runner.RunAsync(
                     new ProcessRequest { FileName = path, Arguments = ["-hide_banner", "-filters"] }, cancellationToken).ConfigureAwait(false);
+                IReadOnlySet<string> encoderNames = ParseList(encoders.Output, EncoderLine());
+                IReadOnlySet<string> nvenc = new HashSet<string>();
+                if (encoderNames.Contains("hevc_nvenc"))
+                {
+                    ProcessResult help = await runner.RunAsync(
+                        new ProcessRequest { FileName = path, Arguments = ["-hide_banner", "-h", "encoder=hevc_nvenc"] }, cancellationToken).ConfigureAwait(false);
+                    nvenc = ParseList(help.Output, OptionValueLine());
+                }
+
                 return new EncoderTool(
                     path,
                     version.Output.Split('\n')[0].Trim(),
-                    ParseList(encoders.Output, EncoderLine()),
-                    ParseList(filters.Output, FilterLine()));
+                    encoderNames,
+                    ParseList(filters.Output, FilterLine()))
+                {
+                    NvencValues = nvenc,
+                };
             }
             catch (ProcessStartException)
             {
@@ -83,6 +101,10 @@ public sealed partial record EncoderTool(
     // " V....D libx265              libx265 H.265 / HEVC" (capabilities, then the name)
     [GeneratedRegex(@"^ [VAS][F.][S.][X.][B.][D.] (\S+)", RegexOptions.Multiline)]
     internal static partial Regex EncoderLine();
+
+    // "     uhq             5            E..V....... Ultra high quality" (a named option value)
+    [GeneratedRegex(@"^\s{4,}(\w+)\s+-?\d+\s+E\.", RegexOptions.Multiline)]
+    internal static partial Regex OptionValueLine();
 
     // " TS bwdif             V->V       Deinterlace" (timeline/slice flags, then the name)
     [GeneratedRegex(@"^ [T.][S.][C.]? (\S+)\s+\S*->\S*", RegexOptions.Multiline)]

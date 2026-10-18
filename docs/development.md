@@ -80,6 +80,17 @@ runs are all tested without the hardware. The App takes the same seams through `
 (processes, settings store, environment), `PageIo.Dialogs` (file pickers) and `ToastHost.Ask`
 (questions).
 
+Two tests are opt-in and skipped unless their variables are set:
+
+| Test | Run with | What it does |
+|---|---|---|
+| `Screenshots` | `VQ_SCREENSHOTS=/dir [VQ_SCREENSHOT_LANG=zh-Hans]` | Renders every page at 1600×1000 (plus a filled-in Pipeline and a tall shot of every step) for design review |
+| `EndToEnd` | `VQ_E2E_SOURCE=ep.mkv VQ_E2E_OUT=/dir [VQ_E2E_ENCODER=x265]` | Runs the real pipeline on an episode and prints each step's result ([pipeline guide](pipeline.md#running-it-without-the-window)) |
+
+```bash
+VQ_SCREENSHOTS=/tmp/shots dotnet test VideoQuality.App.Tests --filter Screenshots
+```
+
 ### Coverage
 
 ```bash
@@ -168,7 +179,7 @@ same file.
 
 ```
 VideoQuality.slnx          solution
-VideoQuality.Core/         scoring, decoding, models, jobs (no UI)
+VideoQuality.Core/         scoring, decoding, encoding, fonts, MKV, chapters, release rules, jobs (no UI)
 VideoQuality.App/          Avalonia UI
 VideoQuality.Cli/          headless commands
 VideoQuality.Tests/        Core and CLI tests, plus the app started headless (--self-test)
@@ -186,8 +197,10 @@ scripts/verify.sh          clean build, solution-membership check, tests, probe
 scripts/capture-docs.sh    regenerates the documentation screenshots
 scripts/coverage.sh        both test projects with coverage, merged, 100% required
 scripts/make-test-cff-font.py builds the CC0 CFF test font in VideoQuality.Tests/Fixtures
+presets/                   shareable encode presets (the default online preset folder)
 docs/                      user and developer documentation
-  usage.md                 UI and CLI
+  usage.md                 UI, toolkit pages and CLI
+  pipeline.md              the release pipeline: inference, steps, settings, NVENC UHQ
   ffmpeg-cuda.md           build recipe, GPU policy, troubleshooting
   architecture.md          projects, data flow, threading
   metrics.md               VMAF, frame pairing, bit depth, stats

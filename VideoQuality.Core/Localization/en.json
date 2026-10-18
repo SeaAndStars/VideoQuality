@@ -783,5 +783,6 @@
   "pipeline.defaultSubtitle.first": "The first script",
   "pipeline.verify.strict": "Stop the run when a file breaks the rules (off: list the problems and go on)",
   "pipeline.referenceWatermark": "Empty: the source video",
-  "pipeline.extract.notMatroska": "Only Matroska sources carry tracks to pull."
+  "pipeline.extract.notMatroska": "Only Matroska sources carry tracks to pull.",
+  "pipeline.encode.hqFallback": "tune hq: this ffmpeg's NVENC has no UHQ"
 }

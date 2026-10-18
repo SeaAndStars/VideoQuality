@@ -783,5 +783,6 @@
   "pipeline.defaultSubtitle.first": "第一个字幕",
   "pipeline.verify.strict": "文件不符合规范时停止（关闭则列出问题并继续）",
   "pipeline.referenceWatermark": "留空：使用源视频",
-  "pipeline.extract.notMatroska": "只有 Matroska 源文件可以抽流。"
+  "pipeline.extract.notMatroska": "只有 Matroska 源文件可以抽流。",
+  "pipeline.encode.hqFallback": "tune hq：此 ffmpeg 的 NVENC 不支持 UHQ"
 }

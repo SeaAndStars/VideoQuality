@@ -14,12 +14,14 @@
 
 <p align="center">
   <b>Score encodes against a reference with VMAF on the GPU, then see exactly where they differ.</b><br>
-  Per-frame curves for many encodes at once, a frame-exact synced viewer, and a difference heatmap.
+  Per-frame curves for many encodes at once, a frame-exact synced viewer, and a difference heatmap,<br>
+  plus a release toolkit that takes an anime episode from its source to a finished release in one run.
 </p>
 
 <p align="center">
   <a href="#download">Download</a> ·
   <a href="#features">Features</a> ·
+  <a href="#release-pipeline">Pipeline</a> ·
   <a href="#build-from-source">Build</a> ·
   <a href="#command-line">CLI</a> ·
   <a href="docs/usage.md">Docs</a>
@@ -58,7 +60,9 @@
   CRF, QP, bitrate, two-pass and target size; scaling, cropping, deinterlacing, denoise, colour tags,
   burned-in subtitles, audio and stream options, custom arguments and a live command preview.
   Jobs show progress, speed, ETA and the projected size, and can be paused, stopped and retried.
-  Built-in presets follow the group's rules (x265 10-bit, the size per 24 minutes, AAC or FLAC).
+  Built-in presets follow the group's rules (x265 10-bit, the size per 24 minutes, AAC or FLAC), plus
+  a measured **NVENC HEVC UHQ** preset. Presets import and export as JSON and download from any GitHub
+  folder ([`presets/`](presets/README.md) by default).
 - **Trim & Merge (切割/合并).** Cut by time with stream copy (with a keyframe warning) or a
   frame-exact re-encode; join files with mkvmerge's append or ffmpeg's concat, after a
   compatibility check.
@@ -73,8 +77,8 @@
   language, name, default and forced flags, named the group's way (`ja` audio, `zh` JPSC/JPTC/SC/TC
   subtitles) or generically.
 - **Naming.** Release file names and titles from a form, a release name or a video's properties.
-- **Release pipeline.** One run: encode → subset → mux the MKV → burn the MP4s → check every file
-  → VMAF of the encode against its source.
+- **Release pipeline.** Every tool above as a step of one run, each with its own settings and an
+  on/off switch, filled in from the source on drop. [More below](#release-pipeline).
 - **Monitor.** CPU, memory and NVIDIA GPU load (encoder/decoder/VRAM) and each running encode.
 - Encoding uses a separate **GPL ffmpeg** run as its own process (`tools/ffmpeg-encode/`, a pinned
   BtbN build with its source attached to each release); the app itself links only the LGPL libav.
@@ -95,6 +99,30 @@
   (`VideoQuality.Core/Localization/*.json`); pick the language in Settings or follow the system.
 - **Portable.** On Windows the release is one `VideoQuality.exe` with ffmpeg bundled, and settings
   live in `settings.json` beside it.
+
+## Release pipeline
+
+Drop an episode on **Pipeline** and run. The page reads the scripts, fonts and chapters beside the
+source, the title and episode from its file name, and whether it is a BD or web release; then one run
+makes the 内封 MKV and the 内嵌 MP4s and checks them against the group's rules.
+
+```mermaid
+flowchart LR
+    src[/"Show 05.mkv<br/>Show 05 JPSC.ass · JPTC.ass · Fonts/"/] --> ext[Extract] --> trim[Trim] --> enc[Encode]
+    enc --> sub[Subset fonts] --> chap[Chapters] --> mux[Mux] --> burn[Burn-in MP4s] --> ver[Verify] --> vmaf[VMAF]
+    mux --> mkv[("内封 MKV")]
+    burn --> mp4[("内嵌 MP4 ×N")]
+```
+
+- **Every step can be changed:** pull scripts/fonts out of the source, cut a range, encode with
+  x265, NVENC UHQ or any Encode preset, pick the font folder and chapter file, name OP/ED/Chapter*N*,
+  set the MKV title and default subtitle, choose which MP4s to burn (any number, any script, JPSC /
+  JPTC / SC / TC), stop on rule failures or only report them, pick the VMAF model and reference.
+- **NVENC UHQ at CQ 26.25** matched x265 CRF 18's size on a 24-minute episode with higher VMAF on
+  every statistic (NEG 95.31 vs 95.10, p1 92.19 vs 91.18, min 83.6 vs 77.0).
+
+See the [pipeline guide](docs/pipeline.md) for the inference rules, every step's settings and the
+measurements.
 
 ## Screenshots
 
@@ -119,8 +147,10 @@ and its driver; without one, scoring runs on the CPU.
 ```
 VideoQuality.exe      the app (single file)
 settings.json         your settings, created on first change
-ffmpeg\               FFmpeg 9 + libvmaf 3.2.1 (CUDA), LGPL build
+ffmpeg\               FFmpeg 9 + libvmaf 3.2.1 (CUDA), LGPL build, for decoding and scoring
 tools\vq.exe          command-line tool
+tools\ffmpeg-encode\  GPL ffmpeg for encoding (run as its own process)
+tools\mkvtoolnix\     mkvmerge / mkvextract
 licenses\             third-party notices
 ```
 
@@ -213,9 +243,11 @@ Measured with the BenchmarkDotNet suite in `VideoQuality.Benchmarks` (Ryzen 7 97
 
 | Guide | Contents |
 |---|---|
-| [Usage](docs/usage.md) | UI tour, drop rules, compare modes, keyboard and mouse, settings, CLI |
+| [Usage](docs/usage.md) | UI tour, drop rules, compare modes, toolkit pages, keyboard and mouse, settings, CLI |
+| [Release pipeline](docs/pipeline.md) | Inference from the source, every step and its settings, NVENC UHQ measurements |
+| [Presets](presets/README.md) | Sharing encode presets: file format, online folders |
 | [FFmpeg + CUDA](docs/ffmpeg-cuda.md) | Building ffmpeg with `libvmaf_cuda` on Linux and for Windows, GPU policy, 10-bit, troubleshooting |
-| [Architecture](docs/architecture.md) | Projects, data flow, threading, decoding, jobs, ingest |
+| [Architecture](docs/architecture.md) | Projects, data flow, the pipeline run, threading, decoding, jobs, ingest |
 | [Metrics](docs/metrics.md) | What VMAF measures, frame pairing, bitrate, interpreting stats |
 | [Development](docs/development.md) | Build, tests, benchmarks, verification, repository layout, roadmap |
 
@@ -234,7 +266,7 @@ and [Ursa](https://github.com/irihitech/Ursa.Avalonia) ·
 
 Verified on Ubuntu 26.04 (CUDA 13.1) and Windows 10, RTX 5060 Ti: 8-bit and 10-bit scoring,
 H.264/HEVC/AV1, all compare modes, multi-encode comparison, with identical CPU scores on both
-platforms. 617 tests (475 for Core and the CLI, 142 for the UI on Avalonia.Headless) run on Linux
+platforms. 619 tests (476 for Core and the CLI, 143 for the UI on Avalonia.Headless, two of them opt-in) run on Linux
 and Windows, with **100% line and branch coverage** of Core, App and CLI enforced in CI
 ([details](docs/development.md#tests)).
 

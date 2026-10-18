@@ -373,7 +373,7 @@ public partial class PipelineViewModel : ObservableObject
     /// </summary>
     private EncodePreset Tuned(EncodePreset preset) => Encoder switch
     {
-        PipelineEncoder.NvencUhq => NvencUhq.Apply(preset, (double)Crf),
+        PipelineEncoder.NvencUhq => NvencUhq.ForEncoder(NvencUhq.Apply(preset, (double)Crf), Settings.Encoder),
         PipelineEncoder.Preset => preset with
         {
             Video = SelectedPreset!.Video with { ConstantFrameRate = true, FrameRate = preset.Video.FrameRate },
@@ -670,7 +670,8 @@ public partial class PipelineViewModel : ObservableObject
                     return;
                 }
 
-                Done(EncodeStep, MediaInfo.FormatSize(job.WrittenSize));
+                Done(EncodeStep, MediaInfo.FormatSize(job.WrittenSize)
+                    + (IsNvenc && Settings.Encoder is { SupportsNvencUhq: false } ? " · " + Loc.T("pipeline.encode.hqFallback") : string.Empty));
             }
 
             EncodedFile = encoded;

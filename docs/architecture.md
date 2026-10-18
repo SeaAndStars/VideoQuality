@@ -4,46 +4,93 @@
 
 ```
 VideoQuality.Core      no UI; safe to use from tests or other tools
-  Scoring/
-    VmafRunner.cs      ffmpeg process, CUDA/CPU filter graphs, JSON parsing, capability probing
-    VmafCapabilities.cs
-    VmafBackend.cs     Auto/Cpu/Cuda + Cuda→"CUDA" display name
-  Decoding/
-    FrameDecoder.cs    FFmpeg.AutoGen decode to BGRA, exact seeks, LRU cache
-    PacketIndex.cs     demux-only packet walk: true bitrate, frame count, keyframes
-    FfmpegRuntime.cs   locates libav*.so for the bindings, av_strerror helper
-  Imaging/PixelDiff.cs difference image + percentile helper
-  Ingest/DropRouter.cs incoming paths → reference / encodes / rejected / duplicates
+  Scoring/             VmafRunner (ffmpeg process, CUDA/CPU graphs), capabilities, models, progress parser
+  Decoding/            FrameDecoder (FFmpeg.AutoGen → BGRA, exact seeks, cache), PacketIndex, FfmpegRuntime
+  Imaging/             PixelDiff: difference image + percentile
+  Ingest/              DropRouter: incoming paths → reference / encodes / rejected
   Jobs/                Job, JobService: per-kind lanes, cancel, retry
-  Models/              VmafFrame, VmafStats, VmafReport, VideoInfo
+  Encode/              EncodePreset, EncoderCatalog, FfmpegCommandBuilder, EncodeQueue,
+                       PresetStore (+ import/export), OnlinePresets (GitHub folders), NvencUhq
+  Edit/                TrimMerge: stream-copy and re-encode cuts, mkvmerge/concat joins
+  Fonts/               ASS parsing, font catalog and matching, HarfBuzz subsetting, renaming
+  Chapters/            ChapterList: OGM/XML/ffmetadata, AutoName, GuessOpEd, Cut, checks
+  Mkv/                 MkvToolNix (identify, extract, mux), SubtitleNaming
+  Media/               MediaInfo from ffprobe
+  Release/             ReleaseName, SourceName (titles and episodes from file names), GreenTeaSpec (rules + checker)
+  Monitor/             SystemMonitor: CPU, memory, NVIDIA GPU
+  Tools/               IProcessRunner (start, stream, suspend/resume, cancel), EncoderTool, FileSystem
+  Localization/        Loc + en.json / zh-Hans.json
 
 VideoQuality.App       Avalonia 12 desktop UI on Semi.Avalonia + Ursa, Fluent System Icons
-  ViewModels/          MainViewModel, EncodeEntry, ViewportState, CompareMode,
-                       BitmapSwapChain, ToastRequest
-  Controls/            FrameView (one image), WipeView (two images + divider)
-  Views/               MainWindow.axaml(.cs): layout, plot, input, drag and drop, toasts
-  Styles/              Tokens.axaml (spacing, radii, accents, palette), Layers.axaml (layer classes)
-  Converters/          enum → friendly labels and icons
+  ViewModels/          ShellViewModel (navigation) and one view model per page: Main (Compare), MediaInfo,
+                       Extract, Encode (+ PresetEditor), TrimMerge, FontSubset, Chapters, Mux, Naming,
+                       Pipeline, Monitor, Settings
+  Views/               one view per page, MainWindow (rail + page host), SplashView
+  Controls/            FrameView, WipeView, Sparkline, Spinner
+  Services/            AppServices (process, settings, environment seams), PageIo (pickers), ToastHost
+  Styles/              Tokens.axaml (spacing, radii, palette), Layers.axaml (layers, forms, motion)
 
-VideoQuality.Cli       probe / score / frame commands, no UI
+VideoQuality.Cli       probe / score / frame / diag / subset, no UI
 ```
 
-## Data flow
-
+```mermaid
+flowchart TB
+    subgraph App["VideoQuality.App"]
+        Shell[ShellViewModel] --> Pages["page view models"]
+        Pages --> Pipeline[PipelineViewModel]
+    end
+    subgraph Core["VideoQuality.Core"]
+        Encode[Encode] & Fonts[Fonts] & Mkv[Mkv] & Chapters[Chapters] & Release[Release] & Scoring[Scoring] & Decoding[Decoding]
+        Tools["Tools: IProcessRunner"]
+    end
+    Pages --> Core
+    Pipeline --> Encode & Fonts & Mkv & Chapters & Release & Scoring
+    Encode & Mkv & Scoring --> Tools
+    Tools --> ext(["ffmpeg (GPL encoder) · ffmpeg (libvmaf) · mkvmerge / mkvextract · nvidia-smi"])
+    Decoding --> libav(["libav* (LGPL, in process)"])
+    Cli["VideoQuality.Cli"] --> Core
 ```
-            ┌──────────────┐
- reference ─► FrameDecoder ├─► BGRA frames ─► WriteableBitmap ─► FrameView / WipeView
-            └──────────────┘                                    ▲
-                   ▲                                            │ zoom/pan (shared ViewportState)
- encode ───────────┘                                            │
-                   │                                            │
-            ┌──────┴────────┐                                   │
-            │  PacketIndex  ├─► true bitrate, frame count ──► EncodeEntry ──► table
-            └───────────────┘
-            ┌───────────────┐
- both files─►  VmafRunner   ├─► JSON log ─► VmafReport ─► graph + stats
-            └───────────────┘      ▲
-                                   └── ffmpeg (libvmaf_cuda preferred)
+
+GPL tools only ever run as separate processes through `IProcessRunner`; the app links only the LGPL
+libav for decoding.
+
+## Data flow (Compare)
+
+```mermaid
+flowchart LR
+    ref[reference] --> FD[FrameDecoder] --> bgra[BGRA frames] --> WB[WriteableBitmap] --> view[FrameView / WipeView]
+    enc[encode] --> FD
+    enc --> PI[PacketIndex] --> entry[EncodeEntry] --> table[encode table]
+    ref & enc --> VR[VmafRunner] --> log[JSON log] --> rep[VmafReport] --> graph[graph + stats]
+    VR -. runs .-> ff(["ffmpeg (libvmaf_cuda preferred)"])
+    vp[ViewportState] -. zoom/pan .-> view
+```
+
+## The pipeline run
+
+`PipelineViewModel.RunAsync` runs the steps in order. Each `PipelineStep` has a key, an `Enabled`
+switch and a state; its settings are view-model properties shown on the step's card. Encodes go
+through the shared `EncodeQueue`, so they show on Encode and Monitor too.
+
+```mermaid
+sequenceDiagram
+    participant UI as PipelineViewModel
+    participant Mkv as MkvToolNix
+    participant Q as EncodeQueue (GPL ffmpeg)
+    participant F as FontSubsetter
+    participant V as VmafRunner
+    UI->>UI: InferAsync (scripts, fonts, chapters, SourceName, release kind)
+    UI->>Mkv: identify + mkvextract (Extract)
+    UI->>UI: parse the trim range (Trim)
+    UI->>Q: encode video + audio (Encode)
+    UI->>F: subset and rename fonts (Subset)
+    UI->>UI: ChapterList.Cut / GuessOpEd / AutoName (Chapters)
+    UI->>Mkv: mkvmerge the 内封 MKV (Mux)
+    loop each MP4 row
+        UI->>Q: burn its script into an MP4 (Burn)
+    end
+    UI->>UI: GreenTeaSpec.Check every file (Verify)
+    UI->>V: VMAF of the encode against the source
 ```
 
 ## Threading

@@ -427,6 +427,13 @@ public sealed class PipelineTests : IDisposable
         await vm.RunCommand.ExecuteAsync(null);
         Assert.Equal(3, queue.Jobs.Count);
         Assert.All(queue.Jobs, j => Assert.Contains("hevc_nvenc", j.Command.Passes[^1]));
+        // This ffmpeg's NVENC has no UHQ tune: hq, and the step says so. One that has it gets uhq.
+        Assert.All(queue.Jobs, j => Assert.Contains("-tune hq", string.Join(' ', j.Command.Passes[^1]), StringComparison.Ordinal));
+        Assert.Contains(Loc.T("pipeline.encode.hqFallback"), vm.EncodeStep.Detail, StringComparison.Ordinal);
+        vm.Settings.Encoder = vm.Settings.Encoder! with { NvencValues = new HashSet<string> { "uhq" } };
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.Contains("-tune uhq", string.Join(' ', queue.Jobs[^1].Command.Passes[^1]), StringComparison.Ordinal);
+        Assert.DoesNotContain(Loc.T("pipeline.encode.hqFallback"), vm.EncodeStep.Detail, StringComparison.Ordinal);
         Assert.Equal([".mkv", ".mp4", ".mp4"], vm.Outputs.Select(Path.GetExtension));
 
         vm.RevealCommand.Execute(vm.Outputs[0]); // nobody listening

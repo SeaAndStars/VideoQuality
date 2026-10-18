@@ -1,3 +1,5 @@
+using VideoQuality.Core.Tools;
+
 namespace VideoQuality.Core.Encode;
 
 /// <summary>
@@ -26,4 +28,12 @@ public static class NvencUhq
         },
         Custom = preset.Custom with { Video = Arguments },
     };
+
+    /// <summary>The UHQ tune is missing from <paramref name="encoder"/> (NVENC headers before SDK 12.2).</summary>
+    public static bool Unsupported(EncodePreset preset, EncoderTool? encoder) =>
+        preset.Video.Tune == "uhq" && encoder is { SupportsNvencUhq: false };
+
+    /// <summary>The preset as <paramref name="encoder"/> can run it: <c>-tune hq</c> where UHQ is missing.</summary>
+    public static EncodePreset ForEncoder(EncodePreset preset, EncoderTool? encoder) =>
+        Unsupported(preset, encoder) ? preset with { Video = preset.Video with { Tune = "hq" } } : preset;
 }
