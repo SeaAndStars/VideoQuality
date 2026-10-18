@@ -359,6 +359,35 @@ public sealed class PipelineTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task Nvenc_encodes_every_file_and_written_files_can_be_revealed()
+    {
+        (PipelineViewModel vm, _, EncodeQueue queue) = await PageAsync();
+        vm.Encoder = PipelineEncoder.NvencUhq;
+        Assert.Equal(((decimal)NvencUhq.Quality, true), (vm.Crf, vm.IsNvenc));
+        vm.Profile = ReleaseProfile.BdEpisode;
+        vm.Profile = ReleaseProfile.WebEpisode;
+        Assert.Equal((decimal)NvencUhq.Quality, vm.Crf); // the release kind keeps NVENC's quality
+
+        string subs = Scripts();
+        vm.AddPaths([Source(), Path.Combine(subs, "ep01.JPSC.ass"), Path.Combine(subs, "ep01.JPTC.ass")]);
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.Equal(3, queue.Jobs.Count);
+        Assert.All(queue.Jobs, j => Assert.Contains("hevc_nvenc", j.Command.Passes[^1]));
+        Assert.Equal([".mkv", ".mp4", ".mp4"], vm.Outputs.Select(Path.GetExtension));
+
+        vm.RevealCommand.Execute(vm.Outputs[0]); // nobody listening
+        string? revealed = null;
+        vm.RevealRequested += (_, path) => revealed = path;
+        vm.RevealCommand.Execute(vm.Outputs[0]);
+        Assert.Equal(vm.Outputs[0], revealed);
+
+        vm.Encoder = PipelineEncoder.X265;
+        Assert.Equal((20m, false), (vm.Crf, vm.IsNvenc));
+        vm.ClearCommand.Execute(null);
+        Assert.Empty(vm.Outputs);
+    }
+
+    [AvaloniaFact]
     public async Task Real_tools_produce_a_release()
     {
         SettingsViewModel settings = await Pages.SettingsAsync();

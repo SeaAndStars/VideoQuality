@@ -24,10 +24,10 @@
 
             <!-- language -->
             <Border Classes="surface">
-                <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="160,*" RowSpacing="8" ColumnSpacing="12" Margin="16,0,16,14">
+                <Grid Classes="form" RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="160,*" Margin="16,0,16,14">
                     <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="{l:L settings.general}" /></Grid>
                     <TextBlock Grid.Row="1" Text="{l:L settings.language}" VerticalAlignment="Center" />
-                    <ComboBox Grid.Row="1" Grid.Column="1" MinWidth="260" ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding SelectedLanguage, Converter={x:Static conv:KeepSelectionConverter.Instance}}"
+                    <ComboBox HorizontalAlignment="Left" Grid.Row="1" Grid.Column="1" MinWidth="260" ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding SelectedLanguage, Converter={x:Static conv:KeepSelectionConverter.Instance}}"
                               DisplayMemberBinding="{Binding Name, x:DataType=vm:LanguageOption}" />
                     <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" IsVisible="{Binding NeedsRestart}">
                         <ic:SymbolIcon Symbol="ArrowClockwise" FontSize="16" Foreground="{DynamicResource SemiColorPrimary}" />
@@ -40,16 +40,16 @@
 
             <!-- scoring -->
             <Border Classes="surface">
-                <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="160,*" RowSpacing="8" ColumnSpacing="12" Margin="16,0,16,14">
+                <Grid Classes="form" RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="160,*" Margin="16,0,16,14">
                     <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="{l:L common.scoring}" /></Grid>
                     <TextBlock Grid.Row="1" Text="{l:L settings.vmafModel}" VerticalAlignment="Center" />
-                    <ComboBox Grid.Row="1" Grid.Column="1" MinWidth="260" ItemsSource="{Binding Compare.ModelOptions}" SelectedItem="{Binding Compare.SelectedModel, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
+                    <ComboBox HorizontalAlignment="Left" Grid.Row="1" Grid.Column="1" MinWidth="260" ItemsSource="{Binding Compare.ModelOptions}" SelectedItem="{Binding Compare.SelectedModel, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
                         <ComboBox.ItemTemplate>
                             <DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                     <TextBlock Grid.Row="2" Text="{l:L common.backend}" VerticalAlignment="Center" />
-                    <ComboBox Grid.Row="2" Grid.Column="1" MinWidth="260" ItemsSource="{Binding Compare.BackendOptions}" SelectedItem="{Binding Compare.SelectedBackend, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
+                    <ComboBox HorizontalAlignment="Left" Grid.Row="2" Grid.Column="1" MinWidth="260" ItemsSource="{Binding Compare.BackendOptions}" SelectedItem="{Binding Compare.SelectedBackend, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
                         <ComboBox.ItemTemplate>
                             <DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate>
                         </ComboBox.ItemTemplate>
@@ -59,7 +59,7 @@
 
             <!-- tools -->
             <Border Classes="surface">
-                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="160,*,Auto,Auto" RowSpacing="8" ColumnSpacing="12" Margin="16,0,16,14">
+                <Grid Classes="form" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="160,*,Auto,Auto" Margin="16,0,16,14">
                     <Grid Classes="cardheader" Grid.ColumnSpan="4"><TextBlock Classes="label" Text="{l:L settings.tools}" /></Grid>
                     <TextBlock Grid.Row="1" Text="{l:L settings.ffmpeg}" VerticalAlignment="Center" />
                     <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding Compare.FfmpegPath}" IsReadOnly="True" />
@@ -97,23 +97,23 @@
 
             <!-- workflow -->
             <Border Classes="surface">
-                <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="160,*" RowSpacing="8" ColumnSpacing="12" Margin="16,0,16,14">
+                <Grid Classes="form" RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="160,*" Margin="16,0,16,14">
                     <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="{l:L settings.workflow}" /></Grid>
                     <TextBlock Grid.Row="1" Text="{l:L settings.trackNaming}" VerticalAlignment="Center" />
-                    <ComboBox Grid.Row="1" Grid.Column="1" MinWidth="260" ItemsSource="{Binding TrackNamingOptions}" SelectedItem="{Binding TrackNaming, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
+                    <ComboBox HorizontalAlignment="Left" Grid.Row="1" Grid.Column="1" MinWidth="260" ItemsSource="{Binding TrackNamingOptions}" SelectedItem="{Binding TrackNaming, Converter={x:Static conv:KeepSelectionConverter.Instance}}">
                         <ComboBox.ItemTemplate>
                             <DataTemplate><TextBlock Text="{Binding Converter={StaticResource Label}}" /></DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                     <TextBlock Grid.Row="2" Text="{l:L settings.encodesAtOnce}" VerticalAlignment="Center" />
-                    <ComboBox Grid.Row="2" Grid.Column="1" MinWidth="120" ItemsSource="{Binding ConcurrencyOptions}" SelectedItem="{Binding EncodeConcurrency, Converter={x:Static conv:KeepSelectionConverter.Instance}}"
+                    <ComboBox HorizontalAlignment="Left" Grid.Row="2" Grid.Column="1" MinWidth="120" ItemsSource="{Binding ConcurrencyOptions}" SelectedItem="{Binding EncodeConcurrency, Converter={x:Static conv:KeepSelectionConverter.Instance}}"
                               ToolTip.Tip="{l:L settings.x265AlreadyUsesEvery}" />
                 </Grid>
             </Border>
 
             <!-- files -->
             <Border Classes="surface">
-                <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="160,*,Auto" RowSpacing="8" ColumnSpacing="12" Margin="16,0,16,14">
+                <Grid Classes="form" RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="160,*,Auto" Margin="16,0,16,14">
                     <Grid Classes="cardheader" Grid.ColumnSpan="3"><TextBlock Classes="label" Text="{l:L settings.files}" /></Grid>
                     <TextBlock Grid.Row="1" Text="{l:L common.settings}" VerticalAlignment="Center" />
                     <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SettingsPath}" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
@@ -129,7 +129,7 @@
 
             <!-- about -->
             <Border Classes="surface">
-                <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="160,*" RowSpacing="8" ColumnSpacing="12" Margin="16,0,16,14">
+                <Grid Classes="form" RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="160,*" Margin="16,0,16,14">
                     <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="{l:L settings.about}" /></Grid>
                     <TextBlock Grid.Row="1" Text="VideoQuality" VerticalAlignment="Center" />
                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Version}" FontSize="12" VerticalAlignment="Center" />

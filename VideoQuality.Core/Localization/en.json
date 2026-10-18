@@ -543,7 +543,7 @@
   "pipeline.theEncodeAndBurn": "The encode and burn-in steps need the GPL ffmpeg build. Set its folder in Settings.",
   "pipeline.theSourceSChapters": "the source's chapters, or a chapter file from the timer",
   "pipeline.theWebripBdSource": "the WebRip / BD source",
-  "pipeline.titleEpisodeAndSource": "Title, episode and source come from the Naming page.",
+  "pipeline.titleEpisodeAndSource": "Group, source and codecs come from the Naming page.",
   "pipeline.toast.done": "Pipeline finished: {0}",
   "pipeline.toast.stepFailed": "{0} failed: {1}",
   "pipeline.verify.done": "{0} track(s), {1} attachment(s), {2}",
@@ -729,5 +729,14 @@
   "encode.presets.failed": "Presets: {0}",
   "encode.picker.importPresets": "Import presets",
   "encode.picker.exportPresets": "Export presets",
-  "picker.type.presets": "Preset files"
+  "picker.type.presets": "Preset files",
+  "trim.outputWatermark": "Beside the source, as name.cut",
+  "pipeline.encoder": "Encoder",
+  "pipeline.quality": "Quality (CRF / CQ)",
+  "label.PipelineEncoder.X265": "x265 10-bit CRF (the rules)",
+  "label.PipelineEncoder.NvencUhq": "NVENC HEVC UHQ (GPU)",
+  "pipeline.nvencNote": "The rules require x265. NVENC UHQ at CQ 26.25 matches x265 CRF 18 in size with a higher VMAF; use it to compare or for private encodes.",
+  "pipeline.episode": "Episode",
+  "pipeline.outputFolderWatermark": "A release folder beside the source",
+  "pipeline.written": "Written"
 }

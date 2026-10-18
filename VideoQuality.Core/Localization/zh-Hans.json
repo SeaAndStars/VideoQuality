@@ -543,7 +543,7 @@
   "pipeline.theEncodeAndBurn": "压制和内嵌步骤需要 GPL 版 ffmpeg。请在设置中指定其文件夹。",
   "pipeline.theSourceSChapters": "使用源视频的章节，或时轴提供的章节文件",
   "pipeline.theWebripBdSource": "WebRip / BD 片源",
-  "pipeline.titleEpisodeAndSource": "片名、集数和片源来自“命名”页面。",
+  "pipeline.titleEpisodeAndSource": "组名、片源和编码信息来自“命名”页面。",
   "pipeline.toast.done": "流程完成：{0}",
   "pipeline.toast.stepFailed": "{0}失败：{1}",
   "pipeline.verify.done": "{0} 条轨道，{1} 个附件，{2}",
@@ -729,5 +729,14 @@
   "encode.presets.failed": "预设：{0}",
   "encode.picker.importPresets": "导入预设",
   "encode.picker.exportPresets": "导出预设",
-  "picker.type.presets": "预设文件"
+  "picker.type.presets": "预设文件",
+  "trim.outputWatermark": "源文件旁，命名为 原名.cut",
+  "pipeline.encoder": "编码器",
+  "pipeline.quality": "质量（CRF / CQ）",
+  "label.PipelineEncoder.X265": "x265 10-bit CRF（规范）",
+  "label.PipelineEncoder.NvencUhq": "NVENC HEVC UHQ（GPU）",
+  "pipeline.nvencNote": "规范要求 x265。NVENC UHQ 在 CQ 26.25 时体积与 x265 CRF 18 相当且 VMAF 更高，可用于对比或自用压制。",
+  "pipeline.episode": "集数",
+  "pipeline.outputFolderWatermark": "源文件旁的 release 文件夹",
+  "pipeline.written": "已输出"
 }

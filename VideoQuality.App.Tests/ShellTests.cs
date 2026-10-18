@@ -137,6 +137,9 @@ public sealed class ShellTests : IDisposable
         shell.Encode.RevealCommand.Execute(row);
         await Ui.SettleAsync();
         Assert.Equal([clip], scope.Dialogs.Revealed);
+        shell.Pipeline.RevealCommand.Execute(clip);
+        await Ui.SettleAsync();
+        Assert.Equal([clip, clip], scope.Dialogs.Revealed);
 
         // Pipeline → Compare
         shell.Navigate("pipeline");

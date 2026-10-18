@@ -12,17 +12,8 @@
         <conv:LabelConverter x:Key="Label" />
     </UserControl.Resources>
     <UserControl.Styles>
-        <Style Selector="Grid.form">
-            <Setter Property="RowSpacing" Value="6" />
-            <Setter Property="ColumnSpacing" Value="10" />
+        <Style Selector="Expander Grid.form">
             <Setter Property="Margin" Value="4,6,4,10" />
-        </Style>
-        <Style Selector="Grid.form > TextBlock">
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="FontSize" Value="12" />
-        </Style>
-        <Style Selector="Grid.form NumericUpDown, Grid.form ComboBox, Grid.form TextBox">
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
         </Style>
         <Style Selector="Expander">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -163,7 +154,7 @@
                 <Border Grid.Column="1" Classes="surface">
                     <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="12,0,12,12" RowSpacing="8" DataContext="{Binding}">
                         <Grid Classes="cardheader"><TextBlock Classes="label" Text="{l:L encode.preset}" /></Grid>
-                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,140,Auto" ColumnSpacing="6">
+                        <Grid Grid.Row="1" ColumnDefinitions="3*,Auto,2*,Auto" ColumnSpacing="6">
                             <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset, Converter={x:Static conv:KeepSelectionConverter.Instance}}"
                                       DisplayMemberBinding="{Binding Name, x:DataType=enc:EncodePreset}" />
                             <Button Grid.Column="1" Classes="tool" Command="{Binding DeletePresetCommand}" ToolTip.Tip="{l:L encode.deleteThisPreset}"
@@ -255,7 +246,7 @@
                                         <TextBlock Grid.Row="8" Text="{l:L encode.frameRate}" IsVisible="{Binding !IsCopy}" />
                                         <Grid Grid.Row="8" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding !IsCopy}">
                                             <TextBox Text="{Binding FrameRate}" Watermark="{l:L encode.sourceEG24000}" />
-                                            <CheckBox Grid.Column="1" Content="{l:L encode.constantCfr}" IsChecked="{Binding ConstantFrameRate}" />
+                                            <CheckBox Grid.Column="1" Content="{l:L encode.constantCfr}" IsChecked="{Binding ConstantFrameRate}" VerticalAlignment="Center" />
                                         </Grid>
                                         <TextBlock Grid.Row="9" Text="{l:L encode.keyframeInterval}" IsVisible="{Binding !IsCopy}" />
                                         <NumericUpDown Grid.Row="9" Grid.Column="1" Value="{Binding KeyframeInterval}" Minimum="0" Maximum="10000" FormatString="0" IsVisible="{Binding !IsCopy}" ToolTip.Tip="{l:L encode.0EncoderDefault}" />

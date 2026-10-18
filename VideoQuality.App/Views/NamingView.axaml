@@ -28,7 +28,7 @@
             <Grid Grid.Row="1" ColumnDefinitions="2*,3*" ColumnSpacing="12">
                 <Border Classes="surface">
                     <ScrollViewer>
-                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="130,*" RowSpacing="8" ColumnSpacing="10" Margin="12,0,12,12">
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Classes="form" ColumnDefinitions="140,*" Margin="12,0,12,12">
                             <Grid Classes="cardheader" Grid.ColumnSpan="2"><TextBlock Classes="label" Text="{l:L naming.release}" /></Grid>
                             <TextBlock Grid.Row="1" Text="{l:L naming.group}" VerticalAlignment="Center" />
                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Group}" />

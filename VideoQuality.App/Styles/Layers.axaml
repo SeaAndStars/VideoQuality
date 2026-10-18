@@ -207,6 +207,29 @@
     </Style>
 
     <!-- Section heading inside flyouts and dialogs. -->
+    <!-- Forms: a label column and a field column. Labels sit on their field's centre line at the body size. -->
+    <!-- Rows are spaced by the children's margins, not RowSpacing, so a hidden row takes no space at all. -->
+    <Style Selector="Grid.form">
+        <Setter Property="ColumnSpacing" Value="10" />
+    </Style>
+    <Style Selector="Grid.form > :is(Control)">
+        <Setter Property="Margin" Value="0,4" />
+    </Style>
+    <Style Selector="Grid.form > Grid.cardheader">
+        <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+    <Style Selector="Grid.form > TextBlock">
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Grid.form NumericUpDown, Grid.form ComboBox, Grid.form TextBox">
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Grid.form > TextBlock.hint">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText2}" />
+    </Style>
+
     <Style Selector="TextBlock.section">
         <Setter Property="FontSize" Value="12" />
         <Setter Property="FontWeight" Value="SemiBold" />

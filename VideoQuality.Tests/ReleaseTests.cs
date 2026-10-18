@@ -63,6 +63,15 @@ public class ReleaseNameTests
     }
 
     [Fact]
+    public void Empty_titles_leave_no_double_space_or_dangling_slash()
+    {
+        ReleaseName untitled = Takopii with { Title = " " };
+        Assert.StartsWith("[Studio GreenTea] [01][WebRip]", untitled.FileName, StringComparison.Ordinal);
+        Assert.Equal("[绿茶字幕组] 章鱼哔的原罪 [01][WebRip][1080p][繁简日内封]", untitled.ReleaseTitle("绿茶字幕组", "章鱼哔的原罪"));
+        Assert.Equal("[绿茶字幕组] [01][WebRip][1080p][繁简日内封]", untitled.ReleaseTitle("绿茶字幕组", string.Empty));
+    }
+
+    [Fact]
     public void Web_set_is_the_mkv_and_both_mp4s()
     {
         Assert.Equal(["ASSx2].mkv", "[JPSC].mp4", "[JPTC].mp4"], Takopii.WebSet().Select(n => n.FileName[^10..]).ToArray());

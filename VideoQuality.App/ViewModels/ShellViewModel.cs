@@ -85,6 +85,7 @@ public partial class ShellViewModel : ObservableObject, IDisposable
             await Compare.HandleDropAsync([pair.Source, pair.Output], DropZone.Reference);
         };
         Encode.RevealRequested += (_, path) => RevealRequested?.Invoke(this, path);
+        Pipeline.RevealRequested += (_, path) => RevealRequested?.Invoke(this, path);
         Pipeline.CompareRequested += (_, _) => Navigate("compare");
     }
 

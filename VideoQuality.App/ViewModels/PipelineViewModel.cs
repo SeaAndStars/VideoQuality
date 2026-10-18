@@ -14,6 +14,16 @@ using VideoQuality.Core.Scoring;
 
 namespace VideoQuality.App.ViewModels;
 
+/// <summary>The video encoder the pipeline uses.</summary>
+public enum PipelineEncoder
+{
+    /// <summary>x265 10-bit CRF, as the rules require.</summary>
+    X265,
+
+    /// <summary>hevc_nvenc UHQ at constant quality; outside the rules, for comparison.</summary>
+    NvencUhq,
+}
+
 public enum StepState
 {
     Pending,
@@ -90,6 +100,11 @@ public partial class PipelineViewModel : ObservableObject
 
     public IReadOnlyList<ReleaseProfile> Profiles { get; } = Enum.GetValues<ReleaseProfile>();
 
+    public IReadOnlyList<PipelineEncoder> Encoders { get; } = Enum.GetValues<PipelineEncoder>();
+
+    /// <summary>The files the last run wrote, in order (MKV first).</summary>
+    public ObservableCollection<string> Outputs { get; } = [];
+
     public PipelineStep EncodeStep { get; } = new() { Title = Loc.T("pipeline.step.encode"), Description = Loc.T("pipeline.step.encode.description") };
 
     public PipelineStep SubsetStep { get; } = new() { Title = Loc.T("pipeline.step.subset"), Description = Loc.T("pipeline.step.subset.description") };
@@ -131,6 +146,13 @@ public partial class PipelineViewModel : ObservableObject
     public partial ReleaseProfile Profile { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNvenc))]
+    public partial PipelineEncoder Encoder { get; set; }
+
+    public bool IsNvenc => Encoder == PipelineEncoder.NvencUhq;
+
+    /// <summary>x265 CRF, or NVENC CQ.</summary>
+    [ObservableProperty]
     public partial decimal Crf { get; set; } = 20;
 
     [ObservableProperty]
@@ -156,6 +178,9 @@ public partial class PipelineViewModel : ObservableObject
 
     public event EventHandler<ToastRequest>? ToastRequested;
 
+    /// <summary>Asks the window to show a written file in the file manager.</summary>
+    public event EventHandler<string>? RevealRequested;
+
     /// <summary>Raised by "Open in Compare" so the shell can switch pages.</summary>
     public event EventHandler? CompareRequested;
 
@@ -164,7 +189,7 @@ public partial class PipelineViewModel : ObservableObject
         // The rules: BD releases are the 内封 MKV only; web releases add the two 内嵌 MP4s.
         bool bd = GreenTeaSpec.IsBd(value);
         MakeBurned = !bd;
-        Crf = bd ? 18 : 20;
+        Crf = DefaultQuality();
         Naming.Source = bd ? "BDRip" : "WebRip";
         Naming.AudioCodec = bd ? "FLAC" : "AAC";
         if (GreenTeaSpec.IsMovie(value))
@@ -176,6 +201,17 @@ public partial class PipelineViewModel : ObservableObject
             Naming.Kind = EpisodeKind.Episode;
         }
     }
+
+    partial void OnEncoderChanged(PipelineEncoder value) => Crf = DefaultQuality();
+
+    private decimal DefaultQuality() => IsNvenc ? (decimal)NvencUhq.Quality : GreenTeaSpec.IsBd(Profile) ? 18 : 20;
+
+    /// <summary>The spec preset with the chosen encoder and quality.</summary>
+    private EncodePreset Tuned(EncodePreset preset) =>
+        IsNvenc ? NvencUhq.Apply(preset, (double)Crf) : preset with { Video = preset.Video with { Quality = (double)Crf } };
+
+    [RelayCommand]
+    private void Reveal(string path) => RevealRequested?.Invoke(this, path);
 
     /// <summary>Sorts dropped files: videos (first = source, second = reference), scripts, chapters, font folder.</summary>
     public void AddPaths(IEnumerable<string?> paths)
@@ -269,10 +305,9 @@ public partial class PipelineViewModel : ObservableObject
             else
             {
                 Begin(EncodeStep);
-                EncodePreset preset = GreenTeaSpec.Preset(Profile, SubtitleDelivery.Embedded);
+                EncodePreset preset = Tuned(GreenTeaSpec.Preset(Profile, SubtitleDelivery.Embedded));
                 preset = preset with
                 {
-                    Video = preset.Video with { Quality = (double)Crf },
                     Streams = new StreamSettings { KeepChapters = false, KeepMetadata = false },
                 };
                 encoded = Path.Combine(work, "encoded.mkv");
@@ -348,6 +383,7 @@ public partial class PipelineViewModel : ObservableObject
             }
 
             outputs.Add((mkv, SubtitleDelivery.Embedded));
+            Outputs.Add(mkv);
             Done(MuxStep, Path.GetFileName(mkv) + (mux.Warnings.Count > 0 ? " " + Loc.T("pipeline.mux.warnings", mux.Warnings.Count, mux.Warnings[0]) : string.Empty));
 
             // 4. Burn the 内嵌 MP4s, one per script, from the source (or the given encode).
@@ -363,10 +399,9 @@ public partial class PipelineViewModel : ObservableObject
                 {
                     bool traditional = (SubtitleNaming.Guess(script)?.Name ?? string.Empty).EndsWith("TC", StringComparison.Ordinal);
                     ReleaseName name = traditional ? names[2] : names[1];
-                    EncodePreset burned = GreenTeaSpec.Preset(Profile, SubtitleDelivery.Burned);
+                    EncodePreset burned = Tuned(GreenTeaSpec.Preset(Profile, SubtitleDelivery.Burned));
                     burned = burned with
                     {
-                        Video = burned.Video with { Quality = (double)Crf },
                         Burn = new SubtitleBurn { File = script, FontsDirectory = FontDirectory.Length > 0 ? FontDirectory : null },
                         Streams = new StreamSettings { ChaptersFile = ffmetadata.Length > 0 ? ffmetadata : null, KeepMetadata = false, Title = name.Title },
                     };
@@ -379,6 +414,7 @@ public partial class PipelineViewModel : ObservableObject
                     }
 
                     outputs.Add((mp4, SubtitleDelivery.Burned));
+                    Outputs.Add(mp4);
                     written.Add(Path.GetFileName(mp4));
                 }
 
@@ -507,6 +543,7 @@ public partial class PipelineViewModel : ObservableObject
 
     private void ResetSteps()
     {
+        Outputs.Clear();
         foreach (PipelineStep step in Steps)
         {
             step.State = StepState.Pending;

@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using VideoQuality.Core.Encode;
 using VideoQuality.Core.Media;
+using VideoQuality.Core.Release;
 
 namespace VideoQuality.Tests;
 
@@ -190,11 +191,20 @@ public sealed class PresetSharingTests : IDisposable
             Duration = TimeSpan.FromMinutes(24),
             Streams = [new MediaStream { Kind = StreamKind.Video, Codec = "h264", Width = 1920, Height = 1080 }],
         };
+        string[] measured = ["-c:v hevc_nvenc", "-preset p7", "-tune uhq", "-pix_fmt p010le", "-rc vbr -cq 26.25 -b:v 0", "-multipass fullres -maxrate 8000k -bufsize 16000k"];
         string command = string.Join(' ', FfmpegCommandBuilder.Build(preset, "/in.mkv", source, "/out/o.mkv", "/tmp").Passes.Single());
-        foreach (string expected in new[] { "-c:v hevc_nvenc", "-preset p7", "-tune uhq", "-pix_fmt p010le", "-rc vbr -cq 26.5 -b:v 0", "-multipass fullres -maxrate 8000k -bufsize 16000k" })
+        Assert.All(measured, expected => Assert.Contains(expected, command, StringComparison.Ordinal));
+        Assert.Equal(NvencUhq.Quality, preset.Video.Quality);
+
+        // The pipeline's NVENC choice: the same video settings on the spec preset, keeping its CFR and x265 params out.
+        EncodePreset spec = NvencUhq.Apply(GreenTeaSpec.Preset(ReleaseProfile.WebEpisode, SubtitleDelivery.Embedded) with
         {
-            Assert.Contains(expected, command, StringComparison.Ordinal);
-        }
+            Video = new VideoSettings { Profile = "main10", EncoderParams = "aq-mode=3", BitDepth = 10, FrameRate = "24000/1001" },
+        }, NvencUhq.Quality);
+        command = string.Join(' ', FfmpegCommandBuilder.Build(spec, "/in.mkv", source, "/out/o.mkv", "/tmp").Passes.Single());
+        Assert.All(measured, expected => Assert.Contains(expected, command, StringComparison.Ordinal));
+        Assert.Contains("-r 24000/1001", command, StringComparison.Ordinal);
+        Assert.DoesNotContain("aq-mode", command, StringComparison.Ordinal);
     }
 
     private static string RepositoryRoot()

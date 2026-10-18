@@ -114,7 +114,7 @@ public sealed partial record ReleaseName
         get
         {
             var name = new StringBuilder();
-            name.Append('[').Append(GroupTag).Append("] ").Append(Title.Trim()).Append(" [").Append(EpisodeTag).Append("][")
+            name.Append('[').Append(GroupTag).Append("] ").Append(Spaced(Title)).Append('[').Append(EpisodeTag).Append("][")
                 .Append(Source).Append("][").Append(VideoCodec).Append(' ').Append(Resolution).Append(' ').Append(AudioCodec);
             name.Append(Delivery == SubtitleDelivery.Embedded ? " " + SubtitleFormatTag + "]" : "][" + LanguageTag + "]");
             return Sanitize(name.Append(Extension).ToString());
@@ -127,7 +127,7 @@ public sealed partial record ReleaseName
     /// </summary>
     public string ReleaseTitle(string chineseGroup, string chineseTitle)
     {
-        string names = chineseTitle.Trim().Length > 0 ? chineseTitle.Trim() + "/" + Title.Trim() : Title.Trim();
+        string names = string.Join("/", new[] { chineseTitle.Trim(), Title.Trim() }.Where(n => n.Length > 0));
         string tag = (Delivery, Subtitles, Script) switch
         {
             (SubtitleDelivery.Embedded, SubtitleSet.Bilingual, _) => "繁简日内封",
@@ -137,7 +137,14 @@ public sealed partial record ReleaseName
             (SubtitleDelivery.Burned, SubtitleSet.Monolingual, ChineseScript.Simplified) => "简体内嵌",
             _ => "繁体内嵌",
         };
-        return $"[{chineseGroup.Trim()}] {names} [{EpisodeTag}][{Source}][{Resolution}][{tag}]";
+        return $"[{chineseGroup.Trim()}] {Spaced(names)}[{EpisodeTag}][{Source}][{Resolution}][{tag}]";
+    }
+
+    /// <summary>The text and the space after it; nothing for an empty title, so no double space.</summary>
+    private static string Spaced(string text)
+    {
+        string trimmed = text.Trim();
+        return trimmed.Length > 0 ? trimmed + " " : string.Empty;
     }
 
     /// <summary>The three versions of a web-source release (内封 MKV plus a simplified and a traditional MP4).</summary>

@@ -23,7 +23,7 @@
         <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="12">
             <!-- cut -->
             <Border Classes="surface" x:Name="CutCard">
-                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto" ColumnDefinitions="110,*,Auto" RowSpacing="8" ColumnSpacing="8" Margin="12,0,12,12">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto" Classes="form" ColumnDefinitions="140,*,Auto" Margin="12,0,12,12">
                     <Grid Classes="cardheader" Grid.ColumnSpan="3"><TextBlock Classes="label" Text="{l:L trim.cut}" /></Grid>
                     <TextBlock Grid.Row="1" Text="{l:L common.source}" VerticalAlignment="Center" />
                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Source.Path, FallbackValue=''}" IsReadOnly="True" Watermark="{l:L trim.dropAVideoOn}" />
@@ -36,16 +36,16 @@
                         <TextBox Grid.Column="1" Text="{Binding End}" Watermark="00:24:00.000" />
                     </Grid>
                     <TextBlock Grid.Row="3" Text="{l:L trim.method}" VerticalAlignment="Center" />
-                    <StackPanel Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="16">
+                    <WrapPanel Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" ItemSpacing="16" LineSpacing="4">
                         <RadioButton Content="{l:L trim.streamCopyInstantStarts}" IsChecked="{Binding !ReEncode}" />
                         <RadioButton Content="{l:L trim.reEncodeFrameExact}" IsChecked="{Binding ReEncode}" />
-                    </StackPanel>
+                    </WrapPanel>
                     <TextBlock Grid.Row="4" Text="{l:L trim.preset}" VerticalAlignment="Center" IsVisible="{Binding ReEncode}" />
                     <ComboBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2" HorizontalAlignment="Stretch" IsVisible="{Binding ReEncode}"
                               ItemsSource="{Binding Encode.Presets}" SelectedItem="{Binding CutPreset, Converter={x:Static conv:KeepSelectionConverter.Instance}}"
                               DisplayMemberBinding="{Binding Name, x:DataType=enc:EncodePreset}" />
                     <TextBlock Grid.Row="5" Text="{l:L common.output2}" VerticalAlignment="Center" />
-                    <TextBox Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding CutOutput}" />
+                    <TextBox Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding CutOutput}" Watermark="{l:L trim.outputWatermark}" />
                     <Button Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="2" Classes="primary" HorizontalAlignment="Right"
                             Command="{Binding CutCommand}" IsEnabled="{Binding HasSource}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
