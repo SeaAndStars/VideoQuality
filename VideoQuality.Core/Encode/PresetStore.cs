@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using VideoQuality.Core.Diagnostics;
+using VideoQuality.Core.Localization;
 using VideoQuality.Core.Release;
 
 namespace VideoQuality.Core.Encode;
@@ -35,6 +36,22 @@ public sealed class PresetStore(string directory)
             Streams = new StreamSettings { KeepSubtitles = true, KeepAttachments = true },
             BuiltIn = true,
         },
+        new EncodePreset
+        {
+            Name = "NVENC HEVC UHQ",
+            Description = Loc.T("presets.nvencUhq.description"),
+            OutputPattern = "{name}.nvenc",
+            Video = new VideoSettings { Encoder = "hevc_nvenc", Quality = NvencUhq.Quality, Preset = "p7", Tune = "uhq", BitDepth = 10 },
+            Audio = new AudioSettings { Encoder = "aac", BitrateKbps = 256, SampleRate = 44100, Channels = 2 },
+            Streams = new StreamSettings { KeepSubtitles = true, KeepAttachments = true },
+            Custom = new CustomArguments { Video = NvencUhq.Arguments },
+            BuiltIn = true,
+        },
+        .. GreenTeaSpec.Presets.Take(2).Select(p => NvencUhq.Apply(p, NvencUhq.Quality) with
+        {
+            Name = p.Name + " · NVENC UHQ",
+            Description = Loc.T("presets.nvencUhq.greenTea"),
+        }),
         new EncodePreset
         {
             Name = "SVT-AV1 archive",

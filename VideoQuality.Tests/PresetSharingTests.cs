@@ -207,6 +207,28 @@ public sealed class PresetSharingTests : IDisposable
         Assert.DoesNotContain("aq-mode", command, StringComparison.Ordinal);
     }
 
+    /// <summary>The UHQ settings ship as built-ins too: a general one and the two GreenTea web presets on NVENC.</summary>
+    [Fact]
+    public void Built_in_uhq_presets_use_the_measured_command()
+    {
+        var source = new MediaInfo
+        {
+            Path = "/in.mkv",
+            Duration = TimeSpan.FromMinutes(24),
+            Streams = [new MediaStream { Kind = StreamKind.Video, Codec = "h264", Width = 1920, Height = 1080 }],
+        };
+        EncodePreset[] uhq = [.. PresetStore.BuiltIn.Where(p => p.Name.Contains("UHQ", StringComparison.Ordinal))];
+        Assert.Equal(["NVENC HEVC UHQ", "GreenTea Web 内封 MKV · NVENC UHQ", "GreenTea Web 内嵌 MP4 · NVENC UHQ"], uhq.Select(p => p.Name));
+        Assert.All(uhq, preset =>
+        {
+            Assert.True(preset.BuiltIn);
+            Assert.False(string.IsNullOrEmpty(preset.Description));
+            string command = string.Join(' ', FfmpegCommandBuilder.Build(preset with { Burn = null }, "/in.mkv", source, "/out/o." + preset.Container, "/tmp").Passes.Single());
+            Assert.All(new[] { "-c:v hevc_nvenc", "-preset p7", "-tune uhq", "-pix_fmt p010le", "-rc vbr -cq 26.25 -b:v 0", NvencUhq.Arguments },
+                expected => Assert.Contains(expected, command, StringComparison.Ordinal));
+        });
+    }
+
     private static string RepositoryRoot()
     {
         string? directory = AppContext.BaseDirectory;

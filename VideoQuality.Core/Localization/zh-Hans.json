@@ -738,5 +738,7 @@
   "pipeline.nvencNote": "规范要求 x265。NVENC UHQ 在 CQ 26.25 时体积与 x265 CRF 18 相当且 VMAF 更高，可用于对比或自用压制。",
   "pipeline.episode": "集数",
   "pipeline.outputFolderWatermark": "源文件旁的 release 文件夹",
-  "pipeline.written": "已输出"
+  "pipeline.written": "已输出",
+  "presets.nvencUhq.description": "RTX 40/50：hevc_nvenc p7，超高质量（uhq）调优，恒定质量 26.25，全分辨率双遍分析，10-bit。在 1080p 动画上与 x265 medium CRF 18 体积相当且 VMAF 更高。",
+  "presets.nvencUhq.greenTea": "以 NVENC UHQ（CQ 26.25）代替 x265 的绿茶预设：体积与 CRF 18 相当且 VMAF 更高。规范要求 x265，仅用于对比或自用压制。"
 }
