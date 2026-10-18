@@ -161,7 +161,7 @@
 
                 <!-- preset editor -->
                 <Border Grid.Column="1" Classes="surface">
-                    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="12,0,12,12" RowSpacing="8" DataContext="{Binding}">
+                    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="12,0,12,12" RowSpacing="8" DataContext="{Binding}">
                         <Grid Classes="cardheader"><TextBlock Classes="label" Text="{l:L encode.preset}" /></Grid>
                         <Grid Grid.Row="1" ColumnDefinitions="*,Auto,140,Auto" ColumnSpacing="6">
                             <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset, Converter={x:Static conv:KeepSelectionConverter.Instance}}"
@@ -175,7 +175,53 @@
                                 <u:IconButton.Icon><ic:SymbolIcon Symbol="Save" /></u:IconButton.Icon>
                             </u:IconButton>
                         </Grid>
-                        <ScrollViewer Grid.Row="2" DataContext="{Binding Editor}" x:DataType="vm:PresetEditor">
+                        <!-- sharing: files and online sources -->
+                        <StackPanel Grid.Row="2" Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <u:IconButton Classes="tool" Content="{l:L encode.presets.import}" Click="OnImportPresets">
+                                    <u:IconButton.Icon><ic:SymbolIcon Symbol="ArrowImport" /></u:IconButton.Icon>
+                                </u:IconButton>
+                                <u:IconButton Classes="tool" Content="{l:L encode.presets.export}" Click="OnExportPreset">
+                                    <u:IconButton.Icon><ic:SymbolIcon Symbol="ArrowExportUp" /></u:IconButton.Icon>
+                                </u:IconButton>
+                                <u:IconButton Classes="tool" Content="{l:L encode.presets.exportAll}" Click="OnExportAllPresets" />
+                            </StackPanel>
+                            <Expander Header="{l:L encode.presets.online}">
+                                <StackPanel Spacing="6">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                        <TextBox Text="{Binding PresetSource}" Watermark="{l:L encode.presets.source}" />
+                                        <u:IconButton Grid.Column="1" Classes="tool" Content="{l:L encode.presets.refresh}" Command="{Binding LoadOnlineCommand}">
+                                            <u:IconButton.Icon><ic:SymbolIcon Symbol="Globe" /></u:IconButton.Icon>
+                                        </u:IconButton>
+                                    </Grid>
+                                    <TextBlock Text="{Binding OnlineStatus}" Classes="muted" FontSize="11" TextWrapping="Wrap"
+                                               IsVisible="{Binding OnlineStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                    <ScrollViewer MaxHeight="220" IsVisible="{Binding HasOnlinePresets}">
+                                        <ItemsControl ItemsSource="{Binding OnlinePresets}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="enc:OnlinePreset">
+                                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,2">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Preset.Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding Preset.Description}" Classes="muted" FontSize="11" TextWrapping="Wrap"
+                                                                       IsVisible="{Binding Preset.Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                                        </StackPanel>
+                                                        <Button Grid.Column="1" Classes="tool" VerticalAlignment="Center" ToolTip.Tip="{l:L encode.presets.download}"
+                                                                Command="{Binding $parent[UserControl].((vm:EncodeViewModel)DataContext).DownloadOnlineCommand}" CommandParameter="{Binding}">
+                                                            <ic:SymbolIcon Symbol="ArrowDownload" />
+                                                        </Button>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                    <Button Classes="tool" HorizontalAlignment="Left" Content="{l:L encode.presets.downloadAll}"
+                                            Command="{Binding DownloadAllOnlineCommand}" IsVisible="{Binding HasOnlinePresets}" />
+                                </StackPanel>
+                            </Expander>
+                        </StackPanel>
+
+                        <ScrollViewer Grid.Row="3" DataContext="{Binding Editor}" x:DataType="vm:PresetEditor">
                             <StackPanel>
                                 <TextBlock Text="{Binding Description}" Classes="muted" FontSize="12" TextWrapping="Wrap" Margin="2,0,2,8"
                                            IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -340,7 +386,7 @@
                                 </Expander>
                             </StackPanel>
                         </ScrollViewer>
-                        <StackPanel Grid.Row="3" Spacing="4">
+                        <StackPanel Grid.Row="4" Spacing="4">
                             <ItemsControl ItemsSource="{Binding Warnings}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="x:String">

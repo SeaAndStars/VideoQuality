@@ -108,6 +108,7 @@ public partial class EncodeViewModel : ObservableObject
         };
         Queue.Concurrency = Settings.EncodeConcurrency;
         Editor.SetAvailable(Settings.Encoder);
+        PresetSource = Settings.Compare.PersistedSettings.PresetSource ?? Core.Encode.PresetSource.Default;
         ReloadPresets();
         SelectedPreset = Presets[0];
     }
@@ -143,6 +144,21 @@ public partial class EncodeViewModel : ObservableObject
     [ObservableProperty]
     public partial string SaveName { get; set; } = string.Empty;
 
+    /// <summary>Presets found at <see cref="PresetSource"/>, ready to download.</summary>
+    public ObservableCollection<OnlinePreset> OnlinePresets { get; } = [];
+
+    [ObservableProperty]
+    public partial string PresetSource { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(LoadOnlineCommand))]
+    public partial bool IsLoadingOnline { get; set; }
+
+    [ObservableProperty]
+    public partial string OnlineStatus { get; set; } = string.Empty;
+
+    public bool HasOnlinePresets => OnlinePresets.Count > 0;
+
     public bool HasInputs => Inputs.Count > 0;
 
     public bool HasJobs => Jobs.Count > 0;
@@ -165,6 +181,112 @@ public partial class EncodeViewModel : ObservableObject
     }
 
     partial void OnOutputDirectoryChanged(string value) => UpdatePreview();
+
+    // The project's own source is the default, so it is not written into the settings.
+    partial void OnPresetSourceChanged(string value) =>
+        Settings.Compare.UpdateSettings(s => s.PresetSource =
+            string.IsNullOrWhiteSpace(value) || value.Trim() == Core.Encode.PresetSource.Default ? null : value.Trim());
+
+    // ---------------------------------------------------------------- sharing presets
+
+    /// <summary>Imports preset files (one preset, an array or a bundle each); names already taken get a number.</summary>
+    public void ImportPresetFiles(IEnumerable<string> paths)
+    {
+        var names = new List<string>();
+        foreach (string path in paths)
+        {
+            try
+            {
+                names.AddRange(Store.Import(File.ReadAllText(path)).Select(p => p.Name));
+            }
+            catch (Exception ex) // unreadable, not JSON, not presets
+            {
+                Toast(new ToastRequest(ToastKind.Error, Loc.T("encode.presets.failed", $"{Path.GetFileName(path)}: {ex.Message}")));
+            }
+        }
+
+        Imported(names);
+    }
+
+    /// <summary>Writes the preset being edited, under the name in the name box.</summary>
+    public void ExportCurrentPreset(string path)
+    {
+        string name = SaveName.Trim().Length > 0 ? SaveName.Trim() : Editor.Name;
+        Export(path, [Editor.ToPreset() with { Name = name }], single: true);
+    }
+
+    /// <summary>Writes every preset of the user's own into one bundle file.</summary>
+    public void ExportUserPresets(string path)
+    {
+        IReadOnlyList<EncodePreset> mine = Store.User();
+        if (mine.Count == 0)
+        {
+            Toast(new ToastRequest(ToastKind.Info, Loc.T("encode.presets.nothingToExport")));
+            return;
+        }
+
+        Export(path, mine, single: false);
+    }
+
+    private void Export(string path, IReadOnlyList<EncodePreset> presets, bool single)
+    {
+        try
+        {
+            File.WriteAllText(path, single ? PresetStore.Write(presets[0] with { BuiltIn = false }) : PresetStore.WriteBundle(presets));
+            Toast(new ToastRequest(ToastKind.Success, Loc.T("encode.presets.exported", presets.Count, path)));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Toast(new ToastRequest(ToastKind.Error, Loc.T("encode.presets.failed", ex.Message)));
+        }
+    }
+
+    private bool CanLoadOnline() => !IsLoadingOnline;
+
+    /// <summary>Lists the presets at <see cref="PresetSource"/> (a GitHub folder by default).</summary>
+    [RelayCommand(CanExecute = nameof(CanLoadOnline))]
+    private async Task LoadOnlineAsync()
+    {
+        IsLoadingOnline = true;
+        OnlinePresets.Clear();
+        string source = string.IsNullOrWhiteSpace(PresetSource) ? Core.Encode.PresetSource.Default : PresetSource.Trim();
+        OnlineStatus = Loc.T("encode.presets.loading", source);
+        try
+        {
+            foreach (OnlinePreset preset in await new OnlinePresets(Settings.Services.Http).ListAsync(source))
+            {
+                OnlinePresets.Add(preset);
+            }
+
+            OnlineStatus = OnlinePresets.Count > 0 ? Loc.T("encode.presets.found", OnlinePresets.Count) : Loc.T("encode.presets.none");
+        }
+        catch (Exception ex) // a bad source, offline, rate-limited, not JSON
+        {
+            OnlineStatus = ex.Message;
+        }
+        finally
+        {
+            IsLoadingOnline = false;
+            OnPropertyChanged(nameof(HasOnlinePresets));
+        }
+    }
+
+    [RelayCommand]
+    private void DownloadOnline(OnlinePreset preset) => Imported([.. Store.Import([preset.Preset]).Select(p => p.Name)]);
+
+    [RelayCommand]
+    private void DownloadAllOnline() => Imported([.. Store.Import(OnlinePresets.Select(p => p.Preset)).Select(p => p.Name)]);
+
+    private void Imported(IReadOnlyList<string> names)
+    {
+        if (names.Count == 0)
+        {
+            return;
+        }
+
+        ReloadPresets(names[^1]);
+        Toast(new ToastRequest(ToastKind.Success, Loc.T("encode.presets.imported", names.Count, string.Join(", ", names))));
+    }
 
     public void ReloadPresets(string? select = null)
     {

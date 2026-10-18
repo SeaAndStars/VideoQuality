@@ -127,8 +127,7 @@ public sealed class CompareTests : IDisposable
         Assert.Equal("reference.mkv — VideoQuality", vm.WindowTitle);
         Assert.NotEmpty(vm.StatsText);
         Assert.Equal(90, vm.CurrentScore);
-        Assert.NotNull(vm.ReferenceBitmap);
-        Assert.NotNull(vm.DistortedBitmap);
+        await Ui.UntilAsync(() => vm.ReferenceBitmap is not null && vm.DistortedBitmap is not null); // frames decode in the background
         Assert.True(entry.BitrateKbps > 0);
         Assert.Equal("CPU", vm.BackendChip); // no GPU
         Assert.Equal("NEG", vm.ModelChip);

@@ -28,6 +28,9 @@ public sealed class UserSettings
     /// <summary>UI language code (<c>en</c>, <c>zh-Hans</c>); empty follows the system.</summary>
     public string? Language { get; set; }
 
+    /// <summary>Where the Encode page looks for online presets; empty uses the project's own.</summary>
+    public string? PresetSource { get; set; }
+
     public CompareMode CompareMode { get; set; } = CompareMode.SideBySide;
 
     public bool FixedScale { get; set; }

@@ -1,0 +1,9 @@
+{
+  "name": "NVENC AV1 fast",
+  "description": "RTX 40/50 series: AV1 on the GPU at CQ 30 (preset p6), 10-bit, Opus audio; streams kept.",
+  "container": "mkv",
+  "outputPattern": "{name}.av1",
+  "video": { "encoder": "av1_nvenc", "mode": "Quality", "quality": 30, "preset": "p6", "bitDepth": 10 },
+  "audio": { "encoder": "libopus", "bitrateKbps": 160, "sampleRate": 48000 },
+  "streams": { "keepSubtitles": true, "keepChapters": true, "keepMetadata": true, "keepAttachments": true }
+}

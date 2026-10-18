@@ -1,0 +1,8 @@
+{
+  "name": "SVT-AV1 small file",
+  "description": "Smallest files at good quality: SVT-AV1 preset 6, CRF 32, 10-bit, Opus 128k.",
+  "container": "mkv",
+  "outputPattern": "{name}.small",
+  "video": { "encoder": "libsvtav1", "mode": "Quality", "quality": 32, "preset": "6", "bitDepth": 10 },
+  "audio": { "encoder": "libopus", "bitrateKbps": 128, "sampleRate": 48000 }
+}

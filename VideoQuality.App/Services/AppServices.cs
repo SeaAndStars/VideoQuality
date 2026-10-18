@@ -14,6 +14,11 @@ public sealed class AppServices
 
     public IProcessRunner Processes { get; init; } = SystemProcessRunner.Instance;
 
+    /// <summary>HTTP for online presets; tests pass a client with a scripted handler.</summary>
+    public HttpClient Http { get; init; } = SharedHttp;
+
+    private static readonly HttpClient SharedHttp = new() { Timeout = TimeSpan.FromSeconds(20) };
+
     /// <summary>Environment variables (VQ_FFMPEG, …); tests pass their own.</summary>
     public Func<string, string?> Environment { get; init; } = System.Environment.GetEnvironmentVariable;
 

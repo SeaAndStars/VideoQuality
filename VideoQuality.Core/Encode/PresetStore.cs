@@ -105,10 +105,69 @@ public sealed class PresetStore(string directory)
         return true;
     }
 
+    /// <summary>
+    /// Saves presets from a file someone shared (one preset, an array, or a bundle). A name that is
+    /// already taken gets " (2)", " (3)", …, so nothing of the user's is overwritten.
+    /// </summary>
+    public IReadOnlyList<EncodePreset> Import(string json) => Import(Parse(json));
+
+    /// <inheritdoc cref="Import(string)"/>
+    public IReadOnlyList<EncodePreset> Import(IEnumerable<EncodePreset> presets)
+    {
+        var saved = new List<EncodePreset>();
+        foreach (EncodePreset preset in presets)
+        {
+            saved.Add(Save(preset with { Name = FreeName(preset.Name.Trim()) }));
+        }
+
+        return saved;
+    }
+
+    /// <summary>The user's own presets (not the built-ins).</summary>
+    public IReadOnlyList<EncodePreset> User() => [.. All().Where(p => !p.BuiltIn)];
+
+    private string FreeName(string name)
+    {
+        string baseName = name.Length == 0 ? "Preset" : name;
+        string candidate = baseName;
+        for (int n = 2; Taken(candidate); n++)
+        {
+            candidate = $"{baseName} ({n})";
+        }
+
+        return candidate;
+    }
+
+    private bool Taken(string name) =>
+        File.Exists(PathOf(name)) || BuiltIn.Any(b => string.Equals(b.Name, name, StringComparison.OrdinalIgnoreCase));
+
     public static string Write(EncodePreset preset) => JsonSerializer.Serialize(preset, PresetJsonContext.Default.EncodePreset);
 
     public static EncodePreset Read(string json) =>
         JsonSerializer.Deserialize(json, PresetJsonContext.Default.EncodePreset) ?? throw new JsonException("empty preset");
+
+    /// <summary>Several presets in one shareable file.</summary>
+    public static string WriteBundle(IEnumerable<EncodePreset> presets) => JsonSerializer.Serialize(
+        new PresetBundle { Presets = [.. presets.Select(p => p with { BuiltIn = false })] }, PresetJsonContext.Default.PresetBundle);
+
+    /// <summary>
+    /// The presets in a shared file: a bundle (<c>{"format": "videoquality-presets", "presets": […]}</c>),
+    /// a JSON array of presets, or a single preset. Built-in flags in the file are ignored.
+    /// </summary>
+    public static IReadOnlyList<EncodePreset> Parse(string json)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        JsonElement root = document.RootElement;
+        IReadOnlyList<EncodePreset> presets = root.ValueKind switch
+        {
+            JsonValueKind.Array => root.Deserialize(PresetJsonContext.Default.ListEncodePreset)!,
+            JsonValueKind.Object when root.TryGetProperty("presets", out _) => root.Deserialize(PresetJsonContext.Default.PresetBundle)!.Presets,
+            JsonValueKind.Object => [root.Deserialize(PresetJsonContext.Default.EncodePreset)!],
+            _ => throw new JsonException(Localization.Loc.T("presets.error.notPresets")),
+        };
+
+        return [.. presets.Select(p => p with { BuiltIn = false })];
+    }
 
     private string PathOf(string name) => Path.Combine(Directory, ReleaseName.Sanitize(name) + ".json");
 }
@@ -116,4 +175,16 @@ public sealed class PresetStore(string directory)
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, UseStringEnumConverter = true)]
 [JsonSerializable(typeof(EncodePreset))]
+[JsonSerializable(typeof(List<EncodePreset>))]
+[JsonSerializable(typeof(PresetBundle))]
 internal sealed partial class PresetJsonContext : JsonSerializerContext;
+
+/// <summary>The file format for sharing several presets.</summary>
+public sealed record PresetBundle
+{
+    public string Format { get; init; } = "videoquality-presets";
+
+    public int Version { get; init; } = 1;
+
+    public List<EncodePreset> Presets { get; init; } = [];
+}

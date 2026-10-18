@@ -1,0 +1,9 @@
+{
+  "name": "x265 10-bit anime archive",
+  "description": "Animation at near-transparent quality: x265 slower, CRF 18, 10-bit, tune animation; audio, subtitles, fonts and chapters kept.",
+  "container": "mkv",
+  "outputPattern": "{name}.x265",
+  "video": { "encoder": "libx265", "mode": "Quality", "quality": 18, "preset": "slower", "tune": "animation", "bitDepth": 10, "encoderParams": "aq-mode=3:psy-rd=1.5:deblock=-1,-1" },
+  "audio": { "encoder": "copy" },
+  "streams": { "keepSubtitles": true, "keepChapters": true, "keepMetadata": true, "keepAttachments": true }
+}

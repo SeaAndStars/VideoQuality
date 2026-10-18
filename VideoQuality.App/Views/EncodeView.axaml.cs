@@ -26,4 +26,26 @@ public partial class EncodeView : UserControl
             ViewModel.OutputDirectory = folder;
         }
     }
+
+    private static readonly (string Name, string[] Patterns) PresetFiles = (Loc.T("picker.type.presets"), ["*.json"]);
+
+    private async void OnImportPresets(object? sender, RoutedEventArgs e) =>
+        ViewModel.ImportPresetFiles(await PageIo.PickFilesAsync(this, Loc.T("encode.picker.importPresets"), true, PresetFiles));
+
+    private async void OnExportPreset(object? sender, RoutedEventArgs e)
+    {
+        string name = ViewModel.SaveName.Trim().Length > 0 ? ViewModel.SaveName.Trim() : ViewModel.Editor.Name;
+        if (await PageIo.PickSaveFileAsync(this, Loc.T("encode.picker.exportPresets"), Core.Release.ReleaseName.Sanitize(name) + ".json", "json") is { } file)
+        {
+            ViewModel.ExportCurrentPreset(file);
+        }
+    }
+
+    private async void OnExportAllPresets(object? sender, RoutedEventArgs e)
+    {
+        if (await PageIo.PickSaveFileAsync(this, Loc.T("encode.picker.exportPresets"), "presets.json", "json") is { } file)
+        {
+            ViewModel.ExportUserPresets(file);
+        }
+    }
 }

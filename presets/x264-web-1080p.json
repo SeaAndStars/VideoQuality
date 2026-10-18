@@ -1,0 +1,9 @@
+{
+  "name": "x264 web 1080p MP4",
+  "description": "Plays everywhere: H.264 High at CRF 21, scaled to 1080p, 8-bit, AAC 192k, fast start.",
+  "container": "mp4",
+  "outputPattern": "{name}.web",
+  "video": { "encoder": "libx264", "mode": "Quality", "quality": 21, "preset": "slow", "profile": "high", "bitDepth": 8 },
+  "frame": { "width": 1920, "height": 0 },
+  "audio": { "encoder": "aac", "bitrateKbps": 192, "sampleRate": 48000, "channels": 2 }
+}
