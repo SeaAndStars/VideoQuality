@@ -193,6 +193,24 @@ GitHub; the exact library versions are pinned by the build scripts at the same t
 https://github.com/BtbN/FFmpeg-Builds. A copy of the complete corresponding source is available on
 request for three years (open an issue at https://github.com/SeaAndStars/VideoQuality).
 
+FFMPEGFREEUI
+The encoder catalog (which encoders the Encode page offers, with their presets, tunes and profiles)
+and the layout of the preset panels were adapted from FFmpegFreeUI (3FUI) by 1059 Studio,
+https://github.com/Lake1059/FFmpegFreeUI, MIT License:
+
+  Copyright (c) 2025 1059 Studio
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+  associated documentation files (the "Software"), to deal in the Software without restriction,
+  including without limitation the rights to use, copy, modify, merge, publish, distribute,
+  sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions: The above copyright notice and this
+  permission notice shall be included in all copies or substantial portions of the Software.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+  NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+  DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+  OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 NATIVE LIBRARIES (in ffmpeg/)
   libvmaf v3.2.1       BSD-2-Clause-Patent    https://github.com/Netflix/vmaf
   dav1d 1.5.1          BSD-2-Clause           https://code.videolan.org/videolan/dav1d

@@ -56,22 +56,49 @@ VQ_PROGRESS_REF=/tmp/vqtest/ref1080.mkv VQ_PROGRESS_ENCODE=/tmp/vqtest/dist1080.
 
 ## Tests
 
+Two test projects cover all three assemblies, and the bar is **100% line and branch coverage** of
+VideoQuality.Core, VideoQuality.App and VideoQuality.Cli. Nothing is excluded by hand; only
+compiler- and source-generated code is left out.
+
+| Project | What it runs |
+|---|---|
+| `VideoQuality.Tests` | Core and CLI: builders, parsers, fonts, decoding of generated clips, the encode queue, mkvtoolnix and VMAF against scripted tools, and the real app entry point started with `--headless --self-test` |
+| `VideoQuality.App.Tests` | Every view model and view on Avalonia.Headless: real controls, mouse, keyboard, drag and drop, toasts, pickers |
+
+The tests make their own media with the GPL encoder ffmpeg, so they need it and MKVToolNix:
+
 ```bash
-dotnet test VideoQuality.Tests/VideoQuality.Tests.csproj
+./scripts/fetch-ffmpeg-gpl.sh linux-x64 ~/vq-encoder
+export VQ_ENCODER_FFMPEG=~/vq-encoder/ffmpeg     # or put a GPL ffmpeg on PATH
+sudo apt install mkvtoolnix                       # mkvmerge / mkvextract on PATH
+dotnet test VideoQuality.Tests && dotnet test VideoQuality.App.Tests
 ```
 
-Unit tests cover the pure parts: the `-progress` parser, pooled statistics, packet-index bitrate and
-keyframe math, CSV/JSON export, and the difference image. Integration tests are marked
-`[SkippableFact]` and skip unless a real clip and a VMAF-enabled ffmpeg are available:
+External processes go through `IProcessRunner`: `ScriptedRunner` answers in memory and
+`FakeTool` is a real executable with scripted output, so CUDA, missing GPUs, failed and cancelled
+runs are all tested without the hardware. The App takes the same seams through `AppServices`
+(processes, settings store, environment), `PageIo.Dialogs` (file pickers) and `ToastHost.Ask`
+(questions).
+
+### Coverage
 
 ```bash
-VQ_TEST_VIDEO=/path/to/ref.mkv dotnet test VideoQuality.Tests/VideoQuality.Tests.csproj
+dotnet tool restore
+./scripts/coverage.sh                       # Linux run; fails below 100%
+./scripts/coverage.sh windows.json          # merged with a Windows run's coverlet JSON
+VQ_COVERAGE_MIN=99 ./scripts/coverage.sh    # a lower bar while writing tests
 ```
 
-With `VQ_TEST_VIDEO` set they verify that the same file scores ≈100, that CPU and CUDA agree on 8-bit
-input, that a decoded frame matches ffmpeg's own BGRA extraction, and that frames reached by stepping
-backwards are identical to a fresh decode. Set `VQ_FFMPEG` if the ffmpeg to use is not the
-auto-resolved one.
+Some branches only run on one OS (Windows APIs, `.exe` names, `NUL`), so 100% needs a Windows run
+too. `coverage.sh` chains coverlet's JSON with `MergeWith`, which keeps the hits of each branch
+(Cobertura only records how many of a line's branches ran, so it cannot combine runs), and
+`scripts/coverage-paths.py` maps another checkout's paths onto this one. The release workflow does
+exactly this: the Windows job uploads its JSON, and the Linux job merges it and enforces 100%. The
+HTML report is written to `artifacts/coverage/report/`.
+
+To produce the Windows JSON locally, run the same `dotnet test VideoQuality.Tests` with
+`/p:CollectCoverage=true /p:CoverletOutputFormat=json` on Windows (see the `test-windows` job), from
+the same commit: the line numbers must match.
 
 ## Benchmarks
 
@@ -144,7 +171,9 @@ VideoQuality.slnx          solution
 VideoQuality.Core/         scoring, decoding, models, jobs (no UI)
 VideoQuality.App/          Avalonia UI
 VideoQuality.Cli/          headless commands
-VideoQuality.Tests/        xUnit unit tests + skippable integration tests
+VideoQuality.Tests/        Core and CLI tests, plus the app started headless (--self-test)
+VideoQuality.App.Tests/    view models and views on Avalonia.Headless
+VideoQuality.Tests.FakeTool/ a scriptable stand-in for ffmpeg, mkvmerge, nvidia-smi
 VideoQuality.Benchmarks/   BenchmarkDotNet benchmarks for decoding and difference imaging
 packaging/linux/           .desktop entry (Open With) and launcher script
 scripts/build-ffmpeg-windows.sh   cross-compiles FFmpeg + libvmaf CUDA for Windows (LGPL, redistributable)
@@ -155,6 +184,8 @@ scripts/package.sh <rid>          release archive for win-x64 (.zip) or linux-x6
 artifacts/                 release output (ignored)
 scripts/verify.sh          clean build, solution-membership check, tests, probe
 scripts/capture-docs.sh    regenerates the documentation screenshots
+scripts/coverage.sh        both test projects with coverage, merged, 100% required
+scripts/make-test-cff-font.py builds the CC0 CFF test font in VideoQuality.Tests/Fixtures
 docs/                      user and developer documentation
   usage.md                 UI and CLI
   ffmpeg-cuda.md           build recipe, GPU policy, troubleshooting

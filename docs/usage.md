@@ -12,8 +12,14 @@ Every way in goes through one router, so the rules are the same everywhere:
    the matching zone.
 3. **Paste** (`Ctrl+V`): files on the clipboard, or one path per line of text (`file://` URIs work).
 4. **Startup arguments and "Open With"**:
-   `VideoQuality.App [<reference>] [<encode> …] [--mode=wipe|flicker|difference]`. A single file is
-   enough; it becomes the reference.
+   `VideoQuality.App [<reference>] [<encode> …] [--mode=wipe|flicker|difference] [--page=<page>]`.
+   A single file is enough; it becomes the reference. `--page=` opens a page (`mediainfo`, `extract`,
+   `encode`, `trim`, `subset`, `chapters`, `mux`, `naming`, `pipeline`, `monitor`, `settings`) and
+   hands it the files as if they were dropped there; scripts alone (`.ass`/`.ssa`) open Font Subset.
+
+`--self-test` starts the app, opens the main window and exits with code 0, and `--headless` runs it
+without a window system. Together they make a smoke test for an install or a CI machine:
+`VideoQuality.App --headless --self-test`.
 
 The rules:
 

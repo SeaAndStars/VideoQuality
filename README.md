@@ -50,20 +50,37 @@
   frames nobody sees and a byte-budgeted frame cache
   ([benchmarks](docs/development.md#benchmarks)).
 
-**Release toolkit** (left navigation: Compare · Font Subset · Extract · Mux · Pipeline)
+**Release toolkit** (left navigation, grouped as inspect · make · automate)
+- **Media Info.** What a file holds (streams, languages, flags, attachments, chapters) and a check
+  against the group's release rules (codec, bit depth, frame rate, audio, track names, size).
+- **Encode (压制).** A preset-driven ffmpeg queue in the spirit of
+  [FFmpegFreeUI](https://github.com/Lake1059/FFmpegFreeUI): x264, x265, SVT-AV1 and NVENC/QSV/AMF;
+  CRF, QP, bitrate, two-pass and target size; scaling, cropping, deinterlacing, denoise, colour tags,
+  burned-in subtitles, audio and stream options, custom arguments and a live command preview.
+  Jobs show progress, speed, ETA and the projected size, and can be paused, stopped and retried.
+  Built-in presets follow the group's rules (x265 10-bit, the size per 24 minutes, AAC or FLAC).
+- **Trim & Merge (切割/合并).** Cut by time with stream copy (with a keyframe warning) or a
+  frame-exact re-encode; join files with mkvmerge's append or ffmpeg's concat, after a
+  compatibility check.
 - **Font Subset.** Our own ASS font subsetter on HarfBuzz: collects every character each font draws
   (`\fn`, `\b`, `\i`, `\r`, vertical `@` fonts), matches faces the way renderers do, subsets and renames
   them to stable 8-character families, rewrites the scripts and verifies every glyph survived.
+- **Chapters.** Import from a video or a chapter file, name OP/ED/Chapter*N*, check the marks, save
+  Matroska XML or OGM, and send them to Mux.
 - **Extract (抽流).** Pick tracks, embedded fonts and chapters and pull them out with `mkvextract`;
   MP4 and other containers are remuxed first.
 - **Mux (混流).** Video, audio, scripts, a fonts folder and chapters into one MKV with per-track
-  language, name, default and forced flags. Script names such as `JPSC`/`JPTC` become `zh-Hans`
-  简体中文 / `zh-Hant` 繁體中文 automatically.
-- **Release pipeline.** One click: subset → mux → verify the MKV → VMAF of the release against the
-  source.
-- Extract and Mux run [MKVToolNix](https://mkvtoolnix.download)'s `mkvmerge`/`mkvextract`, bundled
+  language, name, default and forced flags, named the group's way (`ja` audio, `zh` JPSC/JPTC/SC/TC
+  subtitles) or generically.
+- **Naming.** Release file names and titles from a form, a release name or a video's properties.
+- **Release pipeline.** One run: encode → subset → mux the MKV → burn the MP4s → check every file
+  → VMAF of the encode against its source.
+- **Monitor.** CPU, memory and NVIDIA GPU load (encoder/decoder/VRAM) and each running encode.
+- Encoding uses a separate **GPL ffmpeg** run as its own process (`tools/ffmpeg-encode/`, a pinned
+  BtbN build with its source attached to each release); the app itself links only the LGPL libav.
+  Extract and Mux run [MKVToolNix](https://mkvtoolnix.download)'s `mkvmerge`/`mkvextract`, bundled
   in `tools/mkvtoolnix/` (unmodified upstream 97.0 binaries, checksum-pinned; GPL-2.0, with the
-  source attached to each release). A folder set in Settings takes precedence.
+  source attached to each release). Folders set in Settings take precedence.
 
 **Workflow**
 
@@ -217,7 +234,9 @@ and [Ursa](https://github.com/irihitech/Ursa.Avalonia) ·
 
 Verified on Ubuntu 26.04 (CUDA 13.1) and Windows 10, RTX 5060 Ti: 8-bit and 10-bit scoring,
 H.264/HEVC/AV1, all compare modes, multi-encode comparison, with identical CPU scores on both
-platforms. 64 tests (60 unit/ABI, 4 integration that run when `VQ_TEST_VIDEO` points at a clip).
+platforms. 555 tests (423 for Core and the CLI, 132 for the UI on Avalonia.Headless) run on Linux
+and Windows, with **100% line and branch coverage** of Core, App and CLI enforced in CI
+([details](docs/development.md#tests)).
 
 Not yet: rate-distortion plots and BD-rate, worst-frame navigation, graph hover tooltips, score
 caching, resolution-mismatch scaling, frame-offset control, colour-matrix-aware RGB conversion
