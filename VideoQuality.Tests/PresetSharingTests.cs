@@ -179,6 +179,24 @@ public sealed class PresetSharingTests : IDisposable
         }
     }
 
+    /// <summary>The NVENC UHQ preset produces exactly the settings that were measured against x265.</summary>
+    [Fact]
+    public void The_nvenc_uhq_preset_is_the_measured_command()
+    {
+        EncodePreset preset = PresetStore.Parse(File.ReadAllText(Path.Combine(RepositoryRoot(), "presets", "nvenc-hevc-uhq.json"))).Single();
+        var source = new MediaInfo
+        {
+            Path = "/in.mkv",
+            Duration = TimeSpan.FromMinutes(24),
+            Streams = [new MediaStream { Kind = StreamKind.Video, Codec = "h264", Width = 1920, Height = 1080 }],
+        };
+        string command = string.Join(' ', FfmpegCommandBuilder.Build(preset, "/in.mkv", source, "/out/o.mkv", "/tmp").Passes.Single());
+        foreach (string expected in new[] { "-c:v hevc_nvenc", "-preset p7", "-tune uhq", "-pix_fmt p010le", "-rc vbr -cq 26.5 -b:v 0", "-multipass fullres -maxrate 8000k -bufsize 16000k" })
+        {
+            Assert.Contains(expected, command, StringComparison.Ordinal);
+        }
+    }
+
     private static string RepositoryRoot()
     {
         string? directory = AppContext.BaseDirectory;

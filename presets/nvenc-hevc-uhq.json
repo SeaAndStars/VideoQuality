@@ -1,0 +1,10 @@
+{
+  "name": "NVENC HEVC UHQ (x265 CRF 18 class)",
+  "description": "RTX 40/50: hevc_nvenc p7 with the ultra-high-quality tune, constant quality 26.5, full-resolution two-pass analysis, 10-bit. On a 24-minute 1080p anime episode it matched an x265 medium CRF 18 encode at 4% less size with a higher VMAF (NEG 95.26 vs 95.10, p1 92.0 vs 91.2), in under 6 minutes. Raise CQ for smaller files (27: 12% smaller, still ahead).",
+  "container": "mkv",
+  "outputPattern": "{name}.nvenc",
+  "video": { "encoder": "hevc_nvenc", "mode": "Quality", "quality": 26.5, "preset": "p7", "tune": "uhq", "bitDepth": 10 },
+  "audio": { "encoder": "aac", "bitrateKbps": 256, "sampleRate": 44100, "channels": 2 },
+  "streams": { "keepSubtitles": true, "keepChapters": true, "keepMetadata": true, "keepAttachments": true },
+  "custom": { "video": "-multipass fullres -maxrate 8000k -bufsize 16000k" }
+}
