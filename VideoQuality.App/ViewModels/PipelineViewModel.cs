@@ -39,7 +39,8 @@ public partial class PipelineStep : ObservableObject
 {
     public required string Title { get; init; }
 
-    public required string Description { get; init; }
+    [ObservableProperty]
+    public required partial string Description { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsPending), nameof(IsRunning), nameof(IsDone), nameof(IsFailed), nameof(IsSkipped))]
@@ -280,7 +281,11 @@ public partial class PipelineViewModel : ObservableObject
         }
     }
 
-    partial void OnEncoderChanged(PipelineEncoder value) => Crf = DefaultQuality();
+    partial void OnEncoderChanged(PipelineEncoder value)
+    {
+        Crf = DefaultQuality();
+        EncodeStep.Description = Loc.T(IsNvenc ? "pipeline.step.encode.nvenc" : "pipeline.step.encode.description");
+    }
 
     private decimal DefaultQuality() => IsNvenc ? (decimal)NvencUhq.Quality : GreenTeaSpec.IsBd(Profile) ? 18 : 20;
 

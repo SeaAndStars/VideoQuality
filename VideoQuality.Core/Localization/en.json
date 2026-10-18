@@ -18,7 +18,7 @@
   "chapters.error.time": "Not a chapter time: {0}",
   "chapters.import": "Import",
   "chapters.importEditAndName": "Import, edit and name chapters (OP, ED, Chapter1 …), then save them or send them to Mux.",
-  "chapters.name": "Name",
+  "chapters.name": "Auto-name",
   "chapters.noProblemsFound": "No problems found.",
   "chapters.op": "OP",
   "chapters.opEdForThe": "OP / ED for the marked rows, Chapter1, Chapter2 … for the rest",
@@ -525,7 +525,7 @@
   "pipeline.status.stepFailed": "{0} failed.",
   "pipeline.status.stopped": "Pipeline stopped: {0}",
   "pipeline.step.burn": "Burn-in MP4s",
-  "pipeline.step.burn.description": "One MP4 per script with the subtitles burned in (简日 / 繁日 内嵌), chapters included.",
+  "pipeline.step.burn.description": "Each MP4 in Outputs, with its script burned in (简日 / 繁日 / 简体 / 繁体 内嵌), chapters included.",
   "pipeline.step.encode": "Encode",
   "pipeline.step.encode.description": "x265 10-bit CRF, constant 23.976 fps, audio by the rules (no GPU encoders).",
   "pipeline.step.mux": "Mux",
@@ -752,5 +752,7 @@
   "pipeline.burnLanguage": "Language tag in the file name",
   "pipeline.noMp4s": "No MP4s: add one, or drop scripts.",
   "pipeline.stepEnabled": "Run this step",
-  "pipeline.status.inferred": "Read {0}: {1}, {2} script(s). Check the fields, then run."
+  "pipeline.status.inferred": "Read {0}: {1}, {2} script(s). Check the fields, then run.",
+  "pipeline.step.encode.nvenc": "NVENC HEVC UHQ 10-bit at constant quality, constant 23.976 fps, audio by the rules. Outside the rules (x265 only): for comparison.",
+  "chapters.list": "CHAPTERS"
 }

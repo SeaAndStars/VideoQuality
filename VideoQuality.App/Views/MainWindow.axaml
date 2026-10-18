@@ -67,7 +67,7 @@
         </Border>
 
         <!-- Every page stays alive; only the selected one is shown, so switching never loses work. -->
-        <Panel Grid.Column="1">
+        <Panel Grid.Column="1" Classes="pages">
             <views:CompareView DataContext="{Binding Compare}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).PageKey, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=compare}" />
             <views:MediaInfoView DataContext="{Binding MediaInfo}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).PageKey, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=mediainfo}" />
             <views:ExtractView DataContext="{Binding Extract}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).PageKey, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=extract}" />

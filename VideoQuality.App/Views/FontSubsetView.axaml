@@ -49,7 +49,7 @@
                                            Text="{l:L subset.dropAssFilesOr}" />
                             </StackPanel>
                             <ScrollViewer IsVisible="{Binding HasScripts}">
-                                <ItemsControl ItemsSource="{Binding Scripts}">
+                                <ItemsControl Classes="reveal" ItemsSource="{Binding Scripts}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="x:String">
                                             <Border Classes="row">
@@ -106,7 +106,7 @@
                         </Grid>
                         <ScrollViewer Grid.Row="2">
                             <StackPanel Spacing="8">
-                                <ItemsControl ItemsSource="{Binding Fonts}">
+                                <ItemsControl Classes="reveal" ItemsSource="{Binding Fonts}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:SubsetFontRow">
                                             <Border Classes="row">

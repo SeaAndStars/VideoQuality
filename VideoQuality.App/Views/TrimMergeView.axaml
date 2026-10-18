@@ -66,10 +66,12 @@
                         </Button>
                     </Grid>
                     <Panel Grid.Row="1" Grid.ColumnSpan="2">
-                        <TextBlock Classes="muted" Text="{l:L trim.dropThePartsHere}" IsVisible="{Binding !HasMergeInputs}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <StackPanel Classes="empty" IsVisible="{Binding !HasMergeInputs}">
+                            <ic:SymbolIcon Symbol="DocumentArrowDown" />
+                            <TextBlock Text="{l:L trim.dropThePartsHere}" />
+                        </StackPanel>
                         <ScrollViewer IsVisible="{Binding HasMergeInputs}">
-                            <ItemsControl ItemsSource="{Binding MergeInputs}">
+                            <ItemsControl Classes="reveal" ItemsSource="{Binding MergeInputs}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:MergeInput">
                                         <Border Classes="row">

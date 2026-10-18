@@ -36,7 +36,7 @@
                     <ContentControl Content="{Binding Cpu}" />
                     <ContentControl Content="{Binding Memory}" />
                 </UniformGrid>
-                <TextBlock Classes="label" Text="{Binding GpuName}" IsVisible="{Binding HasGpu}" Margin="4,0" />
+                <TextBlock Classes="label" Text="{Binding GpuName}" IsVisible="{Binding HasGpu}" Margin="13,0" />
                 <UniformGrid Columns="2" RowSpacing="12" ColumnSpacing="12" IsVisible="{Binding HasGpu}">
                     <ContentControl Content="{Binding Gpu}" />
                     <ContentControl Content="{Binding GpuMemory}" />
@@ -47,7 +47,7 @@
                     <StackPanel Spacing="6">
                         <TextBlock Classes="label" Text="{l:L monitor.runningEncodes}" />
                         <TextBlock Classes="muted" FontSize="12" Text="{l:L monitor.nothingIsEncoding}" IsVisible="{Binding !HasEncodes}" />
-                        <ItemsControl ItemsSource="{Binding Encodes}">
+                        <ItemsControl Classes="reveal" ItemsSource="{Binding Encodes}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:RunningEncode">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" Margin="0,2">

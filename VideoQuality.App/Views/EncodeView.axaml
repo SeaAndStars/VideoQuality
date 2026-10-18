@@ -50,10 +50,12 @@
                         <Grid RowDefinitions="Auto,*,Auto" Margin="12,0,12,12" RowSpacing="6">
                             <Grid Classes="cardheader"><TextBlock Classes="label" Text="{l:L pipeline.inputs}" /></Grid>
                             <Panel Grid.Row="1">
-                                <TextBlock Classes="muted" Text="{l:L encode.dropVideosOrA}" IsVisible="{Binding !HasInputs}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <StackPanel Classes="empty" IsVisible="{Binding !HasInputs}">
+                                    <ic:SymbolIcon Symbol="DocumentArrowDown" />
+                                    <TextBlock Text="{l:L encode.dropVideosOrA}" />
+                                </StackPanel>
                                 <ScrollViewer IsVisible="{Binding HasInputs}">
-                                    <ItemsControl ItemsSource="{Binding Inputs}">
+                                    <ItemsControl Classes="reveal" ItemsSource="{Binding Inputs}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:EncodeInput">
                                                 <Border Classes="row">
@@ -92,10 +94,12 @@
                                 <Button Grid.Column="1" Classes="tool" Content="{l:L encode.clearFinished}" Command="{Binding ClearFinishedCommand}" IsVisible="{Binding HasJobs}" />
                             </Grid>
                             <Panel Grid.Row="1">
-                                <TextBlock Classes="muted" Text="{l:L encode.queuedEncodesAppearHere}" IsVisible="{Binding !HasJobs}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <StackPanel Classes="empty" IsVisible="{Binding !HasJobs}">
+                                    <ic:SymbolIcon Symbol="TextBulletList" />
+                                    <TextBlock Text="{l:L encode.queuedEncodesAppearHere}" />
+                                </StackPanel>
                                 <ScrollViewer IsVisible="{Binding HasJobs}">
-                                    <ItemsControl ItemsSource="{Binding Jobs}">
+                                    <ItemsControl Classes="reveal" ItemsSource="{Binding Jobs}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:EncodeJobRow">
                                                 <Border Classes="row">
@@ -175,7 +179,9 @@
                                 <u:IconButton Classes="tool" Content="{l:L encode.presets.export}" Click="OnExportPreset">
                                     <u:IconButton.Icon><ic:SymbolIcon Symbol="ArrowExportUp" /></u:IconButton.Icon>
                                 </u:IconButton>
-                                <u:IconButton Classes="tool" Content="{l:L encode.presets.exportAll}" Click="OnExportAllPresets" />
+                                <u:IconButton Classes="tool" Content="{l:L encode.presets.exportAll}" Click="OnExportAllPresets">
+                                    <u:IconButton.Icon><ic:SymbolIcon Symbol="DocumentMultiple" /></u:IconButton.Icon>
+                                </u:IconButton>
                             </StackPanel>
                             <Expander Header="{l:L encode.presets.online}">
                                 <StackPanel Spacing="6">
@@ -395,7 +401,7 @@
                 </Border>
             </Grid>
 
-            <TextBlock Grid.Row="2" Text="{Binding Status}" Classes="muted" FontSize="12" Margin="4,0" TextTrimming="CharacterEllipsis" />
+            <TextBlock Grid.Row="2" Text="{Binding Status}" Classes="muted" FontSize="12" Margin="12,0,4,0" TextTrimming="CharacterEllipsis" />
         </Grid>
         <Border Classes="dropglow" />
     </Panel>

@@ -70,7 +70,7 @@
                                     <Panel>
                                         <TextBlock Classes="muted" FontSize="12" Text="{l:L pipeline.dropTheAssScripts}" Margin="6,0"
                                                    IsVisible="{Binding !Scripts.Count}" />
-                                        <ItemsControl ItemsSource="{Binding Scripts}">
+                                        <ItemsControl Classes="reveal" ItemsSource="{Binding Scripts}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="x:String">
                                                     <Border Classes="row">
@@ -142,7 +142,7 @@
                                 <SelectableTextBlock Grid.Row="18" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding MkvName}" FontSize="12" TextWrapping="Wrap"
                                                      IsVisible="{Binding MakeMkv}" />
                                 <CheckBox Grid.Row="19" Grid.ColumnSpan="3" Content="{l:L pipeline.burnedOutputs}" IsChecked="{Binding MakeBurned}" />
-                                <ItemsControl Grid.Row="20" Grid.ColumnSpan="3" ItemsSource="{Binding Burns}" IsEnabled="{Binding MakeBurned}">
+                                <ItemsControl Grid.Row="20" Grid.ColumnSpan="3" Classes="reveal" ItemsSource="{Binding Burns}" IsEnabled="{Binding MakeBurned}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:BurnTarget">
                                             <Grid ColumnDefinitions="140,*,Auto" ColumnSpacing="10" RowDefinitions="Auto,Auto" Margin="0,0,0,8">
@@ -179,7 +179,7 @@
                         <Grid RowDefinitions="Auto,*,Auto" Margin="12,0,12,12">
                             <Grid Classes="cardheader"><TextBlock Classes="label" Text="{l:L pipeline.steps}" /></Grid>
                             <ScrollViewer Grid.Row="1">
-                                <ItemsControl ItemsSource="{Binding Steps}">
+                                <ItemsControl Classes="reveal" ItemsSource="{Binding Steps}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:PipelineStep">
                                             <Border Classes="step" Classes.off="{Binding !Enabled}" Background="{DynamicResource SemiColorFill0}"
@@ -210,7 +210,7 @@
                             </ScrollViewer>
                             <StackPanel Grid.Row="2" IsVisible="{Binding Outputs.Count}">
                                 <Grid Classes="cardheader"><TextBlock Classes="label" Text="{l:L pipeline.written}" /></Grid>
-                                <ItemsControl ItemsSource="{Binding Outputs}">
+                                <ItemsControl Classes="reveal" ItemsSource="{Binding Outputs}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="x:String">
                                             <Border Classes="row">

@@ -18,7 +18,7 @@
   "chapters.error.time": "不是有效的章节时间：{0}",
   "chapters.import": "导入",
   "chapters.importEditAndName": "导入、编辑并命名章节（OP、ED、Chapter1 …），然后保存或发送到混流。",
-  "chapters.name": "名称",
+  "chapters.name": "自动命名",
   "chapters.noProblemsFound": "未发现问题。",
   "chapters.op": "OP",
   "chapters.opEdForThe": "勾选行命名为 OP / ED，其余依次为 Chapter1、Chapter2 …",
@@ -525,7 +525,7 @@
   "pipeline.status.stepFailed": "{0}失败。",
   "pipeline.status.stopped": "流程已中止：{0}",
   "pipeline.step.burn": "内嵌 MP4",
-  "pipeline.step.burn.description": "每个字幕生成一个内嵌字幕的 MP4（简日 / 繁日内嵌），并封入章节。",
+  "pipeline.step.burn.description": "按“输出”中的每个 MP4 压入对应字幕（简日 / 繁日 / 简体 / 繁体内嵌），并封入章节。",
   "pipeline.step.encode": "压制",
   "pipeline.step.encode.description": "x265 10-bit CRF，23.976 fps 恒定帧率，音频按规范（不使用 GPU 编码器）。",
   "pipeline.step.mux": "混流",
@@ -752,5 +752,7 @@
   "pipeline.burnLanguage": "文件名中的语言标签",
   "pipeline.noMp4s": "没有 MP4：添加一个，或拖入字幕。",
   "pipeline.stepEnabled": "运行此步骤",
-  "pipeline.status.inferred": "已读取 {0}：{1}，{2} 个字幕。确认各项后运行。"
+  "pipeline.status.inferred": "已读取 {0}：{1}，{2} 个字幕。确认各项后运行。",
+  "pipeline.step.encode.nvenc": "NVENC HEVC UHQ 10-bit 恒定质量，23.976 fps 恒定帧率，音频按规范。不符合规范（仅限 x265），用于对比。",
+  "chapters.list": "章节"
 }

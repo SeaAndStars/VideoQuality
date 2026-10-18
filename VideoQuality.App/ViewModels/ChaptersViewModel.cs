@@ -57,6 +57,9 @@ public partial class ChaptersViewModel : ObservableObject
 
     public bool HasRows => Rows.Count > 0;
 
+    /// <summary>There are chapters and none of them has a problem.</summary>
+    public bool IsClean => HasRows && Problems.Count == 0;
+
     /// <summary>Raised with the saved chapter file when the user sends it to Mux.</summary>
     public event EventHandler<string>? SendToMuxRequested;
 
@@ -176,5 +179,6 @@ public partial class ChaptersViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(HasRows));
+        OnPropertyChanged(nameof(IsClean));
     }
 }

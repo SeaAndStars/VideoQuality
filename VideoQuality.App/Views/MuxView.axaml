@@ -62,7 +62,7 @@
                                                Text="{l:L mux.dropTheEncodedVideo}" />
                                 </StackPanel>
                                 <ScrollViewer IsVisible="{Binding HasInputs}">
-                                    <ItemsControl ItemsSource="{Binding Inputs}">
+                                    <ItemsControl Classes="reveal" ItemsSource="{Binding Inputs}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:MuxInputRow">
                                                 <Border Background="{DynamicResource SemiColorFill0}" CornerRadius="{StaticResource VqRadiusControl}" Padding="10,8" Margin="0,0,0,8">
@@ -118,7 +118,7 @@
                                                HorizontalAlignment="Right" VerticalAlignment="Center" />
                                 </Grid>
                                 <ScrollViewer Grid.Row="1">
-                                    <ItemsControl ItemsSource="{Binding Attachments}">
+                                    <ItemsControl Classes="reveal" ItemsSource="{Binding Attachments}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="x:String">
                                                 <Border Classes="row">

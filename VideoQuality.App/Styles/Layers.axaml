@@ -207,6 +207,71 @@
     </Style>
 
     <!-- Section heading inside flyouts and dialogs. -->
+    <!-- Empty states: an icon over a short hint, centred in the card. -->
+    <Style Selector="StackPanel.empty">
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Spacing" Value="8" />
+        <Setter Property="MaxWidth" Value="420" />
+    </Style>
+    <Style Selector="StackPanel.empty > ic|SymbolIcon">
+        <Setter Property="FontSize" Value="36" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText2}" />
+    </Style>
+    <Style Selector="StackPanel.empty > TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText2}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="TextAlignment" Value="Center" />
+    </Style>
+
+    <!-- Motion: a page fades and rises into place when it is shown; new rows fade in; state changes ease. -->
+    <Style Selector="Panel.pages > UserControl">
+        <Setter Property="RenderTransform" Value="translateY(0px)" />
+    </Style>
+    <Style Selector="Panel.pages > UserControl[IsVisible=True]">
+        <Style.Animations>
+            <Animation Duration="0:0:0.22" Easing="CubicEaseOut" FillMode="Forward">
+                <KeyFrame Cue="0%">
+                    <Setter Property="Opacity" Value="0" />
+                    <Setter Property="TranslateTransform.Y" Value="10" />
+                </KeyFrame>
+                <KeyFrame Cue="100%">
+                    <Setter Property="Opacity" Value="1" />
+                    <Setter Property="TranslateTransform.Y" Value="0" />
+                </KeyFrame>
+            </Animation>
+        </Style.Animations>
+    </Style>
+    <Style Selector="ItemsControl.reveal > ContentPresenter, ListBox.encodes > ListBoxItem">
+        <Setter Property="RenderTransform" Value="translateY(0px)" />
+        <Style.Animations>
+            <Animation Duration="0:0:0.2" Easing="CubicEaseOut" FillMode="Forward">
+                <KeyFrame Cue="0%">
+                    <Setter Property="Opacity" Value="0" />
+                    <Setter Property="TranslateTransform.Y" Value="6" />
+                </KeyFrame>
+                <KeyFrame Cue="100%">
+                    <Setter Property="Opacity" Value="1" />
+                    <Setter Property="TranslateTransform.Y" Value="0" />
+                </KeyFrame>
+            </Animation>
+        </Style.Animations>
+    </Style>
+    <Style Selector="Border.step > Grid > :is(Control)">
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut" />
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Border.row">
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.12" />
+            </Transitions>
+        </Setter>
+    </Style>
+
     <!-- Forms: a label column and a field column. Labels sit on their field's centre line at the body size. -->
     <!-- Rows are spaced by the children's margins, not RowSpacing, so a hidden row takes no space at all. -->
     <Style Selector="Grid.form">

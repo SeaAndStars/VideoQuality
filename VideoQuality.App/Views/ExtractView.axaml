@@ -54,7 +54,7 @@
                             </StackPanel>
                             <ScrollViewer IsVisible="{Binding HasSource}">
                                 <StackPanel>
-                                    <ItemsControl ItemsSource="{Binding Items}">
+                                    <ItemsControl Classes="reveal" ItemsSource="{Binding Items}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:ExtractItem">
                                                 <Border Classes="row">
