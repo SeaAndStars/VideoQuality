@@ -41,6 +41,23 @@ fi
 
 dotnet build "$root/VideoQuality.slnx" -v q
 
+# The screenshots are in English whatever the saved settings say; the settings come back afterwards.
+settings="$(dirname "$app")/settings.json"
+if [[ -f "$settings" ]]; then
+    cp "$settings" "$settings.capture-backup"
+    trap 'mv "$settings.capture-backup" "$settings"' EXIT
+else
+    trap 'rm -f "$settings"' EXIT
+fi
+echo '{ "language": "en" }' > "$settings"
+
+# Xvfb has no window manager: fill the screen and park the pointer where it raises no tooltip.
+fill_screen() {
+    local window
+    window=$(DISPLAY=$display xdotool search --sync --name "VideoQuality" | head -1)
+    DISPLAY=$display xdotool windowmove "$window" 0 0 windowsize "$window" 1600 1000 mousemove 1599 999
+}
+
 capture() {
     local mode=$1
     local output=$2
@@ -49,6 +66,8 @@ capture() {
     DISPLAY=$display dotnet "$app" "$@" "--mode=$mode" >/dev/null 2>&1 &
     local pid=$!
     sleep "$settle"
+    fill_screen
+    sleep 2
 
     DISPLAY=$display import -window root "$root/docs/$output"
     kill "$pid" >/dev/null 2>&1 || true
@@ -65,11 +84,13 @@ if [[ -n "${VQ_PROGRESS_REF:-}" && -n "${VQ_PROGRESS_ENCODE:-}" ]]; then
     DISPLAY=$display dotnet "$app" "$VQ_PROGRESS_REF" "$VQ_PROGRESS_ENCODE" >/dev/null 2>&1 &
     pid=$!
     sleep "${VQ_PROGRESS_SETTLE:-12}"
+    fill_screen
+    sleep 2
 
     # Ctrl+R re-scores the selected encode; a shortcut survives toolbar layout changes.
     # Xvfb has no window manager, so focus the window with a click on the status bar first.
     window=$(DISPLAY=$display xdotool search --name "VideoQuality" | head -1)
-    DISPLAY=$display xdotool mousemove --window "$window" 600 930 click 1 key ctrl+r
+    DISPLAY=$display xdotool mousemove --window "$window" 600 930 click 1 key ctrl+r mousemove 1599 999
     sleep "${VQ_PROGRESS_DELAY:-1}"
     DISPLAY=$display import -window root "$root/docs/screenshot-progress.png"
     kill "$pid" >/dev/null 2>&1 || true

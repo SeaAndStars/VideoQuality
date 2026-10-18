@@ -194,7 +194,8 @@ scripts/package.sh <rid>          release archive for win-x64 (.zip) or linux-x6
 .github/workflows/release.yml     tag-triggered CI/CD (verify signature → test → FFmpeg → publish)
 artifacts/                 release output (ignored)
 scripts/verify.sh          clean build, solution-membership check, tests, probe
-scripts/capture-docs.sh    regenerates the documentation screenshots
+scripts/capture-docs.sh    regenerates the Compare screenshots (Xvfb, English, full frame); the toolkit
+                           page screenshots come from the Screenshots test (VQ_SCREENSHOTS)
 scripts/coverage.sh        both test projects with coverage, merged, 100% required
 scripts/make-test-cff-font.py builds the CC0 CFF test font in VideoQuality.Tests/Fixtures
 presets/                   shareable encode presets (the default online preset folder)

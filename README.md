@@ -135,6 +135,14 @@ measurements.
     <td width="50%"><img src="docs/screenshot-progress.png" alt="Scoring in progress"><br><sub><b>Scoring:</b> per-row progress, two GPU jobs at a time.</sub></td>
     <td width="50%"><img src="docs/screenshot.png" alt="Side by side"><br><sub><b>Side by side:</b> five encodes, NEG model, CUDA backend.</sub></td>
   </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshot-pipeline.png" alt="Release pipeline"><br><sub><b>Pipeline:</b> filled in from a dropped episode; every step has its own settings.</sub></td>
+    <td width="50%"><img src="docs/screenshot-pipeline-zh.png" alt="发布流程"><br><sub><b>简体中文:</b> the same page; every text is translated.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshot-encode.png" alt="Encode"><br><sub><b>Encode:</b> presets (built-in, saved, online), the editor and the queue.</sub></td>
+    <td width="50%"><img src="docs/screenshot-naming.png" alt="Naming"><br><sub><b>Naming:</b> release file names and the release title.</sub></td>
+  </tr>
 </table>
 
 ## Download

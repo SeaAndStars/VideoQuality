@@ -23,6 +23,8 @@ flowchart LR
     burn --> mp4[("…[JPSC].mp4 · …[JPTC].mp4")]
 ```
 
+![The Pipeline page after dropping an episode](screenshot-pipeline.png)
+
 ## Dropping a source
 
 Drop the video (or pick it) and the page fills itself in:
@@ -56,6 +58,13 @@ dimmed; the rest of the run goes on without it.
 | **Burn-in MP4s** | on (web) | the MP4 list · Add MP4 | Each row picks its language tag and the script burned into it. Add as many as you like, from any script. BD releases start with this off. |
 | **Verify** | on | stop on failures | Checks every written file against the rules (name, codec, audio, tracks, fonts, chapters, size). Off "stop" lists the problems and goes on. |
 | **VMAF** | on | model · backend · reference | Scores the encode against the source (or a reference you give). |
+
+<details>
+<summary>Every step's card, with its settings</summary>
+
+![All pipeline steps](screenshot-pipeline-steps.png)
+
+</details>
 
 ```mermaid
 stateDiagram-v2
