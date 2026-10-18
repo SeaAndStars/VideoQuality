@@ -740,5 +740,17 @@
   "pipeline.outputFolderWatermark": "A release folder beside the source",
   "pipeline.written": "Written",
   "presets.nvencUhq.description": "RTX 40/50: hevc_nvenc p7, ultra-high-quality tune, constant quality 26.25, full-resolution two-pass, 10-bit. On 1080p anime it matched x265 medium CRF 18 in size with a higher VMAF.",
-  "presets.nvencUhq.greenTea": "The GreenTea preset with NVENC UHQ (CQ 26.25) instead of x265: same size as CRF 18 with a higher VMAF. The rules require x265, so use it to compare or for private encodes."
+  "presets.nvencUhq.greenTea": "The GreenTea preset with NVENC UHQ (CQ 26.25) instead of x265: same size as CRF 18 with a higher VMAF. The rules require x265, so use it to compare or for private encodes.",
+  "pipeline.step.off": "Turned off.",
+  "pipeline.verify.nothing": "No release files to check.",
+  "pipeline.outputs": "Outputs",
+  "pipeline.mkvOutput": "内封 MKV (subtitles and fonts muxed in)",
+  "pipeline.burnedOutputs": "内嵌 MP4s (subtitles burned in)",
+  "pipeline.addMp4": "Add MP4",
+  "pipeline.addMp4.tip": "Another burned-in MP4: pick its script and language tag",
+  "pipeline.burnScript": "Script burned into this MP4",
+  "pipeline.burnLanguage": "Language tag in the file name",
+  "pipeline.noMp4s": "No MP4s: add one, or drop scripts.",
+  "pipeline.stepEnabled": "Run this step",
+  "pipeline.status.inferred": "Read {0}: {1}, {2} script(s). Check the fields, then run."
 }

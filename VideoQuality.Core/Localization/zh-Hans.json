@@ -740,5 +740,17 @@
   "pipeline.outputFolderWatermark": "源文件旁的 release 文件夹",
   "pipeline.written": "已输出",
   "presets.nvencUhq.description": "RTX 40/50：hevc_nvenc p7，超高质量（uhq）调优，恒定质量 26.25，全分辨率双遍分析，10-bit。在 1080p 动画上与 x265 medium CRF 18 体积相当且 VMAF 更高。",
-  "presets.nvencUhq.greenTea": "以 NVENC UHQ（CQ 26.25）代替 x265 的绿茶预设：体积与 CRF 18 相当且 VMAF 更高。规范要求 x265，仅用于对比或自用压制。"
+  "presets.nvencUhq.greenTea": "以 NVENC UHQ（CQ 26.25）代替 x265 的绿茶预设：体积与 CRF 18 相当且 VMAF 更高。规范要求 x265，仅用于对比或自用压制。",
+  "pipeline.step.off": "已关闭。",
+  "pipeline.verify.nothing": "没有需要检查的成品文件。",
+  "pipeline.outputs": "输出",
+  "pipeline.mkvOutput": "内封 MKV（封装字幕与字体）",
+  "pipeline.burnedOutputs": "内嵌 MP4（字幕压入画面）",
+  "pipeline.addMp4": "添加 MP4",
+  "pipeline.addMp4.tip": "再添加一个内嵌 MP4：选择字幕与语言标签",
+  "pipeline.burnScript": "压入此 MP4 的字幕",
+  "pipeline.burnLanguage": "文件名中的语言标签",
+  "pipeline.noMp4s": "没有 MP4：添加一个，或拖入字幕。",
+  "pipeline.stepEnabled": "运行此步骤",
+  "pipeline.status.inferred": "已读取 {0}：{1}，{2} 个字幕。确认各项后运行。"
 }

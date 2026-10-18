@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VideoQuality.Core.Chapters;
+using VideoQuality.Core.Diagnostics;
 using VideoQuality.Core.Encode;
 using VideoQuality.Core.Fonts;
 using VideoQuality.Core.Ingest;
@@ -50,6 +51,10 @@ public partial class PipelineStep : ObservableObject
     [ObservableProperty]
     public partial double Progress { get; set; }
 
+    /// <summary>Off: the run skips this step.</summary>
+    [ObservableProperty]
+    public partial bool Enabled { get; set; } = true;
+
     public bool IsPending => State == StepState.Pending;
 
     public bool IsRunning => State == StepState.Running;
@@ -61,6 +66,30 @@ public partial class PipelineStep : ObservableObject
     public bool IsSkipped => State == StepState.Skipped;
 }
 
+/// <summary>One 内嵌 MP4 to make: the script burned into it and the language tag its name carries.</summary>
+public partial class BurnTarget : ObservableObject
+{
+    [ObservableProperty]
+    public partial string Script { get; set; } = string.Empty;
+
+    /// <summary><c>JPSC</c>, <c>JPTC</c>, <c>SC</c> or <c>TC</c>.</summary>
+    [ObservableProperty]
+    public partial string Language { get; set; } = "JPSC";
+
+    /// <summary>The release file name, kept current by the pipeline.</summary>
+    [ObservableProperty]
+    public partial string FileName { get; set; } = string.Empty;
+
+    /// <summary>The release's name for this MP4 (AAC audio, the language tag from <see cref="Language"/>).</summary>
+    public ReleaseName Name(ReleaseName release) => release with
+    {
+        Delivery = SubtitleDelivery.Burned,
+        AudioCodec = "AAC",
+        Subtitles = Language.StartsWith("JP", StringComparison.Ordinal) ? SubtitleSet.Bilingual : SubtitleSet.Monolingual,
+        Script = Language.EndsWith("TC", StringComparison.Ordinal) ? ChineseScript.Traditional : ChineseScript.Simplified,
+    };
+}
+
 /// <summary>
 /// The group's release flow in one run: encode the source (x265 10-bit CRF), subset the scripts'
 /// fonts, mux the 内封 MKV, burn the 内嵌 MP4s, check every file against the rules, and score the
@@ -68,6 +97,9 @@ public partial class PipelineStep : ObservableObject
 /// </summary>
 public partial class PipelineViewModel : ObservableObject
 {
+    /// <summary>Audio a web source never carries: a lossless track means a disc.</summary>
+    private static readonly HashSet<string> LosslessAudio = ["flac", "truehd", "alac", "pcm_s16le", "pcm_s24le", "pcm_s32le"];
+
     private readonly Func<string, MediaInfo> _read;
 
     public PipelineViewModel(SettingsViewModel settings, MainViewModel compare, EncodeQueue queue, NamingViewModel naming, Func<string, MediaInfo>? read = null)
@@ -85,7 +117,23 @@ public partial class PipelineViewModel : ObservableObject
                 RunCommand.NotifyCanExecuteChanged();
             }
         };
-        naming.PropertyChanged += (_, _) => OnPropertyChanged(nameof(OutputNames));
+        Scripts.CollectionChanged += (_, _) => AddBurnTargetCommand.NotifyCanExecuteChanged();
+        naming.PropertyChanged += (_, _) => RefreshNames();
+        Burns.CollectionChanged += (_, _) => RefreshNames();
+        foreach (PipelineStep step in Steps)
+        {
+            step.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(PipelineStep.Enabled))
+                {
+                    OnPropertyChanged(nameof(AlreadyEncoded));
+                    OnPropertyChanged(nameof(MakeMkv));
+                    OnPropertyChanged(nameof(MakeBurned));
+                    OnPropertyChanged(nameof(RunVmaf));
+                    RefreshNames();
+                }
+            };
+        }
     }
 
     public SettingsViewModel Settings { get; }
@@ -125,8 +173,37 @@ public partial class PipelineViewModel : ObservableObject
     public partial string Video { get; set; } = string.Empty;
 
     /// <summary>The video is already encoded: skip encoding (the MP4s are burned from it).</summary>
-    [ObservableProperty]
-    public partial bool AlreadyEncoded { get; set; }
+    public bool AlreadyEncoded
+    {
+        get => !EncodeStep.Enabled;
+        set => EncodeStep.Enabled = !value;
+    }
+
+    /// <summary>Mux the 内封 MKV.</summary>
+    public bool MakeMkv
+    {
+        get => MuxStep.Enabled;
+        set => MuxStep.Enabled = value;
+    }
+
+    /// <summary>Burn the 内嵌 MP4s in <see cref="Burns"/>.</summary>
+    public bool MakeBurned
+    {
+        get => BurnStep.Enabled;
+        set => BurnStep.Enabled = value;
+    }
+
+    public bool RunVmaf
+    {
+        get => VmafStep.Enabled;
+        set => VmafStep.Enabled = value;
+    }
+
+    /// <summary>The 内嵌 MP4s to make; one per script to start with, free to add, remove and change.</summary>
+    public ObservableCollection<BurnTarget> Burns { get; } = [];
+
+    /// <summary>The language tags an MP4 can carry, the bilingual ones first.</summary>
+    public IReadOnlyList<string> BurnLanguages { get; } = ["JPSC", "JPTC", "SC", "TC"];
 
     /// <summary>VMAF reference when the video is already encoded (otherwise the source itself).</summary>
     [ObservableProperty]
@@ -156,12 +233,6 @@ public partial class PipelineViewModel : ObservableObject
     public partial decimal Crf { get; set; } = 20;
 
     [ObservableProperty]
-    public partial bool MakeBurned { get; set; } = true;
-
-    [ObservableProperty]
-    public partial bool RunVmaf { get; set; } = true;
-
-    [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(RunCommand), nameof(OpenInCompareCommand))]
     public partial bool IsBusy { get; set; }
 
@@ -174,7 +245,11 @@ public partial class PipelineViewModel : ObservableObject
     public partial string EncodedFile { get; set; } = string.Empty;
 
     /// <summary>The release file names (from the Naming page).</summary>
-    public IReadOnlyList<string> OutputNames => Naming.Set().Select(n => n.FileName).ToList();
+    /// <summary>The 内封 MKV's file name.</summary>
+    public string MkvName => Naming.Set()[0].FileName;
+
+    public IReadOnlyList<string> OutputNames =>
+        [.. MakeMkv ? [Naming.Set()[0].FileName] : Array.Empty<string>(), .. MakeBurned ? Burns.Select(b => b.FileName) : []];
 
     public event EventHandler<ToastRequest>? ToastRequested;
 
@@ -184,7 +259,10 @@ public partial class PipelineViewModel : ObservableObject
     /// <summary>Raised by "Open in Compare" so the shell can switch pages.</summary>
     public event EventHandler? CompareRequested;
 
-    partial void OnProfileChanged(ReleaseProfile value)
+    partial void OnProfileChanged(ReleaseProfile value) => ApplyProfile(value);
+
+    /// <summary>The release kind's defaults: outputs, quality, and the source and audio in the names.</summary>
+    private void ApplyProfile(ReleaseProfile value)
     {
         // The rules: BD releases are the 内封 MKV only; web releases add the two 内嵌 MP4s.
         bool bd = GreenTeaSpec.IsBd(value);
@@ -228,12 +306,12 @@ public partial class PipelineViewModel : ObservableObject
                 if (!Scripts.Contains(path, StringComparer.OrdinalIgnoreCase))
                 {
                     Scripts.Add(path);
+                    AddBurn(path);
                 }
 
                 if (FontDirectory.Length == 0)
                 {
-                    string folder = Path.GetDirectoryName(path)!;
-                    FontDirectory = new[] { "Fonts", "fonts", "字体" }.Select(n => Path.Combine(folder, n)).FirstOrDefault(Directory.Exists) ?? string.Empty;
+                    FontDirectory = FontsBeside(Path.GetDirectoryName(path)!);
                 }
             }
             else if (extension is ".xml" or ".txt")
@@ -254,7 +332,10 @@ public partial class PipelineViewModel : ObservableObject
         }
     }
 
-    /// <summary>Uses a video as the source: output folder beside it, release fields from it.</summary>
+    private static string FontsBeside(string folder) =>
+        new[] { "Fonts", "fonts", "字体" }.Select(n => Path.Combine(folder, n)).FirstOrDefault(Directory.Exists) ?? string.Empty;
+
+    /// <summary>Uses a video as the source: output folder beside it, everything else inferred from it.</summary>
     public void SetVideo(string path)
     {
         Video = path;
@@ -263,16 +344,152 @@ public partial class PipelineViewModel : ObservableObject
             OutputDirectory = Path.Combine(Path.GetDirectoryName(path)!, "release");
         }
 
-        _ = Naming.FillFromAsync(path);
+        Inference = InferAsync(path);
+    }
+
+    /// <summary>The inference <see cref="SetVideo"/> started; done once the fields are filled.</summary>
+    public Task Inference { get; private set; } = Task.CompletedTask;
+
+    /// <summary>
+    /// Fills in what the source implies: scripts, fonts and chapters beside it that share its name;
+    /// title, episode and version from its file name; BD or web and episode or movie from the name, the
+    /// audio and the length. A source that is already a release name fills the Naming form as it is.
+    /// </summary>
+    public async Task InferAsync(string path)
+    {
+        string folder = Path.GetDirectoryName(path)!;
+        string stem = Path.GetFileNameWithoutExtension(path);
+        if (Scripts.Count == 0)
+        {
+            AddPaths(Directory.EnumerateFiles(folder)
+                .Where(f => Path.GetExtension(f).ToLowerInvariant() is ".ass" or ".ssa" && Path.GetFileName(f).StartsWith(stem, StringComparison.OrdinalIgnoreCase))
+                .Order(StringComparer.OrdinalIgnoreCase));
+        }
+
+        if (FontDirectory.Length == 0)
+        {
+            FontDirectory = FontsBeside(folder);
+        }
+
+        if (ChaptersFile.Length == 0)
+        {
+            ChaptersFile = new[] { stem + ".chapters.xml", stem + ".xml", stem + ".chapters.txt", "chapters.xml" }
+                .Select(n => Path.Combine(folder, n)).FirstOrDefault(File.Exists) ?? string.Empty;
+        }
+
+        if (ReleaseName.Parse(path) is { } release)
+        {
+            await Naming.FillFromAsync(path);
+            Profile = ProfileFor(release.Source.StartsWith("BD", StringComparison.OrdinalIgnoreCase), release.Kind == EpisodeKind.Movie);
+            Status = Loc.T("naming.status.parsed");
+            return;
+        }
+
+        SourceName guess = SourceName.Parse(path);
+        MediaInfo? info = null;
+        try
+        {
+            info = await Task.Run(() => _read(path));
+        }
+        catch (InvalidOperationException ex)
+        {
+            VqLog.Warn("pipeline", $"cannot read {path}", ex);
+        }
+
+        bool bd = guess.Bd || (!guess.Web && LosslessAudio.Contains(info?.AudioStreams.FirstOrDefault()?.Codec ?? string.Empty));
+        bool movie = guess.Kind == EpisodeKind.Movie || (guess.Episode is null && info is { Duration.TotalMinutes: > 60 });
+        ReleaseProfile profile = ProfileFor(bd, movie);
+        Profile = profile;
+        ApplyProfile(profile); // also when the kind was already this one: the names follow it
+        if (guess.Title.Length > 0)
+        {
+            Naming.Title = guess.Title;
+        }
+
+        if (!movie && guess.Episode is int episode)
+        {
+            Naming.Kind = guess.Kind;
+            Naming.Episode = episode;
+        }
+
+        Naming.Version = guess.Version;
+        Naming.VideoCodec = "HEVC-10bit";
+        Naming.Resolution = "1080p";
+        Status = Loc.T("pipeline.status.inferred", Path.GetFileName(path), Loc.T($"label.{nameof(ReleaseProfile)}.{profile}"), Scripts.Count);
+    }
+
+    private static ReleaseProfile ProfileFor(bool bd, bool movie) => (bd, movie) switch
+    {
+        (false, false) => ReleaseProfile.WebEpisode,
+        (false, true) => ReleaseProfile.WebMovie,
+        (true, false) => ReleaseProfile.BdEpisode,
+        _ => ReleaseProfile.BdMovie,
+    };
+
+    /// <summary>An MP4 burning <paramref name="script"/>, tagged by the script's name.</summary>
+    private void AddBurn(string script)
+    {
+        string? guessed = SubtitleNaming.Guess(script)?.Name;
+        var target = new BurnTarget { Script = script, Language = FreeLanguage(guessed) };
+        target.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(BurnTarget.FileName))
+            {
+                RefreshNames();
+            }
+        };
+        Burns.Add(target);
+    }
+
+    /// <summary>The guessed tag when no other MP4 has it yet, else the first one not in use.</summary>
+    private string FreeLanguage(string? guessed)
+    {
+        bool Used(string language) => Burns.Any(b => b.Language == language);
+        return !string.IsNullOrEmpty(guessed) && !Used(guessed)
+            ? guessed
+            : BurnLanguages.FirstOrDefault(l => !Used(l)) ?? BurnLanguages[0];
+    }
+
+    private bool CanAddBurn() => Scripts.Count > 0;
+
+    /// <summary>Another MP4: the first script without one (else the first script), with a free language tag.</summary>
+    [RelayCommand(CanExecute = nameof(CanAddBurn))]
+    private void AddBurnTarget() =>
+        AddBurn(Scripts.FirstOrDefault(s => Burns.All(b => !string.Equals(b.Script, s, StringComparison.OrdinalIgnoreCase))) ?? Scripts[0]);
+
+    [RelayCommand]
+    private void RemoveBurn(BurnTarget target) => Burns.Remove(target);
+
+    private void RefreshNames()
+    {
+        ReleaseName release = Naming.Name;
+        foreach (BurnTarget target in Burns)
+        {
+            target.FileName = target.Name(release).FileName;
+        }
+
+        OnPropertyChanged(nameof(MkvName));
+        OnPropertyChanged(nameof(OutputNames));
     }
 
     [RelayCommand]
-    private void RemoveScript(string path) => Scripts.Remove(path);
+    private void RemoveScript(string path)
+    {
+        Scripts.Remove(path);
+        for (int i = Burns.Count - 1; i >= 0; i--)
+        {
+            if (Burns[i].Script == path)
+            {
+                Burns.RemoveAt(i);
+            }
+        }
+    }
 
     [RelayCommand]
     private void Clear()
     {
         Scripts.Clear();
+        Burns.Clear();
         Video = Reference = FontDirectory = ChaptersFile = OutputDirectory = EncodedFile = string.Empty;
         AlreadyEncoded = false;
         ResetSteps();
@@ -326,7 +543,11 @@ public partial class PipelineViewModel : ObservableObject
 
             // 2. Subset
             FontSubsetReport? subset = null;
-            if (Scripts.Count == 0)
+            if (!SubsetStep.Enabled)
+            {
+                Skip(SubsetStep, Loc.T("pipeline.step.off"));
+            }
+            else if (Scripts.Count == 0)
             {
                 Skip(SubsetStep, Loc.T("pipeline.subset.noScripts"));
             }
@@ -351,54 +572,61 @@ public partial class PipelineViewModel : ObservableObject
             }
 
             // 3. Mux the 内封 MKV.
-            Begin(MuxStep);
-            string mkv = Path.Combine(OutputDirectory, names[0].FileName);
-            MkvFileInfo encodedInfo = await tools.IdentifyAsync(encoded);
-            var identified = new Dictionary<string, MkvFileInfo> { [encoded] = encodedInfo };
-            bool greenTea = Settings.TrackNaming == TrackNamingProfile.GreenTea;
-            var inputs = new List<MuxInput>
+            if (!MakeMkv)
             {
-                // Only the encode's video and audio; audio is the Japanese original, unnamed under the rules.
-                new(encoded, [.. encodedInfo.Tracks
-                    .Where(t => t.Type is MkvTrackType.Video or MkvTrackType.Audio)
-                    .Select(t => t.Type == MkvTrackType.Audio && greenTea ? new MuxTrack(t.Id, "ja", string.Empty) : new MuxTrack(t.Id))],
-                    KeepAttachments: false, KeepChapters: chapters.Length == 0),
-            };
-            bool firstSubtitle = true;
-            foreach (string script in subset?.ScriptsWritten ?? Scripts.ToList())
+                Skip(MuxStep, Loc.T("pipeline.step.off"));
+            }
+            else
             {
-                (string Language, string Name)? guess = SubtitleNaming.Guess(script, Settings.TrackNaming);
-                inputs.Add(new MuxInput(script, [new MuxTrack(0, guess?.Language, guess?.Name, Default: firstSubtitle)]));
-                identified[script] = await tools.IdentifyAsync(script);
-                firstSubtitle = false;
+                Begin(MuxStep);
+                string mkv = Path.Combine(OutputDirectory, names[0].FileName);
+                MkvFileInfo encodedInfo = await tools.IdentifyAsync(encoded);
+                var identified = new Dictionary<string, MkvFileInfo> { [encoded] = encodedInfo };
+                bool greenTea = Settings.TrackNaming == TrackNamingProfile.GreenTea;
+                var inputs = new List<MuxInput>
+                {
+                    // Only the encode's video and audio; audio is the Japanese original, unnamed under the rules.
+                    new(encoded, [.. encodedInfo.Tracks
+                        .Where(t => t.Type is MkvTrackType.Video or MkvTrackType.Audio)
+                        .Select(t => t.Type == MkvTrackType.Audio && greenTea ? new MuxTrack(t.Id, "ja", string.Empty) : new MuxTrack(t.Id))],
+                        KeepAttachments: false, KeepChapters: chapters.Length == 0),
+                };
+                bool firstSubtitle = true;
+                foreach (string script in subset?.ScriptsWritten ?? Scripts.ToList())
+                {
+                    (string Language, string Name)? guess = SubtitleNaming.Guess(script, Settings.TrackNaming);
+                    inputs.Add(new MuxInput(script, [new MuxTrack(0, guess?.Language, guess?.Name, Default: firstSubtitle)]));
+                    identified[script] = await tools.IdentifyAsync(script);
+                    firstSubtitle = false;
+                }
+
+                List<string> fonts = subset?.Fonts.Select(f => f.OutputPath).ToList() ?? (Scripts.Count > 0 ? FullFonts() : []);
+                var plan = new MuxPlan(mkv, inputs, fonts, chapters.Length > 0 ? chapters : null, names[0].Title);
+                MkvRunResult mux = await tools.MuxAsync(MkvToolNix.BuildMuxArguments(plan, identified), new Progress<double>(p => MuxStep.Progress = p), default);
+                if (!mux.Succeeded)
+                {
+                    Fail(MuxStep, string.Join("; ", mux.Errors));
+                    return;
+                }
+
+                outputs.Add((mkv, SubtitleDelivery.Embedded));
+                Outputs.Add(mkv);
+                Done(MuxStep, Path.GetFileName(mkv) + (mux.Warnings.Count > 0 ? " " + Loc.T("pipeline.mux.warnings", mux.Warnings.Count, mux.Warnings[0]) : string.Empty));
             }
 
-            List<string> fonts = subset?.Fonts.Select(f => f.OutputPath).ToList() ?? [];
-            var plan = new MuxPlan(mkv, inputs, fonts, chapters.Length > 0 ? chapters : null, names[0].Title);
-            MkvRunResult mux = await tools.MuxAsync(MkvToolNix.BuildMuxArguments(plan, identified), new Progress<double>(p => MuxStep.Progress = p), default);
-            if (!mux.Succeeded)
+            // 4. Burn the 内嵌 MP4s, one per target, from the source (or the given encode).
+            if (!MakeBurned || Burns.Count == 0)
             {
-                Fail(MuxStep, string.Join("; ", mux.Errors));
-                return;
-            }
-
-            outputs.Add((mkv, SubtitleDelivery.Embedded));
-            Outputs.Add(mkv);
-            Done(MuxStep, Path.GetFileName(mkv) + (mux.Warnings.Count > 0 ? " " + Loc.T("pipeline.mux.warnings", mux.Warnings.Count, mux.Warnings[0]) : string.Empty));
-
-            // 4. Burn the 内嵌 MP4s, one per script, from the source (or the given encode).
-            if (!MakeBurned || Scripts.Count == 0)
-            {
-                Skip(BurnStep, Loc.T("pipeline.burn.skipped"));
+                Skip(BurnStep, Loc.T(MakeBurned ? "pipeline.burn.skipped" : "pipeline.step.off"));
             }
             else
             {
                 Begin(BurnStep);
                 var written = new List<string>();
-                foreach (string script in Scripts)
+                foreach (BurnTarget target in Burns.ToList())
                 {
-                    bool traditional = (SubtitleNaming.Guess(script)?.Name ?? string.Empty).EndsWith("TC", StringComparison.Ordinal);
-                    ReleaseName name = traditional ? names[2] : names[1];
+                    string script = target.Script;
+                    ReleaseName name = target.Name(names[0]);
                     EncodePreset burned = Tuned(GreenTeaSpec.Preset(Profile, SubtitleDelivery.Burned));
                     burned = burned with
                     {
@@ -422,23 +650,30 @@ public partial class PipelineViewModel : ObservableObject
             }
 
             // 5. Check every file against the rules.
-            Begin(VerifyStep);
-            int fails = 0;
-            var problems = new List<string>();
-            foreach ((string path, SubtitleDelivery delivery) in outputs)
+            if (!VerifyStep.Enabled || outputs.Count == 0)
             {
-                IReadOnlyList<SpecFinding> findings = GreenTeaSpec.Check(await Task.Run(() => _read(path)), Profile, delivery);
-                fails += findings.Count(f => f.Level == FindingLevel.Fail);
-                problems.AddRange(findings.Where(f => f.Level != FindingLevel.Pass).Select(f => $"{Path.GetFileName(path)}: {f.Message}"));
+                Skip(VerifyStep, Loc.T(VerifyStep.Enabled ? "pipeline.verify.nothing" : "pipeline.step.off"));
             }
-
-            if (fails > 0)
+            else
             {
-                Fail(VerifyStep, string.Join(Environment.NewLine, problems));
-                return;
-            }
+                Begin(VerifyStep);
+                int fails = 0;
+                var problems = new List<string>();
+                foreach ((string path, SubtitleDelivery delivery) in outputs)
+                {
+                    IReadOnlyList<SpecFinding> findings = GreenTeaSpec.Check(await Task.Run(() => _read(path)), Profile, delivery);
+                    fails += findings.Count(f => f.Level == FindingLevel.Fail);
+                    problems.AddRange(findings.Where(f => f.Level != FindingLevel.Pass).Select(f => $"{Path.GetFileName(path)}: {f.Message}"));
+                }
 
-            Done(VerifyStep, problems.Count > 0 ? string.Join(Environment.NewLine, problems) : Loc.T("pipeline.verify.passed", outputs.Count));
+                if (fails > 0)
+                {
+                    Fail(VerifyStep, string.Join(Environment.NewLine, problems));
+                    return;
+                }
+
+                Done(VerifyStep, problems.Count > 0 ? string.Join(Environment.NewLine, problems) : Loc.T("pipeline.verify.passed", outputs.Count));
+            }
 
             // 6. VMAF of the encode against its source.
             string reference = AlreadyEncoded ? Reference : Video;
@@ -489,6 +724,11 @@ public partial class PipelineViewModel : ObservableObject
         string reference = AlreadyEncoded ? Reference : Video;
         await Compare.HandleDropAsync(reference.Length > 0 ? [reference, EncodedFile] : [EncodedFile], DropZone.Reference);
     }
+
+    /// <summary>Every font file in the font folder: what the MKV carries when fonts are not subset.</summary>
+    private List<string> FullFonts() => Directory.Exists(FontDirectory)
+        ? [.. Directory.EnumerateFiles(FontDirectory).Where(f => Path.GetExtension(f).ToLowerInvariant() is ".ttf" or ".otf" or ".ttc" or ".otc").Order(StringComparer.Ordinal)]
+        : [];
 
     /// <summary>
     /// The chapters as Matroska XML (for mkvmerge) and ffmetadata (for the MP4 encodes), from the chapter

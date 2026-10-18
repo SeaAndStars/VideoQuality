@@ -37,6 +37,26 @@ public class Screenshots
             frame.Save(Path.Combine(folder!, $"{language}-{page.Key}.png"));
         }
 
+        // The pipeline once more with an episode folder dropped on it: inferred fields and outputs.
+        string episode = Directory.CreateTempSubdirectory("vq-shots-").FullName;
+        string video = Path.Combine(episode, "Silent Witch - Chinmoku no Majo no Kakushigoto 05.mkv");
+        File.WriteAllText(video, "x");
+        File.WriteAllText(Path.Combine(episode, "Silent Witch - Chinmoku no Majo no Kakushigoto 05 JPSC.ass"), string.Empty);
+        File.WriteAllText(Path.Combine(episode, "Silent Witch - Chinmoku no Majo no Kakushigoto 05 JPTC.ass"), string.Empty);
+        shell.Navigate("pipeline");
+        await shell.Pipeline.InferAsync(video);
+        shell.Pipeline.SetVideo(video);
+        shell.Pipeline.AddBurnTargetCommand.Execute(null);
+        shell.Pipeline.VerifyStep.Enabled = false;
+        await Ui.SettleAsync(400);
+        Dispatcher.UIThread.RunJobs();
+        using (var filled = window.CaptureRenderedFrame()!)
+        {
+            filled.Save(Path.Combine(folder!, $"{language}-pipeline-filled.png"));
+        }
+
+        Directory.Delete(episode, true);
+
         Loc.SetLanguage("en");
     }
 }

@@ -11,6 +11,11 @@
     <UserControl.Resources>
         <conv:LabelConverter x:Key="Label" />
     </UserControl.Resources>
+    <UserControl.Styles>
+        <Style Selector="Border.step.off > Grid > :is(Control):not(ToggleSwitch)">
+            <Setter Property="Opacity" Value="0.45" />
+        </Style>
+    </UserControl.Styles>
     <Panel>
         <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="12">
             <Border Classes="raised" Padding="16,12">
@@ -44,7 +49,7 @@
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
                     <Border Classes="surface">
                         <ScrollViewer>
-                            <Grid Classes="form" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="140,*,Auto"
+                            <Grid Classes="form" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="140,*,Auto"
                                   Margin="12,0,12,12">
                                 <Grid Classes="cardheader" Grid.ColumnSpan="3"><TextBlock Classes="label" Text="{l:L pipeline.inputs}" /></Grid>
 
@@ -120,25 +125,52 @@
                                 <TextBlock Grid.Row="13" Text="{l:L pipeline.quality}" />
                                 <NumericUpDown Grid.Row="13" Grid.Column="1" Grid.ColumnSpan="2" Value="{Binding Crf}" Minimum="0" Maximum="51" Increment="0.25" FormatString="0.##" />
                                 <TextBlock Grid.Row="14" Grid.Column="1" Grid.ColumnSpan="2" Classes="hint" Text="{l:L pipeline.nvencNote}" IsVisible="{Binding IsNvenc}" />
-                                <TextBlock Grid.Row="15" Text="{l:L pipeline.alsoMake}" />
-                                <WrapPanel Grid.Row="15" Grid.Column="1" Grid.ColumnSpan="2" ItemSpacing="16" LineSpacing="4">
-                                    <CheckBox Content="{l:L pipeline.burnedInMp4s}" IsChecked="{Binding MakeBurned}" />
-                                    <CheckBox Content="{l:L pipeline.step.vmaf}" IsChecked="{Binding RunVmaf}" />
-                                </WrapPanel>
-                                <TextBlock Grid.Row="16" Text="{l:L picker.outputFolder}" />
-                                <TextBox Grid.Row="16" Grid.Column="1" Text="{Binding OutputDirectory}" Watermark="{l:L pipeline.outputFolderWatermark}" />
-                                <Button Grid.Row="16" Grid.Column="2" Classes="tool" Click="OnPickOutput" ToolTip.Tip="{l:L common.chooseFolder}">
+                                <TextBlock Grid.Row="15" Text="{l:L picker.outputFolder}" />
+                                <TextBox Grid.Row="15" Grid.Column="1" Text="{Binding OutputDirectory}" Watermark="{l:L pipeline.outputFolderWatermark}" />
+                                <Button Grid.Row="15" Grid.Column="2" Classes="tool" Click="OnPickOutput" ToolTip.Tip="{l:L common.chooseFolder}">
                                     <ic:SymbolIcon Symbol="FolderOpen" />
                                 </Button>
-                                <TextBlock Grid.Row="17" Text="{l:L pipeline.fileNames}" VerticalAlignment="Top" />
-                                <ItemsControl Grid.Row="17" Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{Binding OutputNames}">
+
+                                <Grid Classes="cardheader" Grid.Row="16" Grid.ColumnSpan="3" ColumnDefinitions="*,Auto">
+                                    <TextBlock Classes="label" Text="{l:L pipeline.outputs}" />
+                                    <u:IconButton Grid.Column="1" Classes="tool" Content="{l:L pipeline.addMp4}" Command="{Binding AddBurnTargetCommand}"
+                                                  ToolTip.Tip="{l:L pipeline.addMp4.tip}">
+                                        <u:IconButton.Icon><ic:SymbolIcon Symbol="Add" /></u:IconButton.Icon>
+                                    </u:IconButton>
+                                </Grid>
+                                <CheckBox Grid.Row="17" Grid.ColumnSpan="3" Content="{l:L pipeline.mkvOutput}" IsChecked="{Binding MakeMkv}" />
+                                <SelectableTextBlock Grid.Row="18" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding MkvName}" FontSize="12" TextWrapping="Wrap"
+                                                     IsVisible="{Binding MakeMkv}" />
+                                <CheckBox Grid.Row="19" Grid.ColumnSpan="3" Content="{l:L pipeline.burnedOutputs}" IsChecked="{Binding MakeBurned}" />
+                                <ItemsControl Grid.Row="20" Grid.ColumnSpan="3" ItemsSource="{Binding Burns}" IsEnabled="{Binding MakeBurned}">
                                     <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="x:String">
-                                            <SelectableTextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4" />
+                                        <DataTemplate x:DataType="vm:BurnTarget">
+                                            <Grid ColumnDefinitions="140,*,Auto" ColumnSpacing="10" RowDefinitions="Auto,Auto" Margin="0,0,0,8">
+                                                <ComboBox HorizontalAlignment="Stretch" ToolTip.Tip="{l:L pipeline.burnLanguage}"
+                                                          ItemsSource="{Binding $parent[UserControl].((vm:PipelineViewModel)DataContext).BurnLanguages}"
+                                                          SelectedItem="{Binding Language}" />
+                                                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ToolTip.Tip="{l:L pipeline.burnScript}"
+                                                          ItemsSource="{Binding $parent[UserControl].((vm:PipelineViewModel)DataContext).Scripts}"
+                                                          SelectedItem="{Binding Script}">
+                                                    <ComboBox.ItemTemplate>
+                                                        <DataTemplate x:DataType="x:String">
+                                                            <TextBlock Text="{Binding Converter={x:Static conv:PathConverters.FileName}}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding}" />
+                                                        </DataTemplate>
+                                                    </ComboBox.ItemTemplate>
+                                                </ComboBox>
+                                                <Button Grid.Column="2" Classes="tool" ToolTip.Tip="{l:L common.remove}"
+                                                        Command="{Binding $parent[UserControl].((vm:PipelineViewModel)DataContext).RemoveBurnCommand}" CommandParameter="{Binding}">
+                                                    <ic:SymbolIcon Symbol="Dismiss" />
+                                                </Button>
+                                                <SelectableTextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding FileName}" FontSize="12"
+                                                                     TextWrapping="Wrap" Margin="0,4,0,0" />
+                                            </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <TextBlock Grid.Row="18" Grid.Column="1" Grid.ColumnSpan="2" Classes="hint" Text="{l:L pipeline.titleEpisodeAndSource}" />
+                                <TextBlock Grid.Row="21" Grid.Column="1" Grid.ColumnSpan="2" Classes="hint" Text="{l:L pipeline.noMp4s}"
+                                           IsVisible="{Binding !Burns.Count}" />
+                                <TextBlock Grid.Row="22" Grid.Column="1" Grid.ColumnSpan="2" Classes="hint" Text="{l:L pipeline.titleEpisodeAndSource}" />
                             </Grid>
                         </ScrollViewer>
                     </Border>
@@ -150,8 +182,9 @@
                                 <ItemsControl ItemsSource="{Binding Steps}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:PipelineStep">
-                                            <Border Background="{DynamicResource SemiColorFill0}" CornerRadius="{StaticResource VqRadiusControl}" Padding="12,10" Margin="0,0,0,8">
-                                                <Grid ColumnDefinitions="28,*" ColumnSpacing="12">
+                                            <Border Classes="step" Classes.off="{Binding !Enabled}" Background="{DynamicResource SemiColorFill0}"
+                                                    CornerRadius="{StaticResource VqRadiusControl}" Padding="12,10" Margin="0,0,0,8">
+                                                <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="12">
                                                     <Panel Width="24" Height="24" VerticalAlignment="Top" Margin="0,2,0,0">
                                                         <ic:SymbolIcon Symbol="Clock" FontSize="20" Foreground="{DynamicResource SemiColorText2}" IsVisible="{Binding IsPending}" />
                                                         <controls:Spinner IsVisible="{Binding IsRunning}" />
@@ -166,6 +199,9 @@
                                                                    IsVisible="{Binding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                                                         <ProgressBar Minimum="0" Maximum="1" Value="{Binding Progress}" IsVisible="{Binding IsRunning}" Margin="0,4,0,0" />
                                                     </StackPanel>
+                                                    <ToggleSwitch Grid.Column="2" VerticalAlignment="Top" OnContent="" OffContent="" IsChecked="{Binding Enabled}"
+                                                                  ToolTip.Tip="{l:L pipeline.stepEnabled}"
+                                                                  IsEnabled="{Binding !$parent[UserControl].((vm:PipelineViewModel)DataContext).IsBusy}" />
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>

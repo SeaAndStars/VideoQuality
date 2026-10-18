@@ -170,6 +170,7 @@ public sealed class PipelineTests : IDisposable
         Assert.False(vm.RunCommand.CanExecute(null));
         string subs = Scripts();
         vm.AddPaths([Source(), Path.Combine(subs, "ep01.JPSC.ass"), Path.Combine(subs, "ep01.JPTC.ass"), Path.Combine(subs, "ep01.JPSC.ass"), null]);
+        await vm.Inference;
         Assert.Equal(Path.Combine(subs, "Fonts"), vm.FontDirectory);
         Assert.Equal(Path.Combine(_work, "release"), vm.OutputDirectory);
         Assert.Equal(2, vm.Scripts.Count);
@@ -211,6 +212,7 @@ public sealed class PipelineTests : IDisposable
         (PipelineViewModel vm, Script script, _) = await PageAsync();
         script.NoChapters = true;
         vm.SetVideo(Source());
+        await vm.Inference;
         vm.AlreadyEncoded = true;
         await vm.RunCommand.ExecuteAsync(null);
         Assert.True(vm.EncodeStep.IsSkipped);
@@ -221,6 +223,7 @@ public sealed class PipelineTests : IDisposable
 
         // No chapters anywhere, an output folder already chosen, no fonts folder, BD rules (no burned copies).
         vm.SetVideo(Source());
+        await vm.Inference;
         Assert.Equal(Path.Combine(_work, "release"), vm.OutputDirectory);
         vm.Reference = Source();
         vm.RunVmaf = false;
@@ -251,6 +254,7 @@ public sealed class PipelineTests : IDisposable
         (PipelineViewModel vm, Script script, _) = await PageAsync();
         string subs = Scripts();
         vm.AddPaths([Source(), Path.Combine(subs, "ep01.JPSC.ass")]);
+        await vm.Inference;
         var toasts = new List<ToastRequest>();
         vm.ToastRequested += (_, t) => toasts.Add(t);
 
@@ -317,6 +321,7 @@ public sealed class PipelineTests : IDisposable
         File.WriteAllText(chapters, "CHAPTER01=00:00:00.000\nCHAPTER01NAME=OP\n");
         File.WriteAllText(Path.Combine(subs, "plain.ass"), File.ReadAllText(Path.Combine(subs, "ep01.JPSC.ass")));
         vm.AddPaths([Source(), Path.Combine(subs, "plain.ass"), chapters, Path.Combine(subs, "Fonts")]);
+        await vm.Inference;
         Assert.Equal(chapters, vm.ChaptersFile);
         Assert.Equal(Path.Combine(subs, "Fonts"), vm.FontDirectory);
 
@@ -346,6 +351,7 @@ public sealed class PipelineTests : IDisposable
         Assert.Equal(EpisodeKind.Ova, vm.Naming.Kind);
 
         vm.AddPaths([Source(), Source(), Source()]);
+        await vm.Inference;
         Assert.Equal(vm.Video, vm.Reference); // the second video is the reference; a third is ignored
         string elsewhere = Directory.CreateDirectory(Path.Combine(_work, "other")).FullName;
         File.WriteAllText(Path.Combine(elsewhere, "x.ass"), string.Empty);
@@ -370,6 +376,7 @@ public sealed class PipelineTests : IDisposable
 
         string subs = Scripts();
         vm.AddPaths([Source(), Path.Combine(subs, "ep01.JPSC.ass"), Path.Combine(subs, "ep01.JPTC.ass")]);
+        await vm.Inference;
         await vm.RunCommand.ExecuteAsync(null);
         Assert.Equal(3, queue.Jobs.Count);
         Assert.All(queue.Jobs, j => Assert.Contains("hevc_nvenc", j.Command.Passes[^1]));
@@ -388,6 +395,154 @@ public sealed class PipelineTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task A_source_fills_in_scripts_fonts_chapters_names_and_the_release_kind()
+    {
+        (PipelineViewModel vm, Script script, _) = await PageAsync();
+        string folder = Directory.CreateDirectory(Path.Combine(_work, "ep")).FullName;
+        string video = Path.Combine(folder, "Silent Witch 05.mkv");
+        File.WriteAllText(video, "raw");
+        File.WriteAllText(Path.Combine(folder, "Silent Witch 05 JPTC.ass"), string.Empty);
+        File.WriteAllText(Path.Combine(folder, "Silent Witch 05 JPSC.ass"), string.Empty);
+        File.WriteAllText(Path.Combine(folder, "Other 06 JPSC.ass"), string.Empty);
+        File.WriteAllText(Path.Combine(folder, "Silent Witch 05.xml"), "<Chapters />");
+        Directory.CreateDirectory(Path.Combine(folder, "Fonts"));
+
+        script.UnreadableSource = true; // only the name to go on
+        vm.SetVideo(video);
+        await vm.Inference;
+        Assert.Equal(2, vm.Scripts.Count);
+        Assert.Equal(Path.Combine(folder, "Fonts"), vm.FontDirectory);
+        Assert.Equal(Path.Combine(folder, "Silent Witch 05.xml"), vm.ChaptersFile);
+        Assert.Equal(("Silent Witch", 5m, ReleaseProfile.WebEpisode), (vm.Naming.Title, vm.Naming.Episode, vm.Profile));
+        Assert.Equal(["JPSC", "JPTC"], vm.Burns.Select(b => b.Language)); // tagged by the scripts' names, in name order
+        Assert.Equal(3, vm.OutputNames.Count);
+        Assert.EndsWith("[JPTC].mp4", vm.Burns[1].FileName, StringComparison.Ordinal);
+
+        // Nothing is replaced once chosen; a lossless track means a disc, a long nameless one a movie.
+        vm.Burns.Clear();
+        await vm.InferAsync(video);
+        Assert.Empty(vm.Burns);
+        string disc = Path.Combine(_work, "source.mkv");
+        File.WriteAllText(disc, "raw");
+        script.UnreadableSource = false;
+        await vm.InferAsync(disc);
+        Assert.Equal(ReleaseProfile.WebEpisode, vm.Profile); // AAC, 24 minutes
+        string flac = Path.Combine(folder, "Concert [Hi10p].mkv");
+        File.WriteAllText(flac, "raw");
+        var bd = new PipelineViewModel(vm.Settings, vm.Compare, vm.Queue, new NamingViewModel(_ => new MediaInfo { Path = "x" }), path => path.Contains("Mute", StringComparison.Ordinal) ? new MediaInfo { Path = path } : new MediaInfo
+        {
+            Path = path,
+            Duration = TimeSpan.FromMinutes(110),
+            Streams = [new MediaStream { Index = 0, Kind = StreamKind.Audio, Codec = "flac" }],
+        });
+        await bd.InferAsync(flac);
+        Assert.Equal((ReleaseProfile.BdMovie, EpisodeKind.Movie, "Concert"), (bd.Profile, bd.Naming.Kind, bd.Naming.Title));
+        await bd.InferAsync(Path.Combine(folder, "[WebRip] Concert 03.mkv"));
+        Assert.Equal(ReleaseProfile.WebEpisode, bd.Profile); // the name says web: a FLAC track does not make it a disc
+        await bd.InferAsync(Path.Combine(folder, "No Title Here.mkv"));
+        Assert.Equal(ReleaseProfile.BdMovie, bd.Profile); // no number: the length decides
+        await bd.InferAsync(Path.Combine(folder, "Show [BDRip] 04.mkv"));
+        Assert.Equal(ReleaseProfile.BdEpisode, bd.Profile);
+        await bd.InferAsync(Path.Combine(folder, "Mute The Movie.mkv"));
+        Assert.Equal(ReleaseProfile.WebMovie, bd.Profile); // named a movie, whatever its length
+        await bd.InferAsync(Path.Combine(folder, "Mute clip.mkv"));
+        Assert.Equal(ReleaseProfile.WebEpisode, bd.Profile); // no audio and no length: web, an episode
+        script.UnreadableSource = true;
+        await vm.InferAsync(Path.Combine(_work, "source.mkv"));
+        Assert.Equal(ReleaseProfile.WebEpisode, vm.Profile); // unreadable and nameless
+
+        // A release file name fills the form as it is.
+        string release = Path.Combine(folder, "[Studio GreenTea] Show [02][BDRip][HEVC-10bit 1080p FLAC ASSx2].mkv");
+        await bd.InferAsync(release);
+        Assert.Equal(("Show", 2m, ReleaseProfile.BdEpisode), (bd.Naming.Title, bd.Naming.Episode, bd.Profile));
+        await bd.InferAsync(Path.Combine(folder, "[Studio GreenTea] Film [Movie][WebRip][HEVC-10bit 1080p AAC ASSx2].mkv"));
+        Assert.Equal(ReleaseProfile.WebMovie, bd.Profile);
+        Assert.Equal(Loc.T("naming.status.parsed"), bd.Status);
+    }
+
+    [AvaloniaFact]
+    public async Task Outputs_and_steps_can_each_be_changed()
+    {
+        (PipelineViewModel vm, _, EncodeQueue queue) = await PageAsync();
+        Assert.False(vm.AddBurnTargetCommand.CanExecute(null));
+        string subs = Scripts();
+        string jpsc = Path.Combine(subs, "ep01.JPSC.ass");
+        string jptc = Path.Combine(subs, "ep01.JPTC.ass");
+        vm.AddPaths([Source(), jpsc]);
+        await vm.Inference;
+        Assert.Equal(["JPSC"], vm.Burns.Select(b => b.Language));
+
+        // One MP4 with JPSC, then a JPTC one added freely from the same script, and a plain SC/TC pair.
+        vm.AddBurnTargetCommand.Execute(null);
+        Assert.Equal((jpsc, "JPTC"), (vm.Burns[1].Script, vm.Burns[1].Language));
+        vm.AddBurnTargetCommand.Execute(null);
+        vm.AddBurnTargetCommand.Execute(null);
+        vm.AddBurnTargetCommand.Execute(null); // every tag in use: back to the first
+        Assert.Equal(["JPSC", "JPTC", "SC", "TC", "JPSC"], vm.Burns.Select(b => b.Language));
+        Assert.EndsWith("[SC].mp4", vm.Burns[2].FileName, StringComparison.Ordinal);
+        Assert.EndsWith("[TC].mp4", vm.Burns[3].FileName, StringComparison.Ordinal);
+        vm.RemoveBurnCommand.Execute(vm.Burns[4]);
+        vm.RemoveBurnCommand.Execute(vm.Burns[3]);
+        vm.RemoveBurnCommand.Execute(vm.Burns[2]);
+        vm.Burns[1].Language = "TC";
+        Assert.EndsWith("[TC].mp4", vm.Burns[1].FileName, StringComparison.Ordinal);
+        vm.Burns[1].Language = "JPTC";
+
+        // A second script gets its own MP4 unless one already burns it; a new MP4 prefers a script without one.
+        vm.AddPaths([jptc]);
+        Assert.Equal(3, vm.Burns.Count);
+        vm.RemoveBurnCommand.Execute(vm.Burns[2]);
+        vm.AddBurnTargetCommand.Execute(null);
+        Assert.Equal(jptc, vm.Burns[2].Script);
+        vm.RemoveScriptCommand.Execute(jptc);
+        Assert.Equal(2, vm.Burns.Count);
+
+        // Scripts that name no Chinese tag get the first free one.
+        string plain = Path.Combine(subs, "plain.ass");
+        string japanese = Path.Combine(subs, "ep01.ja.ass");
+        File.WriteAllText(plain, string.Empty);
+        File.WriteAllText(japanese, string.Empty);
+        vm.AddPaths([plain, japanese]);
+        Assert.Equal(["SC", "TC"], vm.Burns.Skip(2).Select(b => b.Language));
+        vm.RemoveBurnCommand.Execute(vm.Burns[3]);
+        vm.RemoveScriptCommand.Execute(japanese); // no MP4 burns it any more
+        vm.RemoveScriptCommand.Execute(plain);
+        Assert.Equal(2, vm.Burns.Count);
+
+        // MKV off: only the two MP4s are made, checked and listed.
+        vm.MakeMkv = false;
+        Assert.Equal(2, vm.OutputNames.Count);
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.True(vm.MuxStep.IsSkipped);
+        Assert.Equal(["[JPSC].mp4", "[JPTC].mp4"], vm.Outputs.Select(o => o[^10..]));
+        Assert.True(vm.VerifyStep.IsDone, vm.VerifyStep.Detail);
+
+        // Subset off: the MKV carries the whole font folder. Verify off, burn off.
+        vm.MakeMkv = true;
+        vm.SubsetStep.Enabled = false;
+        vm.VerifyStep.Enabled = false;
+        vm.MakeBurned = false;
+        Assert.Single(vm.OutputNames);
+        int jobs = queue.Jobs.Count;
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.Equal((true, true, true, Loc.T("pipeline.step.off")), (vm.SubsetStep.IsSkipped, vm.VerifyStep.IsSkipped, vm.BurnStep.IsSkipped, vm.BurnStep.Detail));
+        Assert.True(vm.MuxStep.IsDone, vm.MuxStep.Detail);
+        Assert.Equal(jobs + 1, queue.Jobs.Count); // the encode only
+
+        // Nothing to check: no MKV and no MP4s.
+        vm.VerifyStep.Enabled = true;
+        vm.MakeMkv = false;
+        vm.FontDirectory = Path.Combine(_work, "missing");
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.Equal(Loc.T("pipeline.verify.nothing"), vm.VerifyStep.Detail);
+        vm.MakeMkv = true;
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.True(vm.MuxStep.IsDone, vm.MuxStep.Detail); // no font folder: no fonts
+        vm.ClearCommand.Execute(null);
+        Assert.Empty(vm.Burns);
+    }
+
+    [AvaloniaFact]
     public async Task Real_tools_produce_a_release()
     {
         SettingsViewModel settings = await Pages.SettingsAsync();
@@ -399,7 +554,8 @@ public sealed class PipelineTests : IDisposable
             path => path == clip ? MediaInfoReader.Read(path) : Compliant(path, false));
         string subs = Scripts();
         vm.AddPaths([clip, Path.Combine(subs, "ep01.JPSC.ass")]);
-        await Ui.UntilAsync(() => vm.Naming.Status == Loc.T("naming.status.fromVideo"));
+        await vm.Inference;
+        await vm.Inference;
         vm.Crf = 35;
 
         await vm.RunCommand.ExecuteAsync(null);
