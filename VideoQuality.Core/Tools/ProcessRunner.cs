@@ -209,10 +209,13 @@ public sealed partial class SystemProcessRunner : IProcessRunner
             // POSIX: SIGSTOP / SIGCONT (-1 and errno on failure, mapped to -errno).
             int status = OperatingSystem.IsWindows()
                 ? suspend ? NtSuspendProcess(process.Handle) : NtResumeProcess(process.Handle)
-                : kill(Id, suspend ? SigStop : SigCont) == 0 ? 0 : -Marshal.GetLastPInvokeError();
+                : PosixStatus(kill(Id, suspend ? SigStop : SigCont), Marshal.GetLastPInvokeError());
             ThrowIfFailed(status, Id);
         }
     }
+
+    /// <summary>kill(2)'s result as a status: 0, or the negated errno when it failed.</summary>
+    internal static int PosixStatus(int result, int errno) => result == 0 ? 0 : -errno;
 
     internal static void ThrowIfFailed(int status, int processId)
     {

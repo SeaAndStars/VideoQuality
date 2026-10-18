@@ -139,4 +139,11 @@ public class ProcessControlTests
         control.Exited();
         Assert.Equal(control.ProcessorTime, control.ProcessorTime);
     }
+
+    [Fact]
+    public void Signal_results_map_to_statuses()
+    {
+        Assert.Equal(0, SystemProcessRunner.PosixStatus(0, 3));
+        Assert.Equal(-3, SystemProcessRunner.PosixStatus(-1, 3)); // ESRCH: the process is gone
+    }
 }
