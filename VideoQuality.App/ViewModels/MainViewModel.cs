@@ -445,7 +445,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 _settingsQuiet = true; // auto-detected, not the user's choice
                 FfmpegPath = resolved;
                 _settingsQuiet = false;
-                return;
             }
         }
 
