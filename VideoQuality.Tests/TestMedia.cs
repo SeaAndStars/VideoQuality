@@ -78,7 +78,7 @@ public static class TestMedia
         "-map", "0:v", "-map", "1:a", "-map", "2:s",
         "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "flac", "-c:s", "copy",
         "-metadata:s:s:0", "language=chi", "-metadata:s:s:0", "title=JPSC", "-disposition:s:0", "default+forced",
-        "-attach", Path.Combine(AppContext.BaseDirectory, "Fixtures", "fonts", "DejaVuSans.ttf"), "-metadata:s:t", "mimetype=font/ttf",
+        "-attach", Path.Combine(AppContext.BaseDirectory, "Fixtures", "fonts", "DejaVuSans.ttf"), "-metadata:s:t", "mimetype=font/ttf", "-metadata:s:t", "filename=DejaVuSans.ttf",
         "-metadata", "title=Rich", path,
     ]);
 

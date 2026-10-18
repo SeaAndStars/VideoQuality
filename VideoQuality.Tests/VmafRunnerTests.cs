@@ -191,7 +191,7 @@ public sealed class VmafRunnerTests : IDisposable
 
         Assert.True(report.FellBackToCpu);
         Assert.Equal(VmafExecutionBackend.Cpu, report.Backend);
-        Assert.EndsWith("last error line", report.FallbackReason!.Split('\n').First(l => l.Contains("last error", StringComparison.Ordinal)), StringComparison.Ordinal);
+        Assert.EndsWith("last error line", report.FallbackReason!.Split('\n').First(l => l.Contains("last error", StringComparison.Ordinal)).TrimEnd('\r'), StringComparison.Ordinal);
     }
 
     [Fact]

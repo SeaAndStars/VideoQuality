@@ -210,7 +210,7 @@ public class EncodeCommandTests
 
         Assert.Equal(2, command.Passes.Count);
         string log = Assert.Single(command.TemporaryFiles);
-        Assert.StartsWith("/work/vq-2pass-", log, StringComparison.Ordinal);
+        Assert.StartsWith(Path.Combine("/work", "vq-2pass-"), log, StringComparison.Ordinal);
         Assert.Equal("1", After(command.Passes[0], "-pass"));
         Assert.Equal(log, After(command.Passes[0], "-passlogfile"));
         Assert.Contains("-an", command.Passes[0]);
@@ -228,9 +228,14 @@ public class EncodeCommandTests
             new EncodePreset { Video = new VideoSettings { Mode = RateControl.TargetSize, TargetMbPer24Minutes = 600, EncoderParams = "aq-mode=3" } },
             "/media/in.mkv", Source, "/out/o.mkv", "/work");
 
-        string log = command.TemporaryFiles.Single();
+        string log = command.TemporaryFiles.Single().Replace('\\', '/');
         Assert.Equal($"aq-mode=3:pass=1:stats={log}", After(command.Passes[0], "-x265-params"));
         Assert.Equal($"aq-mode=3:pass=2:stats={log}", After(command.Passes[1], "-x265-params"));
+
+        // A drive letter's colon would end the option early.
+        EncodeCommand windows = FfmpegCommandBuilder.Build(
+            new EncodePreset { Video = new VideoSettings { Mode = RateControl.TwoPass } }, "/media/in.mkv", Source, "/out/o.mkv", @"D:\work");
+        Assert.StartsWith(@"pass=1:stats=D\:/work", After(windows.Passes[0], "-x265-params"), StringComparison.Ordinal);
         // 600 MiB per 24 min, 99% of it, minus 2 × 320 kbps of audio.
         Assert.Equal(FfmpegCommandBuilder.TargetVideoKbps(600, TimeSpan.FromMinutes(24), 640), command.VideoBitrateKbps);
         Assert.Equal($"{command.VideoBitrateKbps}k", After(command.Passes[1], "-b:v"));

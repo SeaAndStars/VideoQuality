@@ -24,7 +24,7 @@ public sealed class FfmpegRuntimeTests : IDisposable
             ["VQ_FFMPEG"] = "/tools/bin/ffmpeg",
         };
         List<string> all = [.. FfmpegRuntime.Candidates(name => env.GetValueOrDefault(name))];
-        Assert.Equal(["/lib/path", "/root/ff", Path.Combine("/root/ff", "bin"), Path.Combine("/root/ff", "lib"), "/tools/bin"], all.Take(5));
+        Assert.Equal(["/lib/path", "/root/ff", Path.Combine("/root/ff", "bin"), Path.Combine("/root/ff", "lib"), Path.GetDirectoryName("/tools/bin/ffmpeg")!], all.Take(5));
         Assert.Contains(AppPaths.BundledFfmpegDirectory, all);
         Assert.Equal(FfmpegRuntime.SystemFolders, all.TakeLast(FfmpegRuntime.SystemFolders.Count));
 

@@ -66,7 +66,8 @@ public class EncodeIntegrationTests : IDisposable
     public async Task Burned_in_mp4_shows_the_subtitles_in_the_picture()
     {
         string clip = await TestMedia.ClipAsync();
-        string folder = Path.Combine(_work, "sub folder 'a' [b], c; d: 中文");
+        // Every character the filtergraph escapes; Windows paths cannot hold ':' beyond the drive's.
+        string folder = Path.Combine(_work, OperatingSystem.IsWindows() ? "sub folder 'a' [b], c; d 中文" : "sub folder 'a' [b], c; d: 中文");
         string script = TestMedia.Script(folder);
         EncodePreset preset = GreenTeaSpec.Preset(ReleaseProfile.WebEpisode, SubtitleDelivery.Burned) with
         {
@@ -93,8 +94,10 @@ public class EncodeIntegrationTests : IDisposable
             Video = new VideoSettings { Encoder = encoder, Mode = RateControl.TwoPass, BitrateKbps = 300, Preset = "ultrafast" },
             Audio = new AudioSettings { Encoder = "none" },
         };
+        // The statistics go to a folder with a colon in it (a drive letter on Windows): x265 must still find them.
+        string work = OperatingSystem.IsWindows() ? _work : Directory.CreateDirectory(Path.Combine(_work, "two:pass")).FullName;
         string output = Path.Combine(_work, encoder + ".mkv");
-        EncodeCommand command = FfmpegCommandBuilder.Build(preset, clip, MediaInfoReader.Read(clip), output, _work);
+        EncodeCommand command = FfmpegCommandBuilder.Build(preset, clip, MediaInfoReader.Read(clip), output, work);
 
         EncodeJob job = await RunAsync(Queue(), new EncodeJob(clip, command, "two-pass"));
 
@@ -102,7 +105,7 @@ public class EncodeIntegrationTests : IDisposable
         Assert.Equal("two-pass", job.Name);
         Assert.Equal(2, job.Pass);
         Assert.True(File.Exists(output));
-        Assert.Empty(Directory.EnumerateFiles(_work, "vq-2pass-*"));
+        Assert.Empty(Directory.EnumerateFiles(work, "vq-2pass-*"));
     }
 
     [Fact]

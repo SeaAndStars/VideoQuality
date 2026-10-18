@@ -558,7 +558,9 @@ public static class FfmpegCommandBuilder
         string number = pass.ToString(CultureInfo.InvariantCulture);
         if (encoder.Family == EncoderFamily.X265)
         {
-            MergeParams(encoder, video.EncoderParams, $"pass={number}:stats={log.Replace('\\', '/')}", args);
+            // ':' separates x265 options, so the drive letter's colon (D:/…) is escaped.
+            string stats = log.Replace('\\', '/').Replace(":", "\\:", StringComparison.Ordinal);
+            MergeParams(encoder, video.EncoderParams, $"pass={number}:stats={stats}", args);
         }
         else
         {
