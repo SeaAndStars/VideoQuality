@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
+using VideoQuality.App.Services;
 using VideoQuality.App.ViewModels;
 using Avalonia.Controls;
 using VideoQuality.App.Views;
@@ -25,7 +26,7 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            Start(desktop, StartupOptions.Parse(desktop.Args ?? []));
+            Start(desktop, StartupOptions.Parse(desktop.Args!)); // the desktop lifetime always has its arguments
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -43,7 +44,7 @@ public partial class App : Application
             desktop.MainWindow = window;
             if (options.SelfTest)
             {
-                window.Opened += (_, _) => desktop.Shutdown(0);
+                window.Opened += (_, _) => AppServices.ShutdownDesktop();
             }
 
             return window;

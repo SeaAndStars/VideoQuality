@@ -69,6 +69,13 @@ public sealed class CompareEdgeTests : IDisposable
         Assert.Equal(CompareMode.Flicker, vm.CompareMode);
         Assert.Equal("ffmpeg", vm.FfmpegPath); // a saved path that no longer exists is ignored
         Assert.False(vm.IsAutoFlicker);
+        vm.CompareMode = CompareMode.SideBySide;
+        vm.AutoFlicker = true;
+        Assert.False(vm.IsAutoFlicker); // only in flicker mode
+        vm.AutoFlicker = false;
+        Assert.Equal(VmafModels.Default, Compare(new ScoringTools(), new MemorySettings("""{"Model":""}"""), probe: false).SelectedModel);
+        settings = new MemorySettings("""{"Model":"vmaf_v0.6.1","CompareMode":2}""");
+        vm = Compare(new ScoringTools(), settings, probe: false);
 
         vm.FlushSettings(); // nothing changed: nothing written
         Assert.Equal(0, settings.Saves);
@@ -126,6 +133,11 @@ public sealed class CompareEdgeTests : IDisposable
         toasts.Last(t => t.Action is not null).Action!();
         await Ui.UntilAsync(() => !vm.HasReference);
         Assert.Equal(EncodeState.WaitingForReference, Assert.Single(vm.Encodes).State);
+
+        // A reference that does not open: encodes keep waiting, also when more arrive.
+        await vm.HandleDropAsync([junk], DropZone.Reference);
+        await vm.HandleDropAsync([extra], DropZone.Encodes);
+        await Ui.UntilAsync(() => vm.Encodes.Count == 2 && vm.Encodes.All(e => e.State == EncodeState.WaitingForReference));
     }
 
     [AvaloniaFact]
@@ -261,6 +273,20 @@ public sealed class CompareEdgeTests : IDisposable
         Assert.Contains(statuses, s => s.Contains("pc", StringComparison.Ordinal));
     }
 
+    [AvaloniaFact]
+    public async Task Colour_checks_skip_what_a_stream_does_not_say()
+    {
+        MainViewModel vm = Compare(new ScoringTools());
+        string raw = Copy(await TestMedia.RawH264Async(), "raw.h264"); // no colour tags at all
+        string mp4 = Copy(await TestMedia.Mp4Async(), "tagged.mp4");
+        await vm.HandleDropAsync([raw, mp4], DropZone.Auto);
+        await Ui.UntilAsync(() => vm.EncodeName == "tagged.mp4");
+        var other = Compare(new ScoringTools());
+        await other.HandleDropAsync([mp4, Copy(raw, "raw2.h264")], DropZone.Auto);
+        await Ui.UntilAsync(() => other.EncodeName == "raw2.h264");
+        await Ui.SettleAsync(100);
+    }
+
     [Fact]
     public void Encoder_lists_sync_in_catalog_order()
     {
@@ -283,7 +309,13 @@ public sealed class CompareEdgeTests : IDisposable
         string reference = Copy(await TestMedia.ClipAsync(), "ref.mkv");
         Border zone = view.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("zone") && Equals(b.Tag, DropZone.Reference) && b.IsEffectivelyVisible);
         TextBlock label = zone.GetVisualDescendants().OfType<TextBlock>().First();
-        Ui.Drop(window, label, reference);
+        var dropped = new DataTransfer();
+        dropped.Add(DataTransferItem.CreateFile(Storage.File(reference)));
+        label.RaiseEvent(new DragEventArgs(DragDrop.DragOverEvent, dropped, label, default, KeyModifiers.None));
+        Assert.Contains("hot", zone.Classes);
+        label.RaiseEvent(new DragEventArgs(DragDrop.DragOverEvent, dropped, label, default, KeyModifiers.None)); // still the same zone
+        label.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, dropped, label, default, KeyModifiers.None));
+        Assert.DoesNotContain("hot", zone.Classes);
         await Ui.UntilAsync(() => vm.HasReference);
 
         string a = Copy(await TestMedia.ClipAsync(), "a.mkv");
@@ -291,6 +323,9 @@ public sealed class CompareEdgeTests : IDisposable
         await Settled(vm);
         vm.ShowSmoothed = true; // three frames: too few to smooth
         vm.ImageHeight = 200;
+        vm.CompareMode = CompareMode.Difference;
+        await Ui.UntilAsync(() => vm.DifferenceBitmap is not null);
+        vm.CompareMode = CompareMode.SideBySide;
 
         // Mixed models, and a selected row without a report next to a plotted one.
         vm.SelectedModel = VmafModels.Standard;
@@ -326,5 +361,30 @@ public sealed class CompareEdgeTests : IDisposable
         view.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, files, view, new Avalonia.Point(5, 5), KeyModifiers.None));
         await Ui.UntilAsync(() => vm.Encodes.Count == 4);
         window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Auto_gain_follows_real_differences_and_disposal_waits_for_decoding()
+    {
+        MainViewModel vm = Compare(new ScoringTools());
+        string reference = Copy(await TestMedia.ClipAsync(), "ref.mkv");
+        string lossy = await MakeAsync("lossy.mkv", "-i", reference, "-c:v", "libx264", "-preset", "ultrafast", "-crf", "45", "-an");
+        await vm.HandleDropAsync([reference, lossy], DropZone.Auto);
+        await Settled(vm);
+        await Ui.UntilAsync(() => vm.DistortedBitmap is not null);
+        vm.CompareMode = CompareMode.Difference;
+        vm.AutoGainCommand.Execute(null);
+        Assert.NotEqual(16, vm.DifferenceGain);
+
+        vm.StartPlayback();
+        vm.CompareMode = CompareMode.Flicker;
+        vm.AutoFlicker = true;
+        vm.Dispose(); // timers stop; decoders go once no frame is decoding
+        await Ui.SettleAsync(200);
+
+        MainViewModel referenceOnly = Compare(new ScoringTools());
+        await referenceOnly.SetReferenceAsync(reference);
+        referenceOnly.Dispose();
+        await Ui.SettleAsync(100);
     }
 }

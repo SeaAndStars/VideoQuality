@@ -172,9 +172,12 @@ public partial class PresetEditor : ObservableObject
     {
         var keep = new HashSet<T>(wanted) { selected };
         List<T> desired = [.. order.Where(keep.Contains)];
-        foreach (T item in target.Where(i => !keep.Contains(i)).ToList())
+        for (int i = target.Count - 1; i >= 0; i--)
         {
-            target.Remove(item);
+            if (!keep.Contains(target[i]))
+            {
+                target.RemoveAt(i);
+            }
         }
 
         // What is left is in catalog order, so inserting at the first mismatch rebuilds the list.

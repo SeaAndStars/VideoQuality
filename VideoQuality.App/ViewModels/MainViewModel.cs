@@ -1234,9 +1234,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     private bool CanAnalyze() => SelectedEncode is { IsBusy: false } && HasReference;
 
-    private static string ScoreNote(EncodeEntry? entry)
+    private static string ScoreNote(EncodeEntry entry)
     {
-        if (entry?.Report is not { } report)
+        if (entry.Report is not { } report)
         {
             return string.Empty;
         }

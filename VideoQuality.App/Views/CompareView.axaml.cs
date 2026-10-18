@@ -544,7 +544,7 @@ public partial class CompareView : UserControl
             double maxViewer = Math.Max(viewerRow.MinHeight, flexible - graphRow.MinHeight);
             height = Math.Clamp(height, viewerRow.MinHeight, maxViewer);
 
-            if (!viewerRow.Height.IsAbsolute || Math.Abs(viewerRow.Height.Value - height) > 1)
+            if (Math.Abs(viewerRow.Height.Value - height) > 1)
             {
                 viewerRow.Height = new GridLength(height);
             }
