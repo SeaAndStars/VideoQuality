@@ -651,10 +651,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(HasStaleEncodes));
     }
 
-    /// <summary>Opens a reference and one or more encodes, then scores them (startup arguments).</summary>
-    public Task OpenAndAnalyzeAsync(string reference, IReadOnlyList<string> encodes) =>
-        HandleDropAsync([reference, .. encodes], DropZone.Auto);
-
     private List<EncodeEntry> AddRows(IReadOnlyList<string> paths)
     {
         var added = new List<EncodeEntry>();
@@ -894,7 +890,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         else if (job.State == JobState.Failed)
         {
             entry.State = EncodeState.Failed;
-            entry.Error = FirstLine(job.Error);
+            entry.Error = FirstLine(job.Error!); // a failed job always says why
             Toast(ToastKind.Error, Loc.T("compare.toast.scoreFailed", entry.Name, entry.Error));
         }
 
@@ -970,13 +966,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private void Toast(ToastKind kind, string message, string? actionLabel = null, Action? action = null) =>
         ToastRequested?.Invoke(this, new ToastRequest(kind, message, actionLabel, action));
 
-    private static string FirstLine(string? text)
+    internal static string FirstLine(string text)
     {
-        if (string.IsNullOrEmpty(text))
-        {
-            return Loc.T("common.unknownError");
-        }
-
         int newline = text.IndexOfAny(['\r', '\n']);
         return newline >= 0 ? text[..newline] : text;
     }
@@ -1252,14 +1243,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         if (report.FellBackToCpu)
         {
-            string reason = report.FallbackReason ?? Loc.T("common.unknownError");
-            int newline = reason.IndexOfAny(['\r', '\n']);
-            if (newline >= 0)
-            {
-                reason = reason[..newline];
-            }
-
-            return " " + Loc.T("compare.note.cudaFallback", reason);
+            return " " + Loc.T("compare.note.cudaFallback", FirstLine(report.FallbackReason!)); // a fallback always has a reason
         }
 
         if (report.ConvertedTo8Bit)
@@ -1324,13 +1308,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private void OnFlickerTick(object? sender, EventArgs e)
-    {
-        if (IsFlicker)
-        {
-            FlickerShowsDistorted = !FlickerShowsDistorted;
-        }
-    }
+    // Auto-flicker only runs in flicker mode: leaving the mode turns it off.
+    private void OnFlickerTick(object? sender, EventArgs e) => FlickerShowsDistorted = !FlickerShowsDistorted;
 
     private async Task OpenSelectedEncodeAsync(EncodeEntry? entry)
     {
@@ -1562,9 +1541,19 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         CancelAnalysis();
         _playTimer?.Stop();
         _flickerTimer?.Stop();
+        _ = ReleaseDecodersAsync();
+    }
+
+    /// <summary>
+    /// Frees the decoders and bitmaps once no decode is running: a frame may still be decoding on
+    /// a worker thread (with the native decoder) when the window closes. The lock is kept, so
+    /// nothing decodes afterwards.
+    /// </summary>
+    internal async Task ReleaseDecodersAsync()
+    {
+        await _decodeLock.WaitAsync().ConfigureAwait(true);
         _referenceDecoder?.Dispose();
         _distortedDecoder?.Dispose();
-        _decodeLock.Dispose();
         _referenceBitmaps.Dispose();
         _distortedBitmaps.Dispose();
         _differenceBitmaps.Dispose();

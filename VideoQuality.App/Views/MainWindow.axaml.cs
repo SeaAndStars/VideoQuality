@@ -55,12 +55,9 @@ public partial class MainWindow : UrsaWindow
     /// </summary>
     private void FitBelowTitleBar()
     {
-        if (Root.GetVisualParent() is not Visual host)
-        {
-            return;
-        }
-
-        double contentTop = host.TranslatePoint(new Point(0, 0), this)?.Y ?? 0;
+        // Root sits in the window's template, and everything measured below is inside this window.
+        Visual host = Root.GetVisualParent()!;
+        double contentTop = host.TranslatePoint(new Point(0, 0), this)!.Value.Y;
         double chromeBottom = contentTop;
 
         foreach (Visual visual in this.GetVisualDescendants())
@@ -76,7 +73,7 @@ public partial class MainWindow : UrsaWindow
                 continue;
             }
 
-            double bottom = visual.TranslatePoint(new Point(0, visual.Bounds.Height), this)?.Y ?? 0;
+            double bottom = visual.TranslatePoint(new Point(0, visual.Bounds.Height), this)!.Value.Y;
             chromeBottom = Math.Max(chromeBottom, bottom);
         }
 

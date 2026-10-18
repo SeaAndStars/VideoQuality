@@ -348,6 +348,7 @@ public sealed class CompareTests : IDisposable
     [AvaloniaFact]
     public async Task Startup_resolves_ffmpeg_probes_and_logs_the_session()
     {
+        VmafRunner.ClearCapabilityCache(); // "ffmpeg" may have been probed by another test's tools
         var tools = new ScoringTools();
         var services = new AppServices { Processes = tools.Runner, Settings = new MemorySettings(), Environment = _ => null, DescribeLibav = () => throw new InvalidOperationException("no libav") };
         var vm = new MainViewModel(services);

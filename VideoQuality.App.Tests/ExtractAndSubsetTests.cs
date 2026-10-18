@@ -16,7 +16,9 @@ namespace VideoQuality.App.Tests;
 /// <summary>Settings kept in memory, so tests never see each other's choices.</summary>
 public sealed class MemorySettings : ISettingsStore
 {
-    private string _json = "{}";
+    private string _json;
+
+    public MemorySettings(string json = "{}") => _json = json;
 
     public int Saves { get; private set; }
 

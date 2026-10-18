@@ -104,15 +104,15 @@ public partial class CompareView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        _topLevel = TopLevel.GetTopLevel(this);
-        _topLevel?.AddHandler(KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel);
-        _topLevel?.AddHandler(KeyUpEvent, OnGlobalKeyUp, RoutingStrategies.Tunnel);
+        _topLevel = TopLevel.GetTopLevel(this)!; // attached: inside a window
+        _topLevel.AddHandler(KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel);
+        _topLevel.AddHandler(KeyUpEvent, OnGlobalKeyUp, RoutingStrategies.Tunnel);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        _topLevel?.RemoveHandler(KeyDownEvent, OnGlobalKeyDown);
-        _topLevel?.RemoveHandler(KeyUpEvent, OnGlobalKeyUp);
+        _topLevel!.RemoveHandler(KeyDownEvent, OnGlobalKeyDown);
+        _topLevel.RemoveHandler(KeyUpEvent, OnGlobalKeyUp);
         _topLevel = null;
         base.OnDetachedFromVisualTree(e);
     }
@@ -815,11 +815,10 @@ public partial class CompareView : UserControl
         }
 
         // Non-local items (smb://, mtp://) come through as null and are rejected with a reason.
-        List<string?> paths = (e.DataTransfer.TryGetFiles() ?? [])
-            .Select(item => item.TryGetLocalPath())
-            .ToList();
+        List<string?> paths = [.. e.DataTransfer.TryGetFiles()!.Select(item => item.TryGetLocalPath())]; // HasFiles
 
-        DropZone zone = zoneBorder?.Tag is DropZone tagged ? tagged : DropZone.Auto;
+        // Every zone is tagged with the drop zone it stands for.
+        DropZone zone = zoneBorder is null ? DropZone.Auto : (DropZone)zoneBorder.Tag!;
         await ViewModel.HandleDropAsync(paths, zone);
     }
 

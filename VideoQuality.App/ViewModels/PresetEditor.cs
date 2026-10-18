@@ -168,7 +168,7 @@ public partial class PresetEditor : ObservableObject
     }
 
     /// <summary>Makes <paramref name="target"/> hold <paramref name="wanted"/> (plus the selection), in catalog order.</summary>
-    private static void Sync<T>(ObservableCollection<T> target, IReadOnlyList<T> wanted, T selected, IReadOnlyList<T> order)
+    internal static void Sync<T>(ObservableCollection<T> target, IReadOnlyList<T> wanted, T selected, IReadOnlyList<T> order)
     {
         var keep = new HashSet<T>(wanted) { selected };
         List<T> desired = [.. order.Where(keep.Contains)];

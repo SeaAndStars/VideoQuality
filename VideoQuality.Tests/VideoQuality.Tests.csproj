@@ -18,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\VideoQuality.Core\VideoQuality.Core.csproj" />
     <ProjectReference Include="..\VideoQuality.Cli\VideoQuality.Cli.csproj" />
+    <ProjectReference Include="..\VideoQuality.App\VideoQuality.App.csproj" />
     <!-- Built first and copied beside the tests as FakeTool/ (see FakeTools.cs). -->
     <ProjectReference Include="..\VideoQuality.Tests.FakeTool\VideoQuality.Tests.FakeTool.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
