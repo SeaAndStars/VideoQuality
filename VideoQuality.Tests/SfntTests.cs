@@ -159,6 +159,7 @@ public class SfntTests
     [Fact]
     public void Names_decode_and_encode_per_platform()
     {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance); // legacy code pages for the GBK record below
         Assert.Equal("Uni", new NameRecord(0, 3, 0, 1, Encoding.BigEndianUnicode.GetBytes("Uni")).Text);
         Assert.Equal("Mac", new NameRecord(1, 0, 0, 1, "Mac"u8.ToArray()).Text);
         Assert.Equal("Sym", new NameRecord(3, 0, 0, 1, Encoding.BigEndianUnicode.GetBytes("Sym")).Text);
