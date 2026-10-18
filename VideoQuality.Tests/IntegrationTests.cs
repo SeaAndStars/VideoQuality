@@ -40,7 +40,8 @@ public class IntegrationTests
     [Fact]
     public async Task Cpu_and_cuda_agree_on_8_bit()
     {
-        string video = await TestMedia.ClipAsync();
+        // 720p: at 320×180 libvmaf_cuda itself varies by up to ~0.6 between runs of the same input.
+        string video = await TestMedia.Clip720Async();
         (string ffmpeg, VmafCapabilities capabilities) = await ResolveAsync();
         // A real GPU is optional (CI has none); the CUDA paths are covered with scripted tools.
         Assert.SkipWhen(!capabilities.CudaUsable, "libvmaf_cuda or an NVIDIA GPU is not available");

@@ -65,6 +65,10 @@ public static class TestMedia
         ["-f", "lavfi", "-i", "testsrc2=size=160x90:rate=24:duration=2", "-vf", "setpts='if(lt(N,12),N/96,(N-9)/24*2)/TB'",
          "-fps_mode", "passthrough", "-c:v", "libx264", "-preset", "ultrafast", "-g", "12", "-bf", "0", path]);
 
+    /// <summary>720p H.264 (MKV): libvmaf_cuda scores tiny frames slightly differently from run to run.</summary>
+    public static Task<string> Clip720Async() => MakeAsync("clip720.mkv", path =>
+        [.. Source(2, "1280x720"), "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", path]);
+
     public static Task<string> LongAsync() => MakeAsync("long.mkv", path =>
         [.. Source(15), "-c:v", "libx264", "-preset", "ultrafast", "-g", "48", "-pix_fmt", "yuv420p", path]);
 
