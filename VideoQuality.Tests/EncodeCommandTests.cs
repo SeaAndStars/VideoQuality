@@ -463,6 +463,7 @@ public class EncodeCommandTests
         Assert.Equal(23.976, FfmpegCommandBuilder.Build(new EncodePreset(), "/media/in.mkv", withRate, "/out/o.mkv", "/tmp").FrameRate);
         Assert.Equal(25, FfmpegCommandBuilder.Build(new EncodePreset { Video = new VideoSettings { FrameRate = "25" } }, "/media/in.mkv", withRate, "/out/o.mkv", "/tmp").FrameRate);
         Assert.Equal(23.976, FfmpegCommandBuilder.Build(new EncodePreset { Video = new VideoSettings { FrameRate = "bogus" } }, "/media/in.mkv", withRate, "/out/o.mkv", "/tmp").FrameRate);
+        Assert.Equal(23.976, FfmpegCommandBuilder.Build(new EncodePreset { Video = new VideoSettings { FrameRate = "0" } }, "/media/in.mkv", withRate, "/out/o.mkv", "/tmp").FrameRate);
         EncodePreset copy = new() { Video = new VideoSettings { Encoder = "copy", Mode = RateControl.Copy, FrameRate = "25" } };
         Assert.Equal(23.976, FfmpegCommandBuilder.Build(copy, "/media/in.mkv", withRate, "/out/o.mkv", "/tmp").FrameRate); // copied video keeps its rate
         Assert.Equal(0, FfmpegCommandBuilder.Build(new EncodePreset(), "/media/in.mkv", Source with { Streams = [.. Source.Streams.Where(s => s.Kind != StreamKind.Video)] }, "/out/o.mkv", "/tmp").FrameRate);
