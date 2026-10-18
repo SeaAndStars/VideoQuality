@@ -19,6 +19,12 @@ public sealed class FfmpegProgressParser
     /// <summary>Position reached in the output (<c>out_time_us</c>).</summary>
     public TimeSpan OutTime { get; private set; }
 
+    /// <summary>
+    /// Whether ffmpeg reported a position. It says N/A throughout when an output stream (a copied
+    /// subtitle or font attachment) never gets a packet.
+    /// </summary>
+    public bool HasOutTime { get; private set; }
+
     /// <summary>Bytes written so far (<c>total_size</c>).</summary>
     public long TotalSize { get; private set; }
 
@@ -68,6 +74,7 @@ public sealed class FfmpegProgressParser
                 if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long microseconds) && microseconds >= 0)
                 {
                     OutTime = TimeSpan.FromMicroseconds(microseconds);
+                    HasOutTime = true;
                 }
 
                 return null;

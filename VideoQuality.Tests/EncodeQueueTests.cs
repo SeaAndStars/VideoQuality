@@ -216,4 +216,29 @@ public class EncodeQueueTests
         await queue.WhenIdleAsync(TestContext.Current.CancellationToken);
         Assert.Equal(EncodeJobState.Done, running.State);
     }
+
+    [Fact]
+    public async Task Progress_follows_the_frame_count_when_ffmpeg_reports_no_time()
+    {
+        // A copied subtitle or font stream that never gets a packet makes ffmpeg say N/A.
+        string[] blocks = ["frame=120", "fps=240.0", "out_time_us=N/A", "total_size=1000", "speed=N/A", "progress=continue", "frame=240", "progress=end"];
+        using FakeTool ffmpeg = FakeTool.Create("ffmpeg", new FakeRule { StdoutLines = blocks });
+        var queue = new EncodeQueue(SystemProcessRunner.Instance, () => ffmpeg.Path);
+        var seen = new List<(double Progress, double Speed, TimeSpan? Remaining)>();
+        queue.JobChanged += j => { lock (seen) { seen.Add((j.Progress, j.Speed, j.Remaining)); } };
+        string output = Temp("frames.mkv");
+        var job = new EncodeJob("/in/ep.mkv", new EncodeCommand([["-i", "/in/ep.mkv", output]], output, [], [], 0, TimeSpan.FromSeconds(10), FrameRate: 24));
+
+        queue.Add(job);
+        await queue.WhenIdleAsync(TestContext.Current.CancellationToken);
+
+        Assert.Contains(seen, s => Math.Abs(s.Progress - 0.5) < 1e-9 && Math.Abs(s.Speed - 10) < 1e-9 && s.Remaining == TimeSpan.FromSeconds(0.5));
+
+        // Without a known frame rate there is nothing to go on.
+        seen.Clear();
+        var unknown = new EncodeJob("/in/ep.mkv", new EncodeCommand([["-i", "/in/ep.mkv", output]], output, [], [], 0, TimeSpan.FromSeconds(10)));
+        queue.Add(unknown);
+        await queue.WhenIdleAsync(TestContext.Current.CancellationToken);
+        Assert.Contains(seen, s => s.Progress == 0 && s.Speed == 0 && s.Remaining is null);
+    }
 }

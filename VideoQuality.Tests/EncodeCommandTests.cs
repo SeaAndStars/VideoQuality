@@ -444,4 +444,27 @@ public class EncodeCommandTests
     [InlineData("-a ", new[] { "-a" })]
     public void Tokenizer_splits_like_a_shell(string? text, string[] expected) =>
         Assert.Equal(expected, ArgumentTokenizer.Split(text));
+
+    [Theory]
+    [InlineData("24000/1001", 24000 / 1001.0)]
+    [InlineData(" 25 ", 25.0)]
+    [InlineData("30/0", null)]
+    [InlineData("1/2/3", null)]
+    [InlineData("fast", null)]
+    [InlineData("x/2", null)]
+    [InlineData(null, null)]
+    public void Frame_rates_parse_like_ffmpeg_takes_them(string? text, double? expected) =>
+        Assert.Equal(expected, FfmpegCommandBuilder.ParseRate(text));
+
+    [Fact]
+    public void Commands_carry_the_output_frame_rate()
+    {
+        MediaInfo withRate = Source with { Streams = [.. Source.Streams.Select(s => s.Kind == StreamKind.Video ? s with { FrameRate = 23.976 } : s)] };
+        Assert.Equal(23.976, FfmpegCommandBuilder.Build(new EncodePreset(), "/media/in.mkv", withRate, "/out/o.mkv", "/tmp").FrameRate);
+        Assert.Equal(25, FfmpegCommandBuilder.Build(new EncodePreset { Video = new VideoSettings { FrameRate = "25" } }, "/media/in.mkv", withRate, "/out/o.mkv", "/tmp").FrameRate);
+        Assert.Equal(23.976, FfmpegCommandBuilder.Build(new EncodePreset { Video = new VideoSettings { FrameRate = "bogus" } }, "/media/in.mkv", withRate, "/out/o.mkv", "/tmp").FrameRate);
+        EncodePreset copy = new() { Video = new VideoSettings { Encoder = "copy", Mode = RateControl.Copy, FrameRate = "25" } };
+        Assert.Equal(23.976, FfmpegCommandBuilder.Build(copy, "/media/in.mkv", withRate, "/out/o.mkv", "/tmp").FrameRate); // copied video keeps its rate
+        Assert.Equal(0, FfmpegCommandBuilder.Build(new EncodePreset(), "/media/in.mkv", Source with { Streams = [.. Source.Streams.Where(s => s.Kind != StreamKind.Video)] }, "/out/o.mkv", "/tmp").FrameRate);
+    }
 }

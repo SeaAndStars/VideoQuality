@@ -202,7 +202,10 @@ public sealed partial class SystemProcessRunner : IProcessRunner
             int status = OperatingSystem.IsWindows()
                 ? suspend ? NtSuspendProcess(process.Handle) : NtResumeProcess(process.Handle)
                 : PosixStatus(kill(Id, suspend ? SigStop : SigCont), Marshal.GetLastPInvokeError());
-            ThrowIfFailed(status, Id);
+
+            // A process that ended just before the signal (ESRCH, or "terminating" on Windows)
+            // has nothing left to pause or resume.
+            ThrowIfFailed(process.HasExited ? 0 : status, Id);
         }
     }
 

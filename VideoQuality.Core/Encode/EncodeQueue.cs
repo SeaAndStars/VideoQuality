@@ -285,13 +285,18 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
                                 return;
                             }
 
-                            double inPass = Math.Clamp(parser.OutTime.TotalSeconds / duration, 0, 1);
+                            // Without a reported position, the frame count at the output rate stands in.
+                            double rate = job.Command.FrameRate;
+                            double position = parser.HasOutTime ? parser.OutTime.TotalSeconds
+                                : rate > 0 ? parser.Frame.GetValueOrDefault() / rate : 0;
+                            double speed = parser.Speed > 0 ? parser.Speed : rate > 0 ? parser.Fps / rate : 0;
+                            double inPass = Math.Clamp(position / duration, 0, 1);
                             job.Progress = (pass + inPass) / passes;
                             job.Fps = parser.Fps;
-                            job.Speed = parser.Speed;
+                            job.Speed = speed;
                             job.Elapsed = DateTime.UtcNow - started;
                             double remainingMedia = (passes - pass - inPass) * duration;
-                            job.Remaining = parser.Speed > 0 ? TimeSpan.FromSeconds(remainingMedia / parser.Speed) : null;
+                            job.Remaining = speed > 0 ? TimeSpan.FromSeconds(remainingMedia / speed) : null;
                             if (last)
                             {
                                 job.WrittenSize = parser.TotalSize;

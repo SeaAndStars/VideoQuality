@@ -103,6 +103,23 @@ public class ProcessRunnerTests
     }
 
     [Fact]
+    public void Pausing_a_process_that_already_ended_does_nothing()
+    {
+        var start = new System.Diagnostics.ProcessStartInfo(OperatingSystem.IsWindows() ? "cmd.exe" : "true") { UseShellExecute = false };
+        if (OperatingSystem.IsWindows())
+        {
+            start.ArgumentList.Add("/c");
+            start.ArgumentList.Add("exit");
+        }
+
+        using var process = System.Diagnostics.Process.Start(start)!;
+        process.WaitForExit();
+        var control = new SystemProcessRunner.Control(process);
+        control.Suspend();
+        control.Resume();
+    }
+
+    [Fact]
     public async Task A_missing_program_throws_ProcessStartException()
     {
         string missing = Path.Combine(Path.GetTempPath(), "vq-no-such-tool-" + Guid.NewGuid().ToString("N"));

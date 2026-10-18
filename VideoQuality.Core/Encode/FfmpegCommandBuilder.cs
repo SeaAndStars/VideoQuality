@@ -12,7 +12,8 @@ public sealed record EncodeCommand(
     IReadOnlyList<string> TemporaryFiles,
     IReadOnlyList<string> Warnings,
     int VideoBitrateKbps,
-    TimeSpan Duration);
+    TimeSpan Duration,
+    double FrameRate = 0);
 
 /// <summary>
 /// Turns an <see cref="EncodePreset"/> and a source into ffmpeg arguments. Pure: no files are read
@@ -188,7 +189,12 @@ public static class FfmpegCommandBuilder
             passes.Add([.. head, .. videoArgs, .. audioArgs, .. streamArgs, .. tail, output]);
         }
 
-        return new EncodeCommand(passes, output, temporary, warnings, videoKbps, duration);
+        // The output's frame rate lets the queue follow progress by frame count when ffmpeg cannot
+        // report a time (it says N/A while a copied subtitle or font stream has no packets).
+        double frameRate = mode != RateControl.Copy && ParseRate(video.FrameRate) is double forced and > 0
+            ? forced
+            : info.Video?.FrameRate ?? 0;
+        return new EncodeCommand(passes, output, temporary, warnings, videoKbps, duration, frameRate);
     }
 
     /// <summary>The output path for a source: the preset's pattern, beside the source, with the container's extension.</summary>
@@ -248,6 +254,19 @@ public static class FfmpegCommandBuilder
     public static string FilterPath(string path) => FilterValue(path.Replace('\\', '/'));
 
     private static string NullDevice => OperatingSystem.IsWindows() ? "NUL" : "/dev/null";
+
+    /// <summary>A frame rate as ffmpeg takes it: <c>24000/1001</c> or <c>23.976</c>; null when it is neither.</summary>
+    internal static double? ParseRate(string? text)
+    {
+        string[] parts = (text ?? string.Empty).Trim().Split('/');
+        return parts.Length switch
+        {
+            1 when double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double rate) => rate,
+            2 when double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double num) &&
+                   double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double den) && den > 0 => num / den,
+            _ => null,
+        };
+    }
 
     private static TimeSpan Range(StreamSettings streams, TimeSpan full)
     {
