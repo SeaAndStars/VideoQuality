@@ -43,6 +43,13 @@ public sealed class PipelineTests : IDisposable
         public bool UnreadableSource { get; set; }
 
         public bool NoChapters { get; set; }
+
+        public int ExtractExit { get; set; }
+
+        public string SourceContainer { get; set; } = "Matroska";
+
+        /// <summary>The source MKV carries no subtitle tracks or attachments.</summary>
+        public bool SourceBare { get; set; }
     }
 
     private static MediaInfo Compliant(string path, bool warn) => new()
@@ -120,6 +127,38 @@ public sealed class PipelineTests : IDisposable
         settings.Encoder = new EncoderTool("/bin/ffmpeg", "ffmpeg version x", new HashSet<string> { "libx265", "aac" }, new HashSet<string> { "subtitles" });
         settings.MkvToolNix = ScriptedMkv.Create(request =>
         {
+            if (request.Arguments[0] == "--gui-mode")
+            {
+                if (script.ExtractExit != 0)
+                {
+                    return new ProcessResult(script.ExtractExit, string.Empty, "extract broke");
+                }
+
+                foreach (string pair in request.Arguments.Skip(2).Where(a => a.Contains(':', StringComparison.Ordinal)))
+                {
+                    string output = pair[(pair.IndexOf(':', StringComparison.Ordinal) + 1)..];
+                    if (output.EndsWith(".ass", StringComparison.Ordinal))
+                    {
+                        TestMedia.Script(Path.GetDirectoryName(output)!, Path.GetFileName(output));
+                    }
+                    else
+                    {
+                        File.Copy(Path.Combine(Fixtures, "DejaVuSans.ttf"), output, true);
+                    }
+                }
+
+                return ScriptedRunner.Ok();
+            }
+
+            if (request.Arguments[0] == "-J" && request.Arguments[1].EndsWith("source.mkv", StringComparison.Ordinal))
+            {
+                return ScriptedRunner.Ok(script.SourceBare
+                    ? ScriptedMkv.Identify(script.SourceContainer, 1440, 0, [(0, "video", "AVC", "", ""), (1, "audio", "AAC", "jpn", "")])
+                    : ScriptedMkv.Identify(script.SourceContainer, 1440, 0,
+                        [(0, "video", "AVC", "", ""), (1, "audio", "AAC", "jpn", ""), (2, "subtitles", "SubStationAlpha", "chi", "简/日"), (3, "subtitles", "SubStationAlpha", "", "")],
+                        [(1, "a.ttf", "application/x-truetype-font"), (2, "b.OTF", "application/octet-stream"), (3, "cover.jpg", "image/jpeg")]));
+            }
+
             if (request.Arguments[0] == "-J")
             {
                 string path = request.Arguments[1];
@@ -144,6 +183,13 @@ public sealed class PipelineTests : IDisposable
                     : Compliant(path, false) with { Streams = [.. Compliant(path, false).Streams.Take(2)], Chapters = script.NoChapters ? [] : Compliant(path, false).Chapters }
                 : script.FailRules ? new MediaInfo { Path = path } : Compliant(path, script.WarnRules));
         return (vm, script, queue);
+    }
+
+    /// <summary>Every step ran, except Extract (scripts and fonts were given) and Trim (off by default).</summary>
+    private static void AssertRan(PipelineViewModel vm)
+    {
+        Assert.Equal((Loc.T("pipeline.extract.notNeeded"), Loc.T("pipeline.step.off")), (vm.ExtractStep.Detail, vm.TrimStep.Detail));
+        Assert.All(vm.Steps.Where(s => s.Key is not ("extract" or "trim")), s => Assert.True(s.IsDone, s.Title + ": " + s.Detail));
     }
 
     private string Scripts()
@@ -181,7 +227,7 @@ public sealed class PipelineTests : IDisposable
         script.WarnRules = true;
         await vm.RunCommand.ExecuteAsync(null);
 
-        Assert.All(vm.Steps, s => Assert.True(s.IsDone, s.Title + ": " + s.Detail));
+        AssertRan(vm);
         Assert.Contains(".mp4", vm.BurnStep.Detail, StringComparison.Ordinal);
         Assert.Contains("200", vm.VerifyStep.Detail, StringComparison.Ordinal); // warnings are listed, not fatal
         Assert.Contains("96", vm.VmafStep.Detail, StringComparison.Ordinal);
@@ -211,6 +257,7 @@ public sealed class PipelineTests : IDisposable
     {
         (PipelineViewModel vm, Script script, _) = await PageAsync();
         script.NoChapters = true;
+        vm.ExtractStep.Enabled = false;
         vm.SetVideo(Source());
         await vm.Inference;
         vm.AlreadyEncoded = true;
@@ -543,12 +590,125 @@ public sealed class PipelineTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task Extract_pulls_the_sources_scripts_and_fonts()
+    {
+        (PipelineViewModel vm, Script script, _) = await PageAsync();
+        vm.SetVideo(Source());
+        await vm.Inference;
+        Assert.Empty(vm.Scripts);
+        script.ExtractExit = 2;
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.Equal((true, "extract broke"), (vm.ExtractStep.IsFailed, vm.ExtractStep.Detail));
+
+        // Both ASS tracks and the two fonts (by type and by extension; not the cover).
+        script.ExtractExit = 0;
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.Equal(Loc.T("pipeline.extract.done", 2, 2), vm.ExtractStep.Detail);
+        Assert.Equal(["source.2.简_日.ass", "source.3.sub.ass"], vm.Scripts.Select(Path.GetFileName));
+        Assert.Equal(["JPSC", "JPTC"], vm.Burns.Select(b => b.Language));
+        Assert.EndsWith(Path.Combine("extract", "Fonts"), vm.FontDirectory, StringComparison.Ordinal);
+        AssertRanFromExtract(vm);
+
+        // Given now: nothing to pull. Scripts only, from a bare MKV: nothing there. Not Matroska: skipped.
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.Equal(Loc.T("pipeline.extract.notNeeded"), vm.ExtractStep.Detail);
+        vm.ClearCommand.Execute(null);
+        vm.SetVideo(Source());
+        await vm.Inference;
+        vm.ExtractFonts = false;
+        script.SourceBare = true;
+        vm.SubsetStep.Enabled = vm.MuxStep.Enabled = vm.BurnStep.Enabled = false;
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.Equal(Loc.T("pipeline.extract.nothing"), vm.ExtractStep.Detail);
+        script.SourceContainer = "QuickTime/MP4";
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.Equal(Loc.T("pipeline.extract.notMatroska"), vm.ExtractStep.Detail);
+        vm.ExtractScripts = false;
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.Equal(Loc.T("pipeline.extract.notNeeded"), vm.ExtractStep.Detail);
+        vm.ExtractStep.Enabled = false;
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.Equal(Loc.T("pipeline.step.off"), vm.ExtractStep.Detail);
+    }
+
+    private static void AssertRanFromExtract(PipelineViewModel vm) =>
+        Assert.All(vm.Steps.Where(s => s.Key != "trim"), s => Assert.True(s.IsDone, s.Title + ": " + s.Detail));
+
+    [AvaloniaFact]
+    public async Task Trim_chapters_encoder_mux_verify_and_vmaf_settings_change_the_run()
+    {
+        (PipelineViewModel vm, Script script, EncodeQueue queue) = await PageAsync();
+        string subs = Scripts();
+        string jpsc = Path.Combine(subs, "ep01.JPSC.ass");
+        string jptc = Path.Combine(subs, "ep01.JPTC.ass");
+        vm.AddPaths([Source(), jpsc, jptc]);
+        await vm.Inference;
+        string Command(int fromEnd) => string.Join(' ', queue.Jobs[^fromEnd].Command.Passes[^1]);
+
+        // Trim: a cut moves the chapters and every encode; VMAF can't line it up with the full source.
+        vm.TrimStep.Enabled = true;
+        vm.TrimStart = "00:01:00.000";
+        vm.TrimEnd = "00:23:00.000";
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.Equal(Loc.T("pipeline.trim.done", "00:01:00.000", "00:23:00.000"), vm.TrimStep.Detail);
+        Assert.All([1, 2, 3], n => Assert.Contains("-ss 60 ", Command(n), StringComparison.Ordinal));
+        Assert.Equal(Loc.T("pipeline.vmaf.trimmed"), vm.VmafStep.Detail);
+        Assert.Equal("OP", vm.ChaptersStep.Detail); // the opening that runs at the cut's start
+        vm.TrimStart = " ";
+        vm.TrimEnd = string.Empty;
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.Equal(Loc.T("pipeline.trim.done", "00:00:00.000", "00:24:00.000"), vm.TrimStep.Detail);
+        vm.TrimEnd = "00:00:00.000";
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.True(vm.TrimStep.IsFailed);
+        vm.TrimEnd = "soon";
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.True(vm.TrimStep.IsFailed);
+        vm.TrimStep.Enabled = false;
+
+        // Chapters: as they are, or none at all.
+        vm.ChaptersStep.Enabled = false;
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.Equal(Loc.T("pipeline.chapters.asIs", 1), vm.ChaptersStep.Detail);
+        vm.ChaptersStep.Enabled = true;
+        vm.DetectSongs = false;
+        script.NoChapters = true;
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.Equal(Loc.T("pipeline.chapters.none"), vm.ChaptersStep.Detail);
+        script.NoChapters = false;
+
+        // Encoder: an Encode page preset's picture settings, frame rate kept by the rules.
+        vm.Encoder = PipelineEncoder.Preset;
+        Assert.Equal(PresetStore.BuiltIn[0], vm.SelectedPreset);
+        vm.SelectedPreset = PresetStore.BuiltIn.First(p => p.Name == "x264 compatible MP4");
+        Assert.Contains("x264 compatible MP4", vm.EncodeStep.Description, StringComparison.Ordinal);
+        Assert.True(vm.IsPreset);
+
+        // Mux: a title of its own and the second script as the default track. Verify: report, go on.
+        vm.MkvTitle = " My title ";
+        vm.DefaultScript = jptc;
+        vm.VerifyStrict = false;
+        script.FailRules = true;
+        vm.Reference = Source();
+        await vm.RunCommand.ExecuteAsync(null);
+        Assert.Contains("-c:v libx264", Command(3), StringComparison.Ordinal);
+        Assert.Contains("-r 24000/1001", Command(3), StringComparison.Ordinal);
+        Assert.True(vm.VerifyStep.IsDone, vm.VerifyStep.Detail);
+        Assert.True(vm.VmafStep.IsDone, vm.VmafStep.Detail);
+        Assert.Equal(vm.Reference, vm.VmafReference);
+        vm.Encoder = PipelineEncoder.X265;
+        Assert.Equal(Loc.T("pipeline.step.encode.description"), vm.EncodeStep.Description);
+        Assert.Equal(vm.Naming.Set()[0].Title, vm.ReleaseTitle);
+    }
+
+    [AvaloniaFact]
     public async Task Real_tools_produce_a_release()
     {
         SettingsViewModel settings = await Pages.SettingsAsync();
         string clip = Path.Combine(_work, "source.mkv");
         File.Copy(await TestMedia.ClipAsync(), clip);
-        var compare = new MainViewModel { FfmpegPath = TestMedia.RequireEncoder(), SelectedBackend = VmafBackend.Cpu };
+        // Scored with an ffmpeg that has libvmaf (the encoder lookup does not promise one).
+        var compare = new MainViewModel { FfmpegPath = await VmafRunner.ResolveFfmpegAsync(), SelectedBackend = VmafBackend.Cpu };
         var queue = new EncodeQueue(settings.Services.Processes, () => settings.Encoder!.Path);
         var vm = new PipelineViewModel(settings, compare, queue, new NamingViewModel { Title = "Clip" },
             path => path == clip ? MediaInfoReader.Read(path) : Compliant(path, false));
@@ -559,7 +719,7 @@ public sealed class PipelineTests : IDisposable
         vm.Crf = 35;
 
         await vm.RunCommand.ExecuteAsync(null);
-        Assert.All(vm.Steps, s => Assert.True(s.IsDone, s.Title + ": " + s.Detail));
+        AssertRan(vm);
         string mkv = Path.Combine(vm.OutputDirectory, vm.OutputNames[0]);
         MkvFileInfo written = await settings.MkvToolNix!.IdentifyAsync(mkv);
         Assert.Contains(written.Tracks, t => t.Type == MkvTrackType.Subtitles && t.Name == "JPSC");

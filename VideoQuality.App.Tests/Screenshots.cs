@@ -48,11 +48,21 @@ public class Screenshots
         shell.Pipeline.SetVideo(video);
         shell.Pipeline.AddBurnTargetCommand.Execute(null);
         shell.Pipeline.VerifyStep.Enabled = false;
+        shell.Pipeline.TrimStep.Enabled = true;
         await Ui.SettleAsync(400);
         Dispatcher.UIThread.RunJobs();
         using (var filled = window.CaptureRenderedFrame()!)
         {
             filled.Save(Path.Combine(folder!, $"{language}-pipeline-filled.png"));
+        }
+
+        // Tall enough to show every step's settings.
+        window.Height = 2200;
+        await Ui.SettleAsync(400);
+        Dispatcher.UIThread.RunJobs();
+        using (var tall = window.CaptureRenderedFrame()!)
+        {
+            tall.Save(Path.Combine(folder!, $"{language}-pipeline-steps.png"));
         }
 
         Directory.Delete(episode, true);

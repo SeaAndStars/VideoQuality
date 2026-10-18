@@ -23,6 +23,9 @@ public enum PipelineEncoder
 
     /// <summary>hevc_nvenc UHQ at constant quality; outside the rules, for comparison.</summary>
     NvencUhq,
+
+    /// <summary>The video settings of a preset from the Encode page.</summary>
+    Preset,
 }
 
 public enum StepState
@@ -37,6 +40,9 @@ public enum StepState
 /// <summary>One stage of the release pipeline, shown as a row with a status icon.</summary>
 public partial class PipelineStep : ObservableObject
 {
+    /// <summary>Which step this is, for the step's own settings in the view.</summary>
+    public string Key { get; init; } = string.Empty;
+
     public required string Title { get; init; }
 
     [ObservableProperty]
@@ -103,8 +109,15 @@ public partial class PipelineViewModel : ObservableObject
 
     private readonly Func<string, MediaInfo> _read;
 
-    public PipelineViewModel(SettingsViewModel settings, MainViewModel compare, EncodeQueue queue, NamingViewModel naming, Func<string, MediaInfo>? read = null)
+    public PipelineViewModel(
+        SettingsViewModel settings,
+        MainViewModel compare,
+        EncodeQueue queue,
+        NamingViewModel naming,
+        Func<string, MediaInfo>? read = null,
+        IReadOnlyList<EncodePreset>? presets = null)
     {
+        Presets = presets ?? PresetStore.BuiltIn;
         Settings = settings;
         Compare = compare;
         Queue = queue;
@@ -154,19 +167,27 @@ public partial class PipelineViewModel : ObservableObject
     /// <summary>The files the last run wrote, in order (MKV first).</summary>
     public ObservableCollection<string> Outputs { get; } = [];
 
-    public PipelineStep EncodeStep { get; } = new() { Title = Loc.T("pipeline.step.encode"), Description = Loc.T("pipeline.step.encode.description") };
+    public PipelineStep EncodeStep { get; } = new() { Key = "encode", Title = Loc.T("pipeline.step.encode"), Description = Loc.T("pipeline.step.encode.description") };
 
-    public PipelineStep SubsetStep { get; } = new() { Title = Loc.T("pipeline.step.subset"), Description = Loc.T("pipeline.step.subset.description") };
+    public PipelineStep SubsetStep { get; } = new() { Key = "subset", Title = Loc.T("pipeline.step.subset"), Description = Loc.T("pipeline.step.subset.description") };
 
-    public PipelineStep MuxStep { get; } = new() { Title = Loc.T("pipeline.step.mux"), Description = Loc.T("pipeline.step.mux.description") };
+    public PipelineStep MuxStep { get; } = new() { Key = "mux", Title = Loc.T("pipeline.step.mux"), Description = Loc.T("pipeline.step.mux.description") };
 
-    public PipelineStep BurnStep { get; } = new() { Title = Loc.T("pipeline.step.burn"), Description = Loc.T("pipeline.step.burn.description") };
+    public PipelineStep BurnStep { get; } = new() { Key = "burn", Title = Loc.T("pipeline.step.burn"), Description = Loc.T("pipeline.step.burn.description") };
 
-    public PipelineStep VerifyStep { get; } = new() { Title = Loc.T("pipeline.step.verify"), Description = Loc.T("pipeline.step.verify.description") };
+    public PipelineStep VerifyStep { get; } = new() { Key = "verify", Title = Loc.T("pipeline.step.verify"), Description = Loc.T("pipeline.step.verify.description") };
 
-    public PipelineStep VmafStep { get; } = new() { Title = Loc.T("pipeline.step.vmaf"), Description = Loc.T("pipeline.step.vmaf.description") };
+    public PipelineStep VmafStep { get; } = new() { Key = "vmaf", Title = Loc.T("pipeline.step.vmaf"), Description = Loc.T("pipeline.step.vmaf.description") };
 
-    public IReadOnlyList<PipelineStep> Steps => [EncodeStep, SubsetStep, MuxStep, BurnStep, VerifyStep, VmafStep];
+    public PipelineStep ExtractStep { get; } = new() { Key = "extract", Title = Loc.T("pipeline.step.extract"), Description = Loc.T("pipeline.step.extract.description") };
+
+    /// <summary>Off by default: most releases keep the whole episode.</summary>
+    public PipelineStep TrimStep { get; } = new() { Key = "trim", Title = Loc.T("pipeline.step.trim"), Description = Loc.T("pipeline.step.trim.description"), Enabled = false };
+
+    public PipelineStep ChaptersStep { get; } = new() { Key = "chapters", Title = Loc.T("pipeline.step.chapters"), Description = Loc.T("pipeline.step.chapters.description") };
+
+    /// <summary>Every tool page as a step, in release order; each can be switched off.</summary>
+    public IReadOnlyList<PipelineStep> Steps => [ExtractStep, TrimStep, EncodeStep, SubsetStep, ChaptersStep, MuxStep, BurnStep, VerifyStep, VmafStep];
 
     /// <summary>The source (raw) video, or an encode when <see cref="AlreadyEncoded"/>.</summary>
     [ObservableProperty]
@@ -224,10 +245,54 @@ public partial class PipelineViewModel : ObservableObject
     public partial ReleaseProfile Profile { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsNvenc))]
+    [NotifyPropertyChangedFor(nameof(IsNvenc), nameof(IsPreset))]
     public partial PipelineEncoder Encoder { get; set; }
 
     public bool IsNvenc => Encoder == PipelineEncoder.NvencUhq;
+
+    public bool IsPreset => Encoder == PipelineEncoder.Preset;
+
+    /// <summary>The Encode page's presets (built-in and saved).</summary>
+    public IReadOnlyList<EncodePreset> Presets { get; }
+
+    /// <summary>The preset whose video settings the encode uses when <see cref="Encoder"/> is <see cref="PipelineEncoder.Preset"/>.</summary>
+    [ObservableProperty]
+    public partial EncodePreset? SelectedPreset { get; set; }
+
+    /// <summary>What the encode is scored against: the given reference, else the source (none when the source is the encode).</summary>
+    public string VmafReference => Reference.Trim().Length > 0 ? Reference.Trim() : AlreadyEncoded ? string.Empty : Video;
+
+    /// <summary>Extract pulls the source's ASS tracks when no scripts were given.</summary>
+    [ObservableProperty]
+    public partial bool ExtractScripts { get; set; } = true;
+
+    /// <summary>Extract pulls the source's font attachments when no font folder was given.</summary>
+    [ObservableProperty]
+    public partial bool ExtractFonts { get; set; } = true;
+
+    /// <summary>Chapters finds the opening and ending by their song length, not only by name.</summary>
+    [ObservableProperty]
+    public partial bool DetectSongs { get; set; } = true;
+
+    /// <summary>The MKV's segment title; empty uses the release title.</summary>
+    [ObservableProperty]
+    public partial string MkvTitle { get; set; } = string.Empty;
+
+    /// <summary>The script whose track is the MKV's default subtitle; null (or a removed one) is the first.</summary>
+    [ObservableProperty]
+    public partial string? DefaultScript { get; set; }
+
+    /// <summary>Verify stops the run when a file breaks the rules; off, it lists the problems and goes on.</summary>
+    [ObservableProperty]
+    public partial bool VerifyStrict { get; set; } = true;
+
+    /// <summary>Where the cut starts (<c>hh:mm:ss.fff</c>) when Trim is on.</summary>
+    [ObservableProperty]
+    public partial string TrimStart { get; set; } = "00:00:00.000";
+
+    /// <summary>Where the cut ends; empty runs to the end.</summary>
+    [ObservableProperty]
+    public partial string TrimEnd { get; set; } = string.Empty;
 
     /// <summary>x265 CRF, or NVENC CQ.</summary>
     [ObservableProperty]
@@ -246,6 +311,9 @@ public partial class PipelineViewModel : ObservableObject
     public partial string EncodedFile { get; set; } = string.Empty;
 
     /// <summary>The release file names (from the Naming page).</summary>
+    /// <summary>The release title the MKV carries unless <see cref="MkvTitle"/> says otherwise.</summary>
+    public string ReleaseTitle => Naming.Set()[0].Title;
+
     /// <summary>The 内封 MKV's file name.</summary>
     public string MkvName => Naming.Set()[0].FileName;
 
@@ -283,15 +351,38 @@ public partial class PipelineViewModel : ObservableObject
 
     partial void OnEncoderChanged(PipelineEncoder value)
     {
+        SelectedPreset ??= Presets[0];
         Crf = DefaultQuality();
-        EncodeStep.Description = Loc.T(IsNvenc ? "pipeline.step.encode.nvenc" : "pipeline.step.encode.description");
+        DescribeEncode();
     }
+
+    partial void OnSelectedPresetChanged(EncodePreset? value) => DescribeEncode();
+
+    private void DescribeEncode() => EncodeStep.Description = Encoder switch
+    {
+        PipelineEncoder.NvencUhq => Loc.T("pipeline.step.encode.nvenc"),
+        PipelineEncoder.Preset => Loc.T("pipeline.step.encode.preset", SelectedPreset!.Name),
+        _ => Loc.T("pipeline.step.encode.description"),
+    };
 
     private decimal DefaultQuality() => IsNvenc ? (decimal)NvencUhq.Quality : GreenTeaSpec.IsBd(Profile) ? 18 : 20;
 
-    /// <summary>The spec preset with the chosen encoder and quality.</summary>
-    private EncodePreset Tuned(EncodePreset preset) =>
-        IsNvenc ? NvencUhq.Apply(preset, (double)Crf) : preset with { Video = preset.Video with { Quality = (double)Crf } };
+    /// <summary>
+    /// The spec preset with the chosen encoder: x265 or NVENC at <see cref="Crf"/>, or a preset's own picture
+    /// settings (audio, frame rate and streams stay the rules').
+    /// </summary>
+    private EncodePreset Tuned(EncodePreset preset) => Encoder switch
+    {
+        PipelineEncoder.NvencUhq => NvencUhq.Apply(preset, (double)Crf),
+        PipelineEncoder.Preset => preset with
+        {
+            Video = SelectedPreset!.Video with { ConstantFrameRate = true, FrameRate = preset.Video.FrameRate },
+            Frame = SelectedPreset.Frame,
+            Color = SelectedPreset.Color,
+            Custom = SelectedPreset.Custom,
+        },
+        _ => preset with { Video = preset.Video with { Quality = (double)Crf } },
+    };
 
     [RelayCommand]
     private void Reveal(string path) => RevealRequested?.Invoke(this, path);
@@ -474,6 +565,7 @@ public partial class PipelineViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(MkvName));
+        OnPropertyChanged(nameof(ReleaseTitle));
         OnPropertyChanged(nameof(OutputNames));
     }
 
@@ -516,7 +608,44 @@ public partial class PipelineViewModel : ObservableObject
         {
             Directory.CreateDirectory(work);
             MediaInfo source = await Task.Run(() => _read(Video));
-            string chapters = ChapterFiles(source, work, out string ffmetadata);
+
+            // Extract: the source MKV's own scripts and fonts when none were given.
+            if (!ExtractStep.Enabled)
+            {
+                Skip(ExtractStep, Loc.T("pipeline.step.off"));
+            }
+            else if (!await ExtractAsync(tools, work))
+            {
+                return;
+            }
+
+            // Trim: the range every encode keeps.
+            (double? Start, double? End) cut = (null, null);
+            if (!TrimStep.Enabled)
+            {
+                Skip(TrimStep, Loc.T("pipeline.step.off"));
+            }
+            else
+            {
+                Begin(TrimStep);
+                try
+                {
+                    TimeSpan start = TrimStart.Trim().Length > 0 ? ChapterList.ParseTime(TrimStart) : TimeSpan.Zero;
+                    TimeSpan end = TrimEnd.Trim().Length > 0 ? ChapterList.ParseTime(TrimEnd) : source.Duration;
+                    if (end <= start)
+                    {
+                        throw new FormatException(Loc.T("pipeline.trim.badRange", ChapterList.FormatTime(start), ChapterList.FormatTime(end)));
+                    }
+
+                    cut = (start.TotalSeconds, end.TotalSeconds);
+                    Done(TrimStep, Loc.T("pipeline.trim.done", ChapterList.FormatTime(start), ChapterList.FormatTime(end)));
+                }
+                catch (FormatException ex)
+                {
+                    Fail(TrimStep, ex.Message);
+                    return;
+                }
+            }
 
             // 1. Encode (video + audio only; subtitles, fonts and chapters are muxed afterwards).
             string encoded = Video;
@@ -530,7 +659,7 @@ public partial class PipelineViewModel : ObservableObject
                 EncodePreset preset = Tuned(GreenTeaSpec.Preset(Profile, SubtitleDelivery.Embedded));
                 preset = preset with
                 {
-                    Streams = new StreamSettings { KeepChapters = false, KeepMetadata = false },
+                    Streams = new StreamSettings { KeepChapters = false, KeepMetadata = false, Start = cut.Start, End = cut.End },
                 };
                 encoded = Path.Combine(work, "encoded.mkv");
                 EncodeJob job = await RunEncodeAsync(EncodeStep,
@@ -576,6 +705,9 @@ public partial class PipelineViewModel : ObservableObject
                     FontSubsetViewModel.Size(subset.Fonts.Sum(f => f.SubsetBytes))));
             }
 
+            // Chapters: the chosen file or the source's own, cut with the trim, named OP/ED/ChapterN.
+            string chapters = ChapterFiles(source, work, cut, out string ffmetadata);
+
             // 3. Mux the 内封 MKV.
             if (!MakeMkv)
             {
@@ -596,17 +728,19 @@ public partial class PipelineViewModel : ObservableObject
                         .Select(t => t.Type == MkvTrackType.Audio && greenTea ? new MuxTrack(t.Id, "ja", string.Empty) : new MuxTrack(t.Id))],
                         KeepAttachments: false, KeepChapters: chapters.Length == 0),
                 };
-                bool firstSubtitle = true;
-                foreach (string script in subset?.ScriptsWritten ?? Scripts.ToList())
+                // The subset scripts keep the given scripts' order, so the default is found by position.
+                int defaultIndex = Math.Max(0, DefaultScript is null ? 0 : Scripts.IndexOf(DefaultScript));
+                List<string> muxScripts = subset?.ScriptsWritten ?? [.. Scripts];
+                for (int i = 0; i < muxScripts.Count; i++)
                 {
+                    string script = muxScripts[i];
                     (string Language, string Name)? guess = SubtitleNaming.Guess(script, Settings.TrackNaming);
-                    inputs.Add(new MuxInput(script, [new MuxTrack(0, guess?.Language, guess?.Name, Default: firstSubtitle)]));
+                    inputs.Add(new MuxInput(script, [new MuxTrack(0, guess?.Language, guess?.Name, Default: i == defaultIndex)]));
                     identified[script] = await tools.IdentifyAsync(script);
-                    firstSubtitle = false;
                 }
 
                 List<string> fonts = subset?.Fonts.Select(f => f.OutputPath).ToList() ?? (Scripts.Count > 0 ? FullFonts() : []);
-                var plan = new MuxPlan(mkv, inputs, fonts, chapters.Length > 0 ? chapters : null, names[0].Title);
+                var plan = new MuxPlan(mkv, inputs, fonts, chapters.Length > 0 ? chapters : null, MkvTitle.Trim().Length > 0 ? MkvTitle.Trim() : names[0].Title);
                 MkvRunResult mux = await tools.MuxAsync(MkvToolNix.BuildMuxArguments(plan, identified), new Progress<double>(p => MuxStep.Progress = p), default);
                 if (!mux.Succeeded)
                 {
@@ -636,7 +770,14 @@ public partial class PipelineViewModel : ObservableObject
                     burned = burned with
                     {
                         Burn = new SubtitleBurn { File = script, FontsDirectory = FontDirectory.Length > 0 ? FontDirectory : null },
-                        Streams = new StreamSettings { ChaptersFile = ffmetadata.Length > 0 ? ffmetadata : null, KeepMetadata = false, Title = name.Title },
+                        Streams = new StreamSettings
+                        {
+                            ChaptersFile = ffmetadata.Length > 0 ? ffmetadata : null,
+                            KeepMetadata = false,
+                            Title = name.Title,
+                            Start = cut.Start,
+                            End = cut.End,
+                        },
                     };
                     string mp4 = Path.Combine(OutputDirectory, name.FileName);
                     EncodeJob job = await RunEncodeAsync(BurnStep, new EncodeJob(Video, FfmpegCommandBuilder.Build(burned, Video, source, mp4, work), name.FileName));
@@ -671,7 +812,7 @@ public partial class PipelineViewModel : ObservableObject
                     problems.AddRange(findings.Where(f => f.Level != FindingLevel.Pass).Select(f => $"{Path.GetFileName(path)}: {f.Message}"));
                 }
 
-                if (fails > 0)
+                if (fails > 0 && VerifyStrict)
                 {
                     Fail(VerifyStep, string.Join(Environment.NewLine, problems));
                     return;
@@ -681,10 +822,10 @@ public partial class PipelineViewModel : ObservableObject
             }
 
             // 6. VMAF of the encode against its source.
-            string reference = AlreadyEncoded ? Reference : Video;
-            if (!RunVmaf || reference.Length == 0)
+            string reference = VmafReference;
+            if (!RunVmaf || reference.Length == 0 || cut.Start is not null)
             {
-                Skip(VmafStep, Loc.T("pipeline.vmaf.noReference"));
+                Skip(VmafStep, Loc.T(!RunVmaf ? "pipeline.step.off" : cut.Start is not null ? "pipeline.vmaf.trimmed" : "pipeline.vmaf.noReference"));
             }
             else
             {
@@ -726,7 +867,7 @@ public partial class PipelineViewModel : ObservableObject
     private async Task OpenInCompareAsync()
     {
         CompareRequested?.Invoke(this, EventArgs.Empty);
-        string reference = AlreadyEncoded ? Reference : Video;
+        string reference = VmafReference;
         await Compare.HandleDropAsync(reference.Length > 0 ? [reference, EncodedFile] : [EncodedFile], DropZone.Reference);
     }
 
@@ -739,20 +880,101 @@ public partial class PipelineViewModel : ObservableObject
     /// The chapters as Matroska XML (for mkvmerge) and ffmetadata (for the MP4 encodes), from the chapter
     /// file or the source's own chapters. Both empty when there are none.
     /// </summary>
-    private string ChapterFiles(MediaInfo source, string work, out string ffmetadata)
+    private string ChapterFiles(MediaInfo source, string work, (double? Start, double? End) cut, out string ffmetadata)
     {
         IReadOnlyList<ChapterMark> marks = ChaptersFile.Length > 0 ? ChapterList.Load(ChaptersFile) : ChapterList.FromMedia(source);
+        TimeSpan duration = source.Duration;
+        if (cut.Start is double start)
+        {
+            duration = TimeSpan.FromSeconds(cut.End!.Value - start);
+            marks = ChapterList.Cut(marks, TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(cut.End.Value));
+        }
+
         if (marks.Count == 0)
         {
+            Skip(ChaptersStep, Loc.T("pipeline.chapters.none"));
             ffmetadata = string.Empty;
             return string.Empty;
+        }
+
+        if (ChaptersStep.Enabled)
+        {
+            (int? opening, int? ending) = ChapterList.GuessOpEd(marks, duration, DetectSongs);
+            marks = ChapterList.AutoName(marks, opening, ending);
+            Done(ChaptersStep, string.Join(" · ", marks.Select(m => m.Name)));
+        }
+        else
+        {
+            Skip(ChaptersStep, Loc.T("pipeline.chapters.asIs", marks.Count));
         }
 
         string xml = Path.Combine(work, "chapters.xml");
         ffmetadata = Path.Combine(work, "chapters.ffmetadata");
         ChapterList.Save(xml, marks);
-        File.WriteAllText(ffmetadata, ChapterList.ToFfMetadata(marks, source.Duration));
+        File.WriteAllText(ffmetadata, ChapterList.ToFfMetadata(marks, duration));
         return xml;
+    }
+
+    /// <summary>
+    /// Pulls the source MKV's ASS tracks (when no scripts were given) and font attachments (when no font folder
+    /// was) into the work folder and uses them. False when mkvextract failed.
+    /// </summary>
+    private async Task<bool> ExtractAsync(MkvToolNix tools, string work)
+    {
+        bool needScripts = ExtractScripts && Scripts.Count == 0;
+        bool needFonts = ExtractFonts && FontDirectory.Length == 0;
+        if (!needScripts && !needFonts)
+        {
+            Skip(ExtractStep, Loc.T("pipeline.extract.notNeeded"));
+            return true;
+        }
+
+        Begin(ExtractStep);
+        MkvFileInfo info = await tools.IdentifyAsync(Video);
+        if (!info.Container.Contains("Matroska", StringComparison.OrdinalIgnoreCase))
+        {
+            Skip(ExtractStep, Loc.T("pipeline.extract.notMatroska"));
+            return true;
+        }
+
+        string folder = Path.Combine(work, "extract");
+        string stem = Path.GetFileNameWithoutExtension(Video);
+        var tracks = (needScripts ? info.Tracks.Where(t => t.Type == MkvTrackType.Subtitles && t.CodecId is "S_TEXT/ASS" or "S_TEXT/SSA") : [])
+            .Select(t => (t.Id, Output: Path.Combine(folder, $"{stem}.{t.Id}.{FileSafe(t.Name.Length > 0 ? t.Name : t.Language)}.ass"))).ToList();
+        var fonts = (needFonts ? info.Attachments.Where(IsFont) : [])
+            .Select(a => (a.Id, Output: Path.Combine(folder, "Fonts", Path.GetFileName(a.FileName)))).ToList();
+        if (tracks.Count + fonts.Count == 0)
+        {
+            Skip(ExtractStep, Loc.T("pipeline.extract.nothing"));
+            return true;
+        }
+
+        Directory.CreateDirectory(Path.Combine(folder, "Fonts"));
+        MkvRunResult result = await tools.ExtractAsync(MkvToolNix.BuildExtractArguments(Video, tracks, fonts, null), new Progress<double>(p => ExtractStep.Progress = p), default);
+        if (!result.Succeeded)
+        {
+            Fail(ExtractStep, string.Join("; ", result.Errors));
+            return false;
+        }
+
+        if (fonts.Count > 0)
+        {
+            FontDirectory = Path.Combine(folder, "Fonts");
+        }
+
+        AddPaths(tracks.Select(t => t.Output));
+        Done(ExtractStep, Loc.T("pipeline.extract.done", tracks.Count, fonts.Count));
+        return true;
+    }
+
+    private static bool IsFont(MkvAttachment attachment) =>
+        attachment.MimeType.Contains("font", StringComparison.OrdinalIgnoreCase)
+        || Path.GetExtension(attachment.FileName).ToLowerInvariant() is ".ttf" or ".otf" or ".ttc" or ".otc";
+
+    private static string FileSafe(string text)
+    {
+        string safe = string.Concat(text.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+        return safe.Length > 0 ? safe : "sub";
     }
 
     /// <summary>Runs an encode through the shared queue (so it shows on Encode and Monitor) and waits for it.</summary>

@@ -145,6 +145,34 @@ public static partial class ChapterList
         }).ToList();
     }
 
+    /// <summary>
+    /// Which marks are the opening and the ending: ones already named OP/ED (or Opening/Ending), else
+    /// the song-length sections (70–110 s), the first one in the first half and the last one in the second.
+    /// <paramref name="bySongLength"/> false goes by the names only.
+    /// </summary>
+    public static (int? Opening, int? Ending) GuessOpEd(IReadOnlyList<ChapterMark> chapters, TimeSpan duration, bool bySongLength = true)
+    {
+        int? Named(params string[] names) =>
+            Enumerable.Range(0, chapters.Count).Where(i => names.Contains(chapters[i].Name.Trim(), StringComparer.OrdinalIgnoreCase))
+                .Select(i => (int?)i).FirstOrDefault();
+        bool Song(int i) => bySongLength && ((i + 1 < chapters.Count ? chapters[i + 1].Start : duration) - chapters[i].Start).TotalSeconds is >= 70 and <= 110;
+        double half = duration.TotalSeconds / 2;
+        int? opening = Named("OP", "Opening")
+            ?? Enumerable.Range(0, chapters.Count).Where(i => Song(i) && chapters[i].Start.TotalSeconds < half).Select(i => (int?)i).FirstOrDefault();
+        int? ending = Named("ED", "Ending")
+            ?? Enumerable.Range(0, chapters.Count).Where(i => Song(i) && chapters[i].Start.TotalSeconds >= half).Select(i => (int?)i).LastOrDefault();
+        return (opening, ending);
+    }
+
+    /// <summary>The marks of a cut from <paramref name="start"/> to <paramref name="end"/>, moved to the cut's timeline.</summary>
+    public static IReadOnlyList<ChapterMark> Cut(IReadOnlyList<ChapterMark> chapters, TimeSpan start, TimeSpan end)
+    {
+        // The mark that is running at the cut's start begins the cut; later ones keep their place.
+        int first = Math.Max(0, chapters.Count(c => c.Start <= start) - 1);
+        return chapters.Skip(first).Where(c => c.Start < end)
+            .Select(c => c with { Start = c.Start > start ? c.Start - start : TimeSpan.Zero }).ToList();
+    }
+
     /// <summary>Problems worth fixing before muxing (empty when the list is fine).</summary>
     public static IReadOnlyList<string> Check(IReadOnlyList<ChapterMark> chapters, TimeSpan duration)
     {

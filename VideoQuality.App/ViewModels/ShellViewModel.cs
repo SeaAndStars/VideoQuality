@@ -36,7 +36,7 @@ public partial class ShellViewModel : ObservableObject, IDisposable
         Chapters = new ChaptersViewModel();
         Mux = new MuxViewModel(Settings);
         Naming = new NamingViewModel();
-        Pipeline = new PipelineViewModel(Settings, compare, Queue, Naming);
+        Pipeline = new PipelineViewModel(Settings, compare, Queue, Naming, presets: Encode.Presets);
         Monitor = new MonitorViewModel(new SystemMonitor(Services.Processes), Queue);
 
         Pages =
