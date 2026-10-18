@@ -105,7 +105,7 @@ public class EncodeIntegrationTests : IDisposable
         Assert.Equal("two-pass", job.Name);
         Assert.Equal(2, job.Pass);
         Assert.True(File.Exists(output));
-        Assert.Empty(Directory.EnumerateFiles(work, "vq-2pass-*"));
+        Assert.Empty(Directory.EnumerateFiles(work, "vq-2pass-*").Select(Path.GetFileName));
     }
 
     [Fact]

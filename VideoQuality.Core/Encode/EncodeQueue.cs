@@ -258,6 +258,10 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
         string executable = ffmpegPath();
         VqLog.Info("encode", $"start {job.Name} -> {job.Output} ({passes} pass(es))");
         Changed(job);
+
+        // The final state is published only after the temporary files are gone, so whoever waits
+        // for the job (or for the queue to go idle) never sees a finished job's leftovers.
+        EncodeJobState final;
         try
         {
             for (int pass = 0; pass < passes; pass++)
@@ -310,17 +314,17 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
             job.Remaining = TimeSpan.Zero;
             job.WrittenSize = File.Exists(job.Output) ? new FileInfo(job.Output).Length : 0;
             job.EstimatedSize = job.WrittenSize;
-            job.State = EncodeJobState.Done;
+            final = EncodeJobState.Done;
             VqLog.Info("encode", $"done {job.Name} {job.WrittenSize} bytes");
         }
         catch (OperationCanceledException)
         {
-            job.State = EncodeJobState.Cancelled;
+            final = EncodeJobState.Cancelled;
             FileSystem.TryDelete(job.Output);
         }
         catch (Exception ex)
         {
-            job.State = EncodeJobState.Failed;
+            final = EncodeJobState.Failed;
             job.Error = ex.Message;
             VqLog.Warn("encode", $"failed {job.Name}", ex);
             FileSystem.TryDelete(job.Output);
@@ -335,6 +339,7 @@ public sealed class EncodeQueue(IProcessRunner runner, Func<string> ffmpegPath)
             }
         }
 
+        job.State = final;
         Changed(job);
     }
 
