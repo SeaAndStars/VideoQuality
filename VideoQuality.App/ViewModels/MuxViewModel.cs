@@ -231,11 +231,13 @@ public partial class MuxViewModel : ObservableObject
 
             Status = Loc.T("mux.status.inputs", Inputs.Count, Inputs.Sum(i => i.Tracks.Count));
         }
-        catch (Exception ex) when (ex is InvalidDataException or InvalidOperationException or System.Text.Json.JsonException)
+        catch (Exception ex) // not something mkvmerge can read
         {
             Status = Loc.T("common.couldNotRead", System.IO.Path.GetFileName(full), ex.Message);
         }
     }
+
+    private void Toast(ToastRequest request) => ToastRequested?.Invoke(this, request);
 
     [RelayCommand]
     private void RemoveInput(MuxInputRow row) => Inputs.Remove(row);
@@ -260,7 +262,8 @@ public partial class MuxViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanMux))]
     private async Task MuxAsync()
     {
-        if (Settings.MkvToolNix is not { } tools || Output.Length == 0)
+        MkvToolNix tools = Settings.MkvToolNix!; // CanMux
+        if (Output.Length == 0)
         {
             Status = Loc.T("mux.status.needOutput");
             return;
@@ -293,18 +296,18 @@ public partial class MuxViewModel : ObservableObject
                 MkvFileInfo written = await tools.IdentifyAsync(Output);
                 Status = Loc.T("mux.status.wrote", System.IO.Path.GetFileName(Output), written.Tracks.Count, written.Attachments.Count) +
                          (result.Warnings.Count > 0 ? Loc.T("common.warningsSuffix", result.Warnings.Count, result.Warnings[0]) : ".");
-                ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Success, Loc.T("mux.toast.done", System.IO.Path.GetFileName(Output))));
+                Toast(new ToastRequest(ToastKind.Success, Loc.T("mux.toast.done", System.IO.Path.GetFileName(Output))));
             }
             else
             {
                 Status = Loc.T("mux.status.failed", string.Join("; ", result.Errors));
-                ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, Status));
+                Toast(new ToastRequest(ToastKind.Error, Status));
             }
         }
-        catch (Exception ex) when (ex is InvalidOperationException or IOException or InvalidDataException)
+        catch (Exception ex) // the written file cannot be read back, …
         {
             Status = Loc.T("mux.status.failed", ex.Message);
-            ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, Status));
+            Toast(new ToastRequest(ToastKind.Error, Status));
         }
         finally
         {

@@ -114,7 +114,7 @@ public partial class TrimMergeViewModel : ObservableObject
             }
             catch (InvalidOperationException ex)
             {
-                ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Warning, ex.Message));
+                Toast(new ToastRequest(ToastKind.Warning, ex.Message));
             }
         }
 
@@ -191,7 +191,7 @@ public partial class TrimMergeViewModel : ObservableObject
             EditCommand cut = TrimMerge.CopyCut(source.Path, CutOutput, TimeSpan.FromSeconds(start.Value), TimeSpan.FromSeconds(end.Value), _keyframes(source.Path));
             foreach (string warning in cut.Warnings)
             {
-                ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Warning, warning));
+                Toast(new ToastRequest(ToastKind.Warning, warning));
             }
 
             await RunAsync(cut, Settings.Encoder!.Path);
@@ -292,7 +292,7 @@ public partial class TrimMergeViewModel : ObservableObject
             Status = ok
                 ? Loc.T("trim.status.done", command.Output)
                 : Loc.T("trim.status.failed", (result.Error.Length > 0 ? result.Error : result.Output).Trim());
-            ToastRequested?.Invoke(this, ok
+            Toast(ok
                 ? new ToastRequest(ToastKind.Success, Loc.T("trim.toast.done", Path.GetFileName(command.Output)))
                 : new ToastRequest(ToastKind.Error, Status));
         }
@@ -306,8 +306,10 @@ public partial class TrimMergeViewModel : ObservableObject
         }
     }
 
+    private void Toast(ToastRequest request) => ToastRequested?.Invoke(this, request);
+
     /// <summary>Keyframe times from the packet index (frame number ÷ frame rate).</summary>
-    private static IReadOnlyList<TimeSpan> KeyframeTimes(string path)
+    internal static IReadOnlyList<TimeSpan> KeyframeTimes(string path)
     {
         try
         {
