@@ -87,15 +87,7 @@ public sealed partial class SystemProcessRunner : IProcessRunner
         }
 
         using var process = new Process { StartInfo = startInfo };
-        try
-        {
-            // Start() only returns false when reusing a process component, which never happens here.
-            process.Start();
-        }
-        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
-        {
-            throw new ProcessStartException(request.FileName, ex);
-        }
+        await StartAsync(process, request.FileName, cancellationToken).ConfigureAwait(false);
 
         var control = new Control(process);
         using CancellationTokenRegistration registration = cancellationToken.Register(control.Kill);
@@ -211,6 +203,40 @@ public sealed partial class SystemProcessRunner : IProcessRunner
                 ? suspend ? NtSuspendProcess(process.Handle) : NtResumeProcess(process.Handle)
                 : PosixStatus(kill(Id, suspend ? SigStop : SigCont), Marshal.GetLastPInvokeError());
             ThrowIfFailed(status, Id);
+        }
+    }
+
+    /// <summary>ETXTBSY: the executable is still open for writing somewhere.</summary>
+    private const int TextFileBusy = 26;
+
+    /// <summary>How often a start is retried while the executable is busy, and how long apart.</summary>
+    internal static int BusyRetries { get; set; } = 10;
+
+    internal static TimeSpan BusyDelay { get; set; } = TimeSpan.FromMilliseconds(20);
+
+    /// <summary>
+    /// Starts the process. On Linux, exec fails with ETXTBSY while any process still has the file
+    /// open for writing, which happens for a moment after a tool was copied or extracted when another
+    /// thread forks meanwhile; those starts are retried briefly.
+    /// </summary>
+    private static async Task StartAsync(Process process, string fileName, CancellationToken cancellationToken)
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            try
+            {
+                // Start() only returns false when reusing a process component, which never happens here.
+                process.Start();
+                return;
+            }
+            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == TextFileBusy && attempt < BusyRetries)
+            {
+                await Task.Delay(BusyDelay, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+            {
+                throw new ProcessStartException(fileName, ex);
+            }
         }
     }
 

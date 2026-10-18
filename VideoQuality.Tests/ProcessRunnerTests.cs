@@ -146,4 +146,39 @@ public class ProcessControlTests
         Assert.Equal(0, SystemProcessRunner.PosixStatus(0, 3));
         Assert.Equal(-3, SystemProcessRunner.PosixStatus(-1, 3)); // ESRCH: the process is gone
     }
+
+    [Fact]
+    public async Task A_busy_executable_is_retried_until_it_is_free_or_the_retries_run_out()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return; // ETXTBSY is a Linux condition; Windows locks files differently
+        }
+
+        string folder = Directory.CreateTempSubdirectory("vq-busy-").FullName;
+        string tool = Path.Combine(folder, "tool.sh");
+        File.WriteAllText(tool, "#!/bin/sh\necho ok\n");
+        File.SetUnixFileMode(tool, (UnixFileMode)0b111_101_101);
+        CancellationToken token = TestContext.Current.CancellationToken;
+
+        // Held open for writing: exec fails with "text file busy" until the writer lets go.
+        var writer = new FileStream(tool, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
+        _ = Task.Delay(100, token).ContinueWith(_ => writer.Dispose(), TaskScheduler.Default);
+        ProcessResult result = await SystemProcessRunner.Instance.RunAsync(new ProcessRequest { FileName = tool }, token);
+        Assert.Equal("ok", result.Output.Trim());
+
+        int retries = SystemProcessRunner.BusyRetries;
+        try
+        {
+            SystemProcessRunner.BusyRetries = 1;
+            using var held = new FileStream(tool, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
+            await Assert.ThrowsAsync<ProcessStartException>(() => SystemProcessRunner.Instance.RunAsync(new ProcessRequest { FileName = tool }, token));
+        }
+        finally
+        {
+            SystemProcessRunner.BusyRetries = retries;
+        }
+
+        Directory.Delete(folder, true);
+    }
 }
