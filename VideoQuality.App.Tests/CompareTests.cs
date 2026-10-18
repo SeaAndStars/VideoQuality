@@ -243,8 +243,12 @@ public sealed class CompareTests : IDisposable
         vm.ToastRequested += (_, t) => toasts.Add(t);
         await vm.HandleDropAsync([reference, other], DropZone.Reference);
         ToastRequest overflow = toasts.Last(t => t.Action is not null);
+        bool undone = false;
+        vm.PropertyChanged += (_, e) => undone |= e.PropertyName == nameof(MainViewModel.Status) && vm.Status == Loc.T("compare.status.dropUndone");
         overflow.Action!();
-        await Ui.UntilAsync(() => vm.ReferencePath == encode && vm.Encodes.Count == 0);
+        await Ui.UntilAsync(() => undone); // the previous reference is open again
+        Assert.Equal(encode, vm.ReferencePath);
+        Assert.Empty(vm.Encodes);
 
         // Undo back to no reference at all.
         var fresh = Compare(tools);
