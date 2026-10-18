@@ -125,7 +125,11 @@ public static class Ui
     }
 
     /// <summary>Drags files over <paramref name="window"/> at its centre and drops them.</summary>
-    public static void Drop(Window window, Control target, params IStorageItem[] items)
+    public static void Drop(Window window, Control target, params IStorageItem[] items) =>
+        Drop(window, target, new Point(target.Bounds.Width / 2, target.Bounds.Height / 2), items);
+
+    /// <summary>Drops at a point of <paramref name="target"/> (away from child controls that take drops themselves).</summary>
+    public static void Drop(Window window, Control target, Point at, params IStorageItem[] items)
     {
         var data = new DataTransfer();
         foreach (IStorageItem item in items)
@@ -133,7 +137,7 @@ public static class Ui
             data.Add(DataTransferItem.CreateFile(item));
         }
 
-        Point centre = target.TranslatePoint(new Point(target.Bounds.Width / 2, target.Bounds.Height / 2), window) ?? default;
+        Point centre = target.TranslatePoint(at, window) ?? default;
         window.DragDrop(centre, RawDragEventType.DragEnter, data, DragDropEffects.Copy, RawInputModifiers.None);
         window.DragDrop(centre, RawDragEventType.DragOver, data, DragDropEffects.Copy, RawInputModifiers.None);
         window.DragDrop(centre, RawDragEventType.Drop, data, DragDropEffects.Copy, RawInputModifiers.None);
@@ -141,7 +145,13 @@ public static class Ui
     }
 
     public static void Drop(Window window, Control target, params string[] paths) =>
-        Drop(window, target, [.. paths.Select(p => Directory.Exists(p) ? Storage.Folder(p) : Storage.File(p))]);
+        Drop(window, target, Items(paths));
+
+    public static void Drop(Window window, Control target, Point at, params string[] paths) =>
+        Drop(window, target, at, Items(paths));
+
+    private static IStorageItem[] Items(string[] paths) =>
+        [.. paths.Select(p => Directory.Exists(p) ? Storage.Folder(p) : Storage.File(p))];
 }
 
 /// <summary>Installs scripted dialogs for one test and restores the system ones after it.</summary>

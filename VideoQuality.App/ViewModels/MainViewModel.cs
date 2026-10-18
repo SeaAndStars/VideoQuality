@@ -1,3 +1,4 @@
+using VideoQuality.App.Services;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Collections.Specialized;
@@ -60,8 +61,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private DecodedFrame? _lastDistortedFrame;
     private VmafCapabilities? _capabilities;
 
-    public MainViewModel()
+    public MainViewModel(AppServices? services = null)
     {
+        Services = services ?? AppServices.Default;
         Viewport = new ViewportState();
         Encodes.CollectionChanged += OnEncodesChanged;
 
@@ -75,6 +77,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             _settingsQuiet = false;
         }
     }
+
+    /// <summary>External processes (ffmpeg probes and scoring); tests pass scripted ones.</summary>
+    public AppServices Services { get; }
 
     // ---------------------------------------------------------------- settings.json
 
@@ -444,7 +449,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         if (string.IsNullOrWhiteSpace(FfmpegPath) || string.Equals(FfmpegPath, "ffmpeg", StringComparison.Ordinal))
         {
-            string resolved = await VmafRunner.ResolveFfmpegAsync(FfmpegPath).ConfigureAwait(true);
+            string resolved = await VmafRunner.ResolveFfmpegAsync(FfmpegPath, Services.Processes).ConfigureAwait(true);
             if (!string.Equals(resolved, FfmpegPath, StringComparison.Ordinal))
             {
                 _settingsQuiet = true; // auto-detected, not the user's choice
@@ -847,8 +852,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                         }
                     });
 
-                    string ffmpeg = await VmafRunner.ResolveFfmpegAsync(FfmpegPath, token).ConfigureAwait(false);
-                    var options = new VmafOptions { FfmpegPath = ffmpeg, Backend = backend, Model = model };
+                    string ffmpeg = await VmafRunner.ResolveFfmpegAsync(FfmpegPath, Services.Processes, token).ConfigureAwait(false);
+                    var options = new VmafOptions { FfmpegPath = ffmpeg, Backend = backend, Model = model, ProcessRunner = Services.Processes };
                     report = await VmafRunner.RunAsync(reference, entry.Path, options, progress, token).ConfigureAwait(false);
                 }
                 finally
@@ -1540,7 +1545,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         try
         {
-            VmafCapabilities capabilities = await VmafRunner.ProbeAsync(path).ConfigureAwait(true);
+            VmafCapabilities capabilities = await VmafRunner.ProbeAsync(path, Services.Processes).ConfigureAwait(true);
             _capabilities = capabilities;
             OnPropertyChanged(nameof(BackendChip));
             LogPath = VqLog.CurrentPath ?? string.Empty;

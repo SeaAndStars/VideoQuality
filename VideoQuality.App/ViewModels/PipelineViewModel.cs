@@ -427,9 +427,9 @@ public partial class PipelineViewModel : ObservableObject
             }
 
             Status = Loc.T("pipeline.status.ready", OutputDirectory);
-            ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Success, Loc.T("pipeline.toast.done", names[0].FileName)));
+            Toast(new ToastRequest(ToastKind.Success, Loc.T("pipeline.toast.done", names[0].FileName)));
         }
-        catch (Exception ex) when (ex is InvalidOperationException or IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or FormatException)
+        catch (Exception ex) // any failure stops the run at the step that was running
         {
             if (Steps.FirstOrDefault(s => s.IsRunning) is { } running)
             {
@@ -534,8 +534,10 @@ public partial class PipelineViewModel : ObservableObject
         step.State = StepState.Failed;
         step.Detail = detail;
         Status = Loc.T("pipeline.status.stepFailed", step.Title);
-        ToastRequested?.Invoke(this, new ToastRequest(ToastKind.Error, Loc.T("pipeline.toast.stepFailed", step.Title, detail)));
+        Toast(new ToastRequest(ToastKind.Error, Loc.T("pipeline.toast.stepFailed", step.Title, detail)));
     }
+
+    private void Toast(ToastRequest request) => ToastRequested?.Invoke(this, request);
 
     private static void Skip(PipelineStep step, string detail)
     {
