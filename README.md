@@ -234,7 +234,7 @@ and [Ursa](https://github.com/irihitech/Ursa.Avalonia) ·
 
 Verified on Ubuntu 26.04 (CUDA 13.1) and Windows 10, RTX 5060 Ti: 8-bit and 10-bit scoring,
 H.264/HEVC/AV1, all compare modes, multi-encode comparison, with identical CPU scores on both
-platforms. 555 tests (423 for Core and the CLI, 132 for the UI on Avalonia.Headless) run on Linux
+platforms. 556 tests (424 for Core and the CLI, 132 for the UI on Avalonia.Headless) run on Linux
 and Windows, with **100% line and branch coverage** of Core, App and CLI enforced in CI
 ([details](docs/development.md#tests)).
 
